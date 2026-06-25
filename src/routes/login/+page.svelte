@@ -65,10 +65,10 @@
 
 <section class="mx-auto max-w-6xl px-4 py-8 sm:px-6 md:py-16">
 	<!-- Split Layout Container -->
-	<div class="grid min-h-[600px] overflow-hidden rounded-2xl bg-white border border-slate-200 shadow-xl md:grid-cols-2">
+	<div class="grid min-h-150 overflow-hidden rounded-2xl bg-white border border-slate-200 shadow-xl md:grid-cols-2">
 		
 		<!-- Left Side: Farming Illustration -->
-		<div class="relative hidden flex-col justify-between bg-gradient-to-tr from-primary-green/90 to-dark-green p-10 text-white md:flex">
+		<div class="relative hidden flex-col justify-between bg-linear-to-tr from-primary-green/90 to-dark-green p-10 text-white md:flex">
 			<div class="space-y-2">
 				<div class="flex items-center gap-2">
 					<span class="text-3xl">🌱</span>
@@ -190,15 +190,15 @@
 					<button
 						type="submit"
 						disabled={loading}
-						class="w-full rounded-2xl bg-gradient-to-br from-primary-green to-dark-green py-3.5 font-semibold text-white shadow-lg shadow-primary-green/20 hover:shadow-primary-green/30 hover:scale-[1.01] active:scale-[0.99] transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
+						class="w-full rounded-2xl bg-linear-to-br from-primary-green to-dark-green py-3.5 font-semibold text-white shadow-lg shadow-primary-green/20 hover:shadow-primary-green/30 hover:scale-[1.01] active:scale-[0.99] transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{loading ? 'Authenticating...' : 'Sign In'}
 					</button>
 
 					<div class="relative flex py-2 items-center">
-						<div class="flex-grow border-t border-slate-200"></div>
-						<span class="flex-shrink mx-4 text-slate-400 text-xs font-semibold uppercase tracking-wider">or</span>
-						<div class="flex-grow border-t border-slate-200"></div>
+						<div class="grow border-t border-slate-200"></div>
+						<span class="shrink mx-4 text-slate-400 text-xs font-semibold uppercase tracking-wider">or</span>
+						<div class="grow border-t border-slate-200"></div>
 					</div>
 
 					<button

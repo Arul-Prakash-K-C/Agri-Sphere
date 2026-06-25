@@ -7,6 +7,9 @@ const userCacheId = process.getuid?.() ?? 'user';
 
 export default defineConfig({
 	cacheDir: process.env.VITE_CACHE_DIR || `/private/tmp/firebaseExample-vite-cache-${userCacheId}`,
+	ssr: {
+		external: ['firebase-admin']
+	},
 	plugins: [
 		tailwindcss(),
 		sveltekit({
