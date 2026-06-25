@@ -11,8 +11,12 @@ function getFirebaseAdminApp() {
 	const options = {};
 	try {
 		if (env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-			let rawKey = env.FIREBASE_SERVICE_ACCOUNT_KEY.trim();
-			rawKey = rawKey.replace(/^['"]|['"]$/g, '');
+			let rawKey = env.FIREBASE_SERVICE_ACCOUNT_KEY;
+			const firstBrace = rawKey.indexOf('{');
+			const lastBrace = rawKey.lastIndexOf('}');
+			if (firstBrace !== -1 && lastBrace !== -1) {
+				rawKey = rawKey.substring(firstBrace, lastBrace + 1);
+			}
 			const serviceAccount = JSON.parse(rawKey);
 			if (serviceAccount.private_key) {
 				serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');

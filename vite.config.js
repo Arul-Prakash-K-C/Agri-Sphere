@@ -9,5 +9,9 @@ export default defineConfig({
 		process.env.VITE_CACHE_DIR ||
 		`/private/tmp/firebaseExample-vite-cache-${userCacheId}`,
 
+	ssr: {
+		noExternal: ['firebase-admin', 'jwks-rsa', 'jose']
+	},
+
 	plugins: [tailwindcss(), sveltekit()]
 });
