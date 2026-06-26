@@ -335,5 +335,32 @@
 				</div>
 			</article>
 		{/each}
+		{#if loading}
+			<div class="bg-white rounded-2xl border border-slate-200/50 shadow-sm overflow-hidden flex flex-col animate-pulse">
+				<div class="relative h-48 w-full bg-slate-200 skeleton">
+					<div class="absolute top-3 right-3">
+						<div class="bg-white/80 size-8 rounded-full skeleton"></div>
+					</div>
+					<div class="absolute bottom-3 left-4 space-y-2">
+						<div class="skeleton h-5 w-32 rounded"></div>
+						<div class="skeleton h-3 w-20 rounded"></div>
+					</div>
+				</div>
+				<div class="p-5 flex-grow flex flex-col justify-between gap-4">
+					<div class="flex justify-between items-center text-xs">
+						<div class="skeleton h-5 w-24 rounded-full"></div>
+						<div class="skeleton h-4 w-28 rounded"></div>
+					</div>
+
+					<div class="flex items-center gap-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+						<div class="skeleton h-14 w-14 rounded-full shrink-0"></div>
+						<div class="space-y-2 flex-1">
+							<div class="skeleton h-3 w-24 rounded"></div>
+							<div class="skeleton h-5 w-16 rounded"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		{/if}
 	</div>
 </section>

@@ -455,5 +455,40 @@
 				</button>
 			</div>
 		{/each}
+		{#if loading}
+			<div class="bg-white rounded-2xl border border-slate-200/50 p-5 space-y-4 shadow-sm animate-pulse flex flex-col">
+				<div class="relative h-48 w-full bg-slate-200 skeleton rounded-xl overflow-hidden">
+					<div class="absolute top-3 right-3 flex gap-1.5">
+						<div class="bg-white/80 size-8 rounded-full skeleton"></div>
+						<div class="bg-white/80 size-8 rounded-full skeleton"></div>
+						<div class="bg-white/80 size-8 rounded-full skeleton"></div>
+					</div>
+					<div class="absolute bottom-3 left-4 space-y-2">
+						<div class="skeleton h-5 w-36 rounded"></div>
+						<div class="skeleton h-4.5 w-16 rounded-full"></div>
+					</div>
+				</div>
+				<div class="flex-grow flex flex-col justify-between gap-4">
+					<div class="flex justify-between items-center text-xs">
+						<div class="skeleton h-5 w-16 rounded-full"></div>
+						<div class="skeleton h-4 w-24 rounded"></div>
+					</div>
+					<div class="space-y-2">
+						<div class="skeleton h-3.5 w-full rounded"></div>
+						<div class="skeleton h-3.5 w-4/5 rounded"></div>
+					</div>
+					<div class="space-y-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+						<div class="flex justify-between"><div class="skeleton h-3 w-20 rounded"></div><div class="skeleton h-3 w-12 rounded"></div></div>
+						<div class="flex justify-between"><div class="skeleton h-3 w-16 rounded"></div><div class="skeleton h-3 w-16 rounded"></div></div>
+					</div>
+					<div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+						<div class="space-y-1">
+							<div class="skeleton h-2.5 w-24 rounded"></div>
+							<div class="skeleton h-5 w-20 rounded"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		{/if}
 	</div>
 </section>

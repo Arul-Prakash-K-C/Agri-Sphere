@@ -76,41 +76,6 @@ export async function GET({ locals }) {
 			
 			let expenses = expensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-			// Auto-seed expenses if empty
-			if (expenses.length === 0) {
-				const seedExpenses = [
-					{
-						title: 'Fertilizer Purchase',
-						amount: 12400,
-						category: 'Supplies',
-						date: '2026-06-10',
-						farmerId: uid,
-						createdAt: new Date().toISOString()
-					},
-					{
-						title: 'Tractor Diesel',
-						amount: 8000,
-						category: 'Fuel',
-						date: '2026-06-15',
-						farmerId: uid,
-						createdAt: new Date().toISOString()
-					},
-					{
-						title: 'Irrigation Electricity',
-						amount: 12000,
-						category: 'Utilities',
-						date: '2026-06-20',
-						farmerId: uid,
-						createdAt: new Date().toISOString()
-					}
-				];
-
-				for (const item of seedExpenses) {
-					const docRef = await adminDb.collection('expenses').add(item);
-					expenses.push({ id: docRef.id, ...item });
-				}
-			}
-
 			// Query Farmer Inventory
 			const inventorySnapshot = await adminDb.collection('inventory')
 				.where('farmerId', '==', uid)

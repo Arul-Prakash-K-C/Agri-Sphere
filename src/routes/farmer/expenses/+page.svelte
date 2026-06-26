@@ -22,7 +22,7 @@
 	let newCategory = $state('Fertilizer');
 	let newDescription = $state('');
 	let newAmount = $state('');
-	let newStatus = $state('Paid');
+	let newStatus = $state('Pending');
 	let newDate = $state(new Date().toISOString().split('T')[0]);
 
 	// Edit expense modal state
@@ -31,7 +31,7 @@
 	let editCategory = $state('Fertilizer');
 	let editDescription = $state('');
 	let editAmount = $state('');
-	let editStatus = $state('Paid');
+	let editStatus = $state('Pending');
 	let editDate = $state('');
 
 	let loading = $state(false);
@@ -150,7 +150,7 @@
 			newCategory = 'Fertilizer';
 			newDescription = '';
 			newAmount = '';
-			newStatus = 'Paid';
+			newStatus = 'Pending';
 			newDate = new Date().toISOString().split('T')[0];
 			showAddModal = false;
 		} catch (err) {
@@ -280,8 +280,8 @@
 						<label class="block">
 							<span class="block mb-1">Status</span>
 							<select bind:value={newStatus} class="input-field w-full text-xs bg-white py-[9.5px]">
-								<option value="Paid">Paid</option>
 								<option value="Pending">Pending</option>
+								<option value="Completed">Completed</option>
 							</select>
 						</label>
 					</div>
@@ -352,8 +352,8 @@
 						<label class="block">
 							<span class="block mb-1">Status</span>
 							<select bind:value={editStatus} class="input-field w-full text-xs bg-white py-[9.5px]">
-								<option value="Paid">Paid</option>
 								<option value="Pending">Pending</option>
+								<option value="Completed">Completed</option>
 							</select>
 						</label>
 					</div>
@@ -477,6 +477,18 @@
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-slate-50 font-medium text-slate-600">
+					{#if loading}
+						{#each Array(2) as _}
+							<tr class="animate-pulse border-b border-slate-50">
+								<td class="p-4 pl-6"><div class="skeleton h-4 w-20 rounded"></div></td>
+								<td class="p-4"><div class="skeleton h-4 w-20 rounded"></div></td>
+								<td class="p-4"><div class="skeleton h-4 w-32 rounded"></div></td>
+								<td class="p-4"><div class="skeleton h-4 w-16 rounded"></div></td>
+								<td class="p-4"><div class="skeleton h-4 w-16 rounded"></div></td>
+								<td class="p-4 pr-6 text-center"><div class="skeleton h-4 w-14 rounded mx-auto"></div></td>
+							</tr>
+						{/each}
+					{/if}
 					{#each expenses as expense (expense.id)}
 						<tr class="hover:bg-slate-50/30 transition-colors">
 							<td class="p-4 pl-6 text-slate-400">{expense.date}</td>

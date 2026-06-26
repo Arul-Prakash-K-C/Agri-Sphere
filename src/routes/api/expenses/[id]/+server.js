@@ -36,8 +36,8 @@ export async function PATCH({ params, request, locals }) {
 		if (amount !== undefined && (isNaN(Number(amount)) || Number(amount) <= 0)) {
 			return json({ error: 'Amount must be a valid positive number' }, { status: 400 });
 		}
-		if (status !== undefined && !['Paid', 'Pending'].includes(status)) {
-			return json({ error: 'Status must be Paid or Pending' }, { status: 400 });
+		if (status !== undefined && !['Completed', 'Pending'].includes(status)) {
+			return json({ error: 'Status must be Completed or Pending' }, { status: 400 });
 		}
 
 		const updatePayload = {};
@@ -47,7 +47,7 @@ export async function PATCH({ params, request, locals }) {
 		
 		if (status !== undefined) {
 			updatePayload.status = status;
-			updatePayload.statusColor = status === 'Paid'
+			updatePayload.statusColor = status === 'Completed'
 				? 'bg-emerald-50 text-dark-green border-emerald-100/50'
 				: 'bg-amber-50 text-amber-800 border-amber-100/50';
 		}

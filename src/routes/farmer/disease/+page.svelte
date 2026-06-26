@@ -10,6 +10,7 @@
 
 	let customImage = $state('');
 	let customImageName = $state('');
+	let specimenType = $state('Leaf');
 	
 	let selectedLeaf = $derived({
 		id: 'custom',
@@ -92,7 +93,8 @@
 					},
 					body: JSON.stringify({
 						filename: customImageName,
-						imageUrl: selectedLeaf.image
+						imageUrl: selectedLeaf.image,
+						specimenType: specimenType
 					})
 				});
 
@@ -135,6 +137,7 @@
 		scanning = false;
 		customImage = '';
 		customImageName = '';
+		specimenType = 'Leaf';
 		currentDiagnosis = null;
 	}
 </script>
@@ -162,9 +165,23 @@
 
 			<!-- Image Dropzone & Preview Card -->
 			<div class="glass-card rounded-2xl p-6 bg-white flex-grow flex flex-col min-h-[420px] justify-between">
-				<div class="flex items-center justify-between mb-4">
-					<h2 class="font-extrabold text-slate-800 text-base">Leaf Image Input</h2>
-					<span class="material-symbols-outlined text-slate-400 cursor-help" title="High resolution JPG or PNG files are recommended">info</span>
+				<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+					<div>
+						<h2 class="font-extrabold text-slate-800 text-base">Image Input</h2>
+						<p class="text-[10px] text-slate-400 font-semibold mt-0.5">Select specimen type and upload image</p>
+					</div>
+					<div class="flex items-center gap-2">
+						<span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Type:</span>
+						<select 
+							bind:value={specimenType} 
+							disabled={scanning}
+							class="text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-primary-green cursor-pointer"
+						>
+							<option value="Leaf">Leaf</option>
+							<option value="Fruit">Fruit</option>
+							<option value="Vegetable">Vegetable</option>
+						</select>
+					</div>
 				</div>
 
 				<!-- Visual upload box -->
@@ -248,7 +265,7 @@
 							<span>Scan Again</span>
 						{:else}
 							<span class="material-symbols-outlined text-[18px]">document_scanner</span>
-							<span>Scan Leaf Image</span>
+							<span>Scan Image</span>
 						{/if}
 					</button>
 				</div>
@@ -264,7 +281,20 @@
 						? (currentDiagnosis?.pathogen?.includes('Healthy') ? 'border-t-emerald-500 border-l-0 shadow-md shadow-emerald-500/5' : 'border-t-red-500 border-l-0 shadow-md shadow-red-500/5') 
 						: 'border-t-slate-300 opacity-60 grayscale pointer-events-none'].filter(Boolean).join(' ')}
 			>
-				<div class="space-y-5">
+				{#if scanning}
+					<div class="flex w-full flex-col gap-5 p-2 animate-pulse">
+						<div class="flex items-center gap-4">
+							<div class="skeleton h-16 w-16 shrink-0 rounded-full"></div>
+							<div class="flex flex-col gap-3 flex-1">
+								<div class="skeleton h-4 w-1/3 rounded"></div>
+								<div class="skeleton h-4 w-1/2 rounded"></div>
+							</div>
+						</div>
+						<div class="skeleton h-24 w-full rounded-2xl"></div>
+						<div class="skeleton h-32 w-full rounded-2xl"></div>
+					</div>
+				{:else}
+					<div class="space-y-5">
 					<div class="flex justify-between items-start pb-4 border-b border-slate-100">
 						<div>
 							<h3 class="font-extrabold text-slate-800 text-base">Diagnostic Analysis</h3>
@@ -357,7 +387,8 @@
 						</div>
 					</div>
 				</div>
-			</div>
+			{/if}
+		</div>
 
 			<!-- Recent Scans Mini list -->
 			<div class="glass-card rounded-2xl p-5 bg-white space-y-4 shadow-sm border border-slate-200/50">

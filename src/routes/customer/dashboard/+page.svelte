@@ -291,13 +291,32 @@
 			<div class="grid gap-6 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
 				{#if isFiltering}
 					{#each Array(4) as _}
-						<div class="bg-white rounded-2xl border border-slate-100 p-4 space-y-4 animate-pulse">
-							<div class="h-40 bg-slate-200 rounded-xl w-full"></div>
-							<div class="space-y-2">
-								<div class="h-4 bg-slate-200 rounded w-2/3"></div>
-								<div class="h-3 bg-slate-200 rounded w-1/2"></div>
+						<div class="bg-white rounded-2xl border border-slate-200/50 p-4 space-y-3.5 shadow-sm animate-pulse flex flex-col">
+							<div class="h-40 bg-slate-200 rounded-xl w-full skeleton relative overflow-hidden">
+								<div class="absolute bottom-2.5 left-3 space-y-1.5">
+									<div class="skeleton h-4 w-28 rounded"></div>
+									<div class="skeleton h-3 w-20 rounded"></div>
+								</div>
 							</div>
-							<div class="h-10 bg-slate-200 rounded-xl w-full"></div>
+							<div class="flex-grow flex flex-col justify-between gap-3.5">
+								<div class="flex justify-between items-center text-[10px]">
+									<div class="skeleton h-4.5 w-14 rounded-full"></div>
+									<div class="skeleton h-4 w-16 rounded"></div>
+								</div>
+								<div class="space-y-1 bg-slate-50 p-2 rounded-xl border border-slate-100/50 text-[10px]">
+									<div class="flex justify-between py-0.5"><div class="skeleton h-3 w-16 rounded"></div><div class="skeleton h-3 w-10 rounded"></div></div>
+									<div class="flex justify-between py-0.5"><div class="skeleton h-3 w-14 rounded"></div><div class="skeleton h-3 w-12 rounded"></div></div>
+								</div>
+								<div class="pt-2 border-t border-slate-50 space-y-1">
+									<div class="skeleton h-2 w-12 rounded"></div>
+									<div class="skeleton h-4.5 w-16 rounded"></div>
+								</div>
+								<div class="grid grid-cols-2 gap-1.5 pt-2 border-t border-slate-100">
+									<div class="skeleton h-6 w-full rounded-lg"></div>
+									<div class="skeleton h-6 w-full rounded-lg"></div>
+								</div>
+								<div class="skeleton h-6 w-full rounded-lg"></div>
+							</div>
 						</div>
 					{/each}
 				{:else}

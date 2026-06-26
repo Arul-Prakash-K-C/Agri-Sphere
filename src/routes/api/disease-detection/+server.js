@@ -99,7 +99,8 @@ export async function POST({ request, locals, fetch }) {
 		}
 
 		const body = await request.json();
-		const { filename, imageUrl } = body;
+		const { filename, imageUrl, specimenType } = body;
+		const finalSpecimenType = specimenType || 'Leaf';
 
 		if (!imageUrl) {
 			return json({ error: 'No image data provided' }, { status: 400 });
@@ -118,14 +119,14 @@ export async function POST({ request, locals, fetch }) {
 			}
 		}
 
-		const prompt = `You are an expert plant pathologist. Analyze the uploaded leaf image of a crop, vegetable, or fruit.
+		const prompt = `You are an expert plant pathologist. Analyze the uploaded image of a crop, which is specifically a ${finalSpecimenType.toLowerCase()}.
 Use Google Search grounding to fetch the most accurate, up-to-date scientific remedies, fungicide/treatment protocols, and pathogen spread mitigation protocols.
 
 You must respond ONLY with a raw JSON object containing the following keys:
-1. "pathogen": The common and scientific name of the disease/pathogen (e.g., "Tomato Early Blight (Alternaria solani)"). If the leaf is healthy, write "Healthy (No Disease Detected)" or "Healthy [Crop Name]".
+1. "pathogen": The common and scientific name of the disease/pathogen (e.g., "Tomato Early Blight (Alternaria solani)"). If the specimen is healthy, write "Healthy (No Disease Detected)" or "Healthy [Crop Name]".
 2. "confidence": A numeric value between 0 and 100 representing your diagnosis confidence.
 3. "severity": One of "None", "Low", "Moderate", "High".
-4. "why_it_happens": A brief, clear explanation (1-2 sentences) explaining why this disease/pathogen infects the leaf (vectors, humidity, environmental conditions, cause).
+4. "why_it_happens": A brief, clear explanation (1-2 sentences) explaining why this disease/pathogen infects the plant or crop part (vectors, humidity, environmental conditions, cause).
 5. "steps": An array of strings representing the sequential, step-by-step action plan to solve/treat the disease. Each step should be actionable (e.g. "Apply copper-based organic fungicides", "Prune and destroy infected leaves").
 6. "field": A realistic field location name based on the crop type (e.g., "Tomato - Field Block A", "Potato - Field B", "Wheat - North Plateau").
 
@@ -221,6 +222,7 @@ Format the response as a single, clean JSON block:
 			image: imageUrl,
 			farmerId: locals.user.uid,
 			createdAt: new Date().toISOString(),
+			specimenType: finalSpecimenType,
 			whyItHappens: parsed.why_it_happens || parsed.whyItHappens || 'Pathogen vectors or environmental factors.',
 			steps: Array.isArray(parsed.steps) ? parsed.steps : (parsed.treatment ? [parsed.treatment] : []),
 			treatment: parsed.treatment || (Array.isArray(parsed.steps) ? parsed.steps.join(' ') : 'No treatment protocol provided.')

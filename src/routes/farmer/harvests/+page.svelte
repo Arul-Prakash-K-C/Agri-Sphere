@@ -178,6 +178,17 @@
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-slate-50 font-medium text-slate-600">
+					{#if loading}
+						{#each Array(2) as _}
+							<tr class="animate-pulse border-b border-slate-50">
+								<td class="p-4 pl-6"><div class="skeleton h-4 w-28 rounded"></div></td>
+								<td class="p-4"><div class="skeleton h-4 w-20 rounded"></div></td>
+								<td class="p-4"><div class="skeleton h-4 w-16 rounded"></div></td>
+								<td class="p-4"><div class="skeleton h-4 w-20 rounded"></div></td>
+								<td class="p-4 pr-6"><div class="skeleton h-4 w-32 rounded"></div></td>
+							</tr>
+						{/each}
+					{/if}
 					{#each harvests as harvest (harvest.id)}
 						<tr class="hover:bg-slate-50/30 transition-colors">
 							<td class="p-4 pl-6 font-bold text-slate-800">{harvest.cropName}</td>

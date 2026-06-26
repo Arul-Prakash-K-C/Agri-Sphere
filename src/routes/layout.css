@@ -128,3 +128,18 @@ textarea {
 .transition-all-custom {
 	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* Skeleton Loading helper */
+.skeleton {
+	background-color: #e2e8f0;
+	animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes skeleton-pulse {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: .4;
+	}
+}

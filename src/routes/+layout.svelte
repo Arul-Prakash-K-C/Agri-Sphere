@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { navigating } from '$app/stores';
 	import './layout.css';
 	import { authState, startAuthListener } from '$lib/auth.svelte.js';
 	import favicon from '$lib/assets/favicon.svg';
@@ -174,7 +175,465 @@
 
 			<!-- Content section -->
 			<main class="p-6 md:p-10 flex-1 animate-fade-in">
-				{@render children()}
+				{#if $navigating}
+					{@const targetPath = $navigating.to?.url?.pathname || ''}
+					{#if targetPath.includes('/farmer/crops')}
+						<!-- Crops specific page skeleton -->
+						<div class="space-y-6 max-w-[1440px] mx-auto animate-pulse">
+							<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+								<div class="space-y-2">
+									<div class="skeleton h-8 w-48 rounded-xl"></div>
+									<div class="skeleton h-4 w-72 rounded-lg"></div>
+								</div>
+								<div class="skeleton h-10 w-36 rounded-full shrink-0"></div>
+							</div>
+							<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+								{#each Array(3) as _}
+									<div class="bg-white rounded-2xl border border-slate-200/50 p-5 space-y-4">
+										<div class="skeleton h-48 w-full rounded-xl"></div>
+										<div class="flex justify-between items-center text-xs">
+											<div class="skeleton h-5 w-24 rounded-full"></div>
+											<div class="skeleton h-4 w-28 rounded"></div>
+										</div>
+										<div class="flex items-center gap-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+											<div class="skeleton h-14 w-14 rounded-full shrink-0"></div>
+											<div class="space-y-2 flex-1">
+												<div class="skeleton h-3.5 w-1/2 rounded"></div>
+												<div class="skeleton h-4.5 w-1/3 rounded"></div>
+											</div>
+										</div>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{:else if targetPath.includes('/farmer/irrigation')}
+						<!-- Irrigation specific calendar page skeleton -->
+						<div class="space-y-6 max-w-[1440px] mx-auto animate-pulse">
+							<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+								<div class="space-y-2">
+									<div class="skeleton h-8 w-52 rounded-xl"></div>
+									<div class="skeleton h-4.5 w-64 rounded-lg"></div>
+								</div>
+								<div class="skeleton h-10 w-48 rounded-full shrink-0"></div>
+							</div>
+							<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+								<div class="skeleton h-24 w-full rounded-2xl"></div>
+								<div class="skeleton h-24 w-full rounded-2xl"></div>
+								<div class="skeleton h-24 w-full rounded-2xl"></div>
+							</div>
+							<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+								<div class="lg:col-span-8 bg-white border border-slate-200/50 rounded-2xl p-6 space-y-4">
+									<div class="flex justify-between items-center mb-4">
+										<div class="skeleton h-6 w-32 rounded"></div>
+										<div class="flex gap-2">
+											<div class="skeleton h-8 w-8 rounded"></div>
+											<div class="skeleton h-8 w-8 rounded"></div>
+										</div>
+									</div>
+									<div class="grid grid-cols-7 gap-2">
+										{#each Array(35) as _}
+											<div class="skeleton h-14 w-full rounded-xl"></div>
+										{/each}
+									</div>
+								</div>
+								<div class="lg:col-span-4 space-y-6">
+									<div class="skeleton h-64 w-full rounded-2xl"></div>
+									<div class="skeleton h-[360px] w-full rounded-2xl"></div>
+								</div>
+							</div>
+						</div>
+					{:else if targetPath.includes('/farmer/expenses')}
+						<!-- Expenses specific table logs page skeleton -->
+						<div class="space-y-6 max-w-[1440px] mx-auto animate-pulse">
+							<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+								<div class="space-y-2">
+									<div class="skeleton h-8 w-44 rounded-xl"></div>
+									<div class="skeleton h-4 w-80 rounded-lg"></div>
+								</div>
+								<div class="skeleton h-10 w-36 rounded-full shrink-0"></div>
+							</div>
+							<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+								{#each Array(4) as _}
+									<div class="bg-white rounded-2xl border border-slate-200/50 p-5 flex items-center gap-4">
+										<div class="skeleton h-12 w-12 rounded-xl shrink-0"></div>
+										<div class="space-y-2 flex-1">
+											<div class="skeleton h-3 w-1/2 rounded"></div>
+											<div class="skeleton h-5 w-2/3 rounded"></div>
+										</div>
+									</div>
+								{/each}
+							</div>
+							<div class="bg-white border border-slate-200/50 rounded-2xl p-5 space-y-4">
+								<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+									<div class="skeleton h-8 w-48 rounded-lg"></div>
+									<div class="flex gap-2">
+										<div class="skeleton h-6 w-16 rounded-full"></div>
+										<div class="skeleton h-6 w-16 rounded-full"></div>
+										<div class="skeleton h-6 w-16 rounded-full"></div>
+									</div>
+								</div>
+								<div class="overflow-x-auto pt-4 border-t border-slate-100">
+									<table class="w-full text-left border-collapse text-xs">
+										<thead>
+											<tr class="bg-slate-50 font-bold uppercase tracking-wider text-[10px] text-slate-400 border-b border-slate-100">
+												<th class="p-4 pl-6">Date</th>
+												<th class="p-4">Category</th>
+												<th class="p-4">Description</th>
+												<th class="p-4">Amount</th>
+												<th class="p-4">Status</th>
+												<th class="p-4 pr-6 text-center">Actions</th>
+											</tr>
+										</thead>
+										<tbody>
+											{#each Array(5) as _}
+												<tr class="border-b border-slate-50">
+													<td class="p-4 pl-6"><div class="skeleton h-4 w-20 rounded"></div></td>
+													<td class="p-4"><div class="skeleton h-4 w-24 rounded"></div></td>
+													<td class="p-4"><div class="skeleton h-4 w-40 rounded"></div></td>
+													<td class="p-4"><div class="skeleton h-4 w-16 rounded"></div></td>
+													<td class="p-4"><div class="skeleton h-4 w-16 rounded-full"></div></td>
+													<td class="p-4 pr-6 text-center"><div class="skeleton h-4 w-14 rounded mx-auto"></div></td>
+												</tr>
+											{/each}
+										</tbody>
+									</table>
+								</div>
+							</div>
+						</div>
+					{:else if targetPath.includes('/farmer/harvests')}
+						<!-- Harvest logs register page skeleton -->
+						<div class="space-y-6 max-w-[1440px] mx-auto animate-pulse">
+							<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+								<div class="space-y-2">
+									<div class="skeleton h-8 w-44 rounded-xl"></div>
+									<div class="skeleton h-4 w-72 rounded-lg"></div>
+								</div>
+								<div class="skeleton h-10 w-40 rounded-full shrink-0"></div>
+							</div>
+							<div class="bg-white border border-slate-200/50 rounded-2xl p-5 space-y-4">
+								<div class="flex justify-between items-center">
+									<div class="skeleton h-8 w-48 rounded-lg"></div>
+									<div class="skeleton h-6 w-20 rounded-full"></div>
+								</div>
+								<div class="overflow-x-auto pt-4 border-t border-slate-100">
+									<table class="w-full text-left border-collapse text-xs">
+										<thead>
+											<tr class="bg-slate-50 font-bold uppercase tracking-wider text-[10px] text-slate-400 border-b border-slate-100">
+												<th class="p-4 pl-6">Crop Name</th>
+												<th class="p-4">Harvest Date</th>
+												<th class="p-4">Quantity</th>
+												<th class="p-4">Quality Grade</th>
+												<th class="p-4 pr-6">Notes</th>
+											</tr>
+										</thead>
+										<tbody>
+											{#each Array(5) as _}
+												<tr class="border-b border-slate-50">
+													<td class="p-4 pl-6"><div class="skeleton h-4 w-32 rounded"></div></td>
+													<td class="p-4"><div class="skeleton h-4 w-20 rounded"></div></td>
+													<td class="p-4"><div class="skeleton h-4 w-16 rounded"></div></td>
+													<td class="p-4"><div class="skeleton h-4 w-20 rounded-full"></div></td>
+													<td class="p-4 pr-6"><div class="skeleton h-4 w-40 rounded"></div></td>
+												</tr>
+											{/each}
+										</tbody>
+									</table>
+								</div>
+							</div>
+						</div>
+					{:else if targetPath.includes('/farmer/inventory')}
+						<!-- Inventory register page skeleton -->
+						<div class="space-y-6 max-w-[1440px] mx-auto animate-pulse">
+							<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+								<div class="space-y-2">
+									<div class="skeleton h-8 w-52 rounded-xl"></div>
+									<div class="skeleton h-4 w-72 rounded-lg"></div>
+								</div>
+								<div class="flex gap-2">
+									<div class="skeleton h-10 w-36 rounded-full shrink-0"></div>
+									<div class="skeleton h-10 w-32 rounded-full shrink-0"></div>
+								</div>
+							</div>
+							<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+								<div class="lg:col-span-4 space-y-6">
+									<div class="bg-white rounded-2xl border border-slate-200/50 p-6 space-y-5">
+										<div class="skeleton h-6 w-32 rounded"></div>
+										<div class="space-y-3">
+											{#each Array(2) as _}
+												<div class="skeleton h-16 w-full rounded-xl"></div>
+											{/each}
+										</div>
+									</div>
+									<div class="bg-white rounded-2xl border border-slate-200/50 p-6 space-y-5">
+										<div class="skeleton h-6 w-40 rounded"></div>
+										<div class="space-y-4">
+											{#each Array(3) as _}
+												<div class="skeleton h-10 w-full rounded-xl"></div>
+											{/each}
+										</div>
+									</div>
+								</div>
+								<div class="lg:col-span-8 bg-white border border-slate-200/50 rounded-2xl p-5 space-y-4">
+									<div class="flex justify-between items-center">
+										<div class="skeleton h-8 w-44 rounded-lg"></div>
+										<div class="flex gap-2">
+											{#each Array(4) as _}
+												<div class="skeleton h-7 w-12 rounded-full"></div>
+											{/each}
+										</div>
+									</div>
+									<div class="overflow-x-auto pt-4 border-t border-slate-100">
+										<table class="w-full text-left border-collapse text-xs">
+											<thead>
+												<tr class="bg-slate-50 font-bold uppercase tracking-wider text-[10px] text-slate-400 border-b border-slate-100">
+													<th class="p-4 pl-6">Product Name</th>
+													<th class="p-4">Category</th>
+													<th class="p-4 text-right">Total Stock</th>
+													<th class="p-4 text-right">Sold/Used</th>
+													<th class="p-4 text-right">Available</th>
+													<th class="p-4 pr-6 text-center">Status</th>
+												</tr>
+											</thead>
+											<tbody>
+												{#each Array(5) as _}
+													<tr class="border-b border-slate-50">
+														<td class="p-4 pl-6">
+															<div class="flex items-center gap-3">
+																<div class="skeleton h-8 w-8 rounded-lg shrink-0"></div>
+																<div class="skeleton h-4 w-28 rounded"></div>
+															</div>
+														</td>
+														<td class="p-4"><div class="skeleton h-4 w-16 rounded"></div></td>
+														<td class="p-4 text-right"><div class="skeleton h-4 w-14 rounded ml-auto"></div></td>
+														<td class="p-4 text-right"><div class="skeleton h-4 w-14 rounded ml-auto"></div></td>
+														<td class="p-4 text-right"><div class="skeleton h-4 w-16 rounded ml-auto"></div></td>
+														<td class="p-4 pr-6 text-center"><div class="skeleton h-4 w-12 rounded-full mx-auto"></div></td>
+													</tr>
+												{/each}
+											</tbody>
+										</table>
+									</div>
+								</div>
+							</div>
+						</div>
+					{:else if targetPath.includes('/farmer/disease')}
+						<!-- Disease AI scanner page skeleton -->
+						<div class="space-y-6 max-w-[1440px] mx-auto animate-pulse">
+							<div class="space-y-2 mb-8">
+								<div class="skeleton h-8 w-60 rounded-xl"></div>
+								<div class="skeleton h-4 w-96 rounded-lg"></div>
+							</div>
+							<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+								<div class="lg:col-span-7 bg-white border border-slate-200/50 rounded-2xl p-6 min-h-[420px] flex flex-col justify-between">
+									<div class="flex justify-between items-center mb-4">
+										<div class="skeleton h-5 w-24 rounded"></div>
+										<div class="skeleton h-6 w-20 rounded"></div>
+									</div>
+									<div class="skeleton h-64 w-full rounded-xl flex-grow"></div>
+								</div>
+								<div class="lg:col-span-5 bg-white border border-slate-200/50 rounded-2xl p-6 space-y-6">
+									<div class="flex items-center gap-4">
+										<div class="skeleton h-16 w-16 rounded-full shrink-0"></div>
+										<div class="space-y-2 flex-1">
+											<div class="skeleton h-4 w-1/3 rounded"></div>
+											<div class="skeleton h-4 w-1/2 rounded"></div>
+										</div>
+									</div>
+									<div class="skeleton h-24 w-full rounded-xl"></div>
+									<div class="skeleton h-32 w-full rounded-xl"></div>
+								</div>
+							</div>
+						</div>
+					{:else if targetPath.includes('/farmer/products')}
+						<!-- Farmer products listings Specific skeleton -->
+						<div class="space-y-6 max-w-[1440px] mx-auto animate-pulse">
+							<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+								<div class="space-y-2">
+									<div class="skeleton h-8 w-44 rounded-xl"></div>
+									<div class="skeleton h-4 w-72 rounded-lg"></div>
+								</div>
+								<div class="skeleton h-10 w-36 rounded-full shrink-0"></div>
+							</div>
+							<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+								{#each Array(3) as _}
+									<div class="bg-white rounded-2xl p-5 border border-slate-200/50 space-y-4 shadow-sm">
+										<div class="relative h-48 w-full">
+											<div class="skeleton h-full w-full rounded-xl"></div>
+											<div class="absolute top-3 right-3 flex gap-1.5">
+												<div class="skeleton h-8 w-8 rounded-full"></div>
+												<div class="skeleton h-8 w-8 rounded-full"></div>
+												<div class="skeleton h-8 w-8 rounded-full"></div>
+											</div>
+										</div>
+										<div class="flex justify-between items-center text-xs">
+											<div class="skeleton h-5 w-16 rounded-full"></div>
+											<div class="skeleton h-4 w-24 rounded"></div>
+										</div>
+										<div class="skeleton h-4.5 w-full rounded"></div>
+										<div class="space-y-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+											<div class="skeleton h-3.5 w-full rounded"></div>
+											<div class="skeleton h-3.5 w-full rounded"></div>
+										</div>
+										<div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+											<div class="space-y-1">
+												<div class="skeleton h-2 w-20 rounded"></div>
+												<div class="skeleton h-5 w-24 rounded"></div>
+											</div>
+										</div>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{:else if targetPath.includes('/customer/dashboard')}
+						<!-- Buyer Marketplace listings Specific skeleton -->
+						<div class="space-y-6 max-w-[1440px] mx-auto animate-pulse">
+							<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+								<div class="space-y-2">
+									<div class="skeleton h-8 w-48 rounded-xl"></div>
+									<div class="skeleton h-4 w-72 rounded-lg"></div>
+								</div>
+							</div>
+							<div class="bg-white border border-slate-200/50 rounded-2xl p-5 mb-6 space-y-4">
+								<div class="skeleton h-10 w-full rounded-xl"></div>
+								<div class="flex gap-2 overflow-x-auto pb-1">
+									{#each Array(5) as _}
+										<div class="skeleton h-8 w-16 rounded-full shrink-0"></div>
+									{/each}
+								</div>
+							</div>
+							<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+								<div class="lg:col-span-9 space-y-4">
+									<div class="flex justify-between items-center mb-1">
+										<div class="skeleton h-4.5 w-48 rounded"></div>
+										<div class="skeleton h-4 w-24 rounded"></div>
+									</div>
+									<div class="grid gap-6 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+										{#each Array(4) as _}
+											<div class="bg-white rounded-2xl border border-slate-200/50 p-4 space-y-3.5 shadow-sm">
+												<div class="h-40 bg-slate-200 rounded-xl w-full skeleton"></div>
+												<div class="flex justify-between items-center text-[10px]">
+													<div class="skeleton h-4.5 w-14 rounded-full"></div>
+													<div class="skeleton h-4 w-16 rounded"></div>
+												</div>
+												<div class="space-y-1 bg-slate-50 p-2 rounded-xl border border-slate-100/50 text-[10px]">
+													<div class="flex justify-between py-0.5"><div class="skeleton h-3 w-16 rounded"></div><div class="skeleton h-3 w-10 rounded"></div></div>
+													<div class="flex justify-between py-0.5"><div class="skeleton h-3 w-14 rounded"></div><div class="skeleton h-3 w-12 rounded"></div></div>
+												</div>
+												<div class="pt-2 border-t border-slate-50 space-y-1">
+													<div class="skeleton h-2 w-12 rounded"></div>
+													<div class="skeleton h-4.5 w-16 rounded"></div>
+												</div>
+												<div class="grid grid-cols-2 gap-1.5 pt-2 border-t border-slate-100">
+													<div class="skeleton h-6 w-full rounded-lg"></div>
+													<div class="skeleton h-6 w-full rounded-lg"></div>
+												</div>
+												<div class="skeleton h-6 w-full rounded-lg"></div>
+											</div>
+										{/each}
+									</div>
+								</div>
+								<div class="lg:col-span-3 space-y-6">
+									<div class="bg-white rounded-2xl border border-slate-200/50 p-5 space-y-4">
+										<div class="skeleton h-6 w-32 rounded"></div>
+										<div class="skeleton h-32 w-full rounded-xl"></div>
+									</div>
+								</div>
+							</div>
+						</div>
+					{:else if targetPath.includes('/farmer/dashboard') || targetPath.endsWith('/farmer') || targetPath.endsWith('/farmer/')}
+						<!-- Farmer dashboard specific bento skeleton -->
+						<div class="space-y-6 max-w-[1440px] mx-auto animate-pulse">
+							<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
+								<div class="space-y-2">
+									<div class="skeleton h-8 w-32 rounded-xl"></div>
+									<div class="skeleton h-4 w-72 rounded-lg"></div>
+								</div>
+								<div class="flex gap-2">
+									<div class="skeleton h-10 w-24 rounded-2xl"></div>
+									<div class="skeleton h-10 w-32 rounded-2xl"></div>
+								</div>
+							</div>
+							<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+								{#each Array(4) as _}
+									<div class="bg-white rounded-2xl border border-slate-200/50 p-6 flex flex-col justify-between h-36">
+										<div class="flex justify-between items-start">
+											<div class="skeleton h-10 w-10 rounded-2xl"></div>
+											<div class="skeleton h-4 w-12 rounded-full"></div>
+										</div>
+										<div class="space-y-1.5">
+											<div class="skeleton h-3 w-20 rounded"></div>
+											<div class="skeleton h-6 w-28 rounded"></div>
+										</div>
+									</div>
+								{/each}
+							</div>
+							<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+								<div class="lg:col-span-2 bg-white border border-slate-200/50 rounded-2xl p-6 h-96 flex flex-col justify-between">
+									<div class="flex justify-between items-center mb-4">
+										<div class="skeleton h-5 w-36 rounded"></div>
+										<div class="flex gap-3"><div class="skeleton h-4 w-12 rounded"></div><div class="skeleton h-4 w-12 rounded"></div></div>
+									</div>
+									<div class="skeleton h-64 w-full rounded-xl flex-grow"></div>
+								</div>
+								<div class="lg:col-span-1 bg-white border border-slate-200/50 rounded-2xl p-6 h-96 flex flex-col justify-between">
+									<div class="skeleton h-5 w-32 rounded mb-4"></div>
+									<div class="skeleton h-48 w-48 rounded-full mx-auto my-auto shrink-0"></div>
+									<div class="skeleton h-4 w-28 rounded mx-auto mt-4"></div>
+								</div>
+							</div>
+							<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+								<div class="lg:col-span-2 bg-white border border-slate-200/50 rounded-2xl p-6 space-y-4">
+									<div class="flex justify-between items-center mb-2">
+										<div class="skeleton h-5 w-40 rounded"></div>
+										<div class="skeleton h-4 w-16 rounded"></div>
+									</div>
+									<div class="space-y-3">
+										{#each Array(3) as _}
+											<div class="flex items-center justify-between py-2 border-b border-slate-50">
+												<div class="flex items-center gap-3">
+													<div class="skeleton h-8 w-8 rounded-full"></div>
+													<div class="skeleton h-4 w-28 rounded"></div>
+												</div>
+												<div class="skeleton h-4 w-16 rounded"></div>
+												<div class="skeleton h-4 w-32 rounded"></div>
+											</div>
+										{/each}
+									</div>
+								</div>
+								<div class="lg:col-span-1 bg-white border border-slate-200/50 rounded-2xl p-6 flex flex-col justify-between h-[230px]">
+									<div class="skeleton h-4 w-20 rounded"></div>
+									<div class="skeleton h-16 w-full rounded-xl"></div>
+									<div class="skeleton h-10 w-full rounded-xl"></div>
+								</div>
+							</div>
+						</div>
+					{:else}
+						<!-- Default fallback bento skeleton (like admin) -->
+						<div class="space-y-6 max-w-[1440px] mx-auto animate-pulse">
+							<div class="flex justify-between items-center gap-4 mb-8">
+								<div class="space-y-2 flex-1">
+									<div class="skeleton h-8 w-1/4 rounded-xl"></div>
+									<div class="skeleton h-4 w-1/3 rounded-lg"></div>
+								</div>
+								<div class="skeleton h-12 w-48 rounded-full shrink-0"></div>
+							</div>
+							<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+								<div class="skeleton h-32 w-full rounded-2xl"></div>
+								<div class="skeleton h-32 w-full rounded-2xl"></div>
+								<div class="skeleton h-32 w-full rounded-2xl"></div>
+							</div>
+							<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+								<div class="lg:col-span-8 skeleton h-[420px] w-full rounded-2xl"></div>
+								<div class="lg:col-span-4 space-y-6">
+									<div class="skeleton h-48 w-full rounded-2xl"></div>
+									<div class="skeleton h-48 w-full rounded-2xl"></div>
+								</div>
+							</div>
+						</div>
+					{/if}
+				{:else}
+					{@render children()}
+				{/if}
 			</main>
 
 			<!-- Mobile Bottom Navigation (Visible only on mobile screen widths) -->

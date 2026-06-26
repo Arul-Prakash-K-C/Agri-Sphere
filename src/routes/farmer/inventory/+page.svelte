@@ -307,6 +307,23 @@
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-slate-50 font-medium text-slate-600">
+						{#if loading}
+							{#each Array(2) as _}
+								<tr class="animate-pulse border-b border-slate-50">
+									<td class="p-4 pl-6">
+										<div class="flex items-center gap-3">
+											<div class="w-8 h-8 rounded-lg bg-slate-200 skeleton"></div>
+											<div class="skeleton h-4 w-28 rounded"></div>
+										</div>
+									</td>
+									<td class="p-4"><div class="skeleton h-4 w-16 rounded"></div></td>
+									<td class="p-4 text-right"><div class="skeleton h-4 w-16 rounded ml-auto"></div></td>
+									<td class="p-4 text-right"><div class="skeleton h-4 w-16 rounded ml-auto"></div></td>
+									<td class="p-4 text-right"><div class="skeleton h-4 w-20 rounded ml-auto"></div></td>
+									<td class="p-4 pr-6 text-center"><div class="skeleton h-4 w-14 rounded mx-auto"></div></td>
+								</tr>
+							{/each}
+						{/if}
 						{#each filteredItems as item (item.id)}
 							<tr class={['transition-colors', item.status === 'Low' ? 'hover:bg-red-50/10' : 'hover:bg-slate-50/30'].filter(Boolean).join(' ')}>
 								<td class="p-4 pl-6">
