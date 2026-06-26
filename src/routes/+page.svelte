@@ -229,10 +229,8 @@
 	<div class="max-w-[1440px] mx-auto px-6 md:px-10 grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
 		<!-- Brand Column -->
 		<div class="space-y-4">
-			<div class="flex items-center gap-2">
-				<span class="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-primary-green to-dark-green font-bold text-white shadow-sm">
-					🌱
-				</span>
+			<div class="flex items-center gap-3">
+				<img src="/logo.png" alt="AgriConnect Logo" class="size-9 object-contain rounded-full border border-emerald-100/50 shadow-sm" />
 				<span class="text-base font-extrabold text-slate-800 tracking-tight">AgriConnect</span>
 			</div>
 			<p class="text-xs text-slate-500 leading-relaxed">Smart Farming Meets Modern Technology. Grounded in Innovation.</p>

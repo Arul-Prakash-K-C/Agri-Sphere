@@ -167,44 +167,102 @@ export async function GET({ locals }) {
 		}
 
 		if (role === 'customer') {
-			// Query Marketplace Produce (Crops from all farmers that are listed/Harvest-Ready)
-			const produceSnapshot = await adminDb.collection('crops')
-				.get();
+			// Query Marketplace Produce (Products listed by farmers)
+			let produceSnapshot = await adminDb.collection('products').get();
 			
-			let produce = produceSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-			// Fallback: If no crops exist in database at all, seed some public marketplace entries
-			if (produce.length === 0) {
-				produce = [
+			// Seed marketplace products if empty
+			if (produceSnapshot.empty) {
+				const seedProducts = [
 					{
-						id: 'corn',
 						name: 'Sweet Corn',
-						location: 'Field Block A',
-						farmer: 'Ramesh Kumar',
-						planted: 'Apr 12',
-						progress: 45,
-						size: '50 Quintals',
+						category: 'Vegetables',
 						price: '₹1,800 / Qtl',
-						stage: 'Vegetative Stage',
-						stageColor: 'bg-emerald-50 text-dark-green border-emerald-100',
-						statusDot: 'bg-primary-green',
-						imageUrl: 'https://images.unsplash.com/photo-1551754655-cd27e38d20f6?auto=format&fit=crop&w=400&q=80'
+						size: '50 Quintals',
+						description: 'Fresh organic sweet corn harvested from field Block A.',
+						imageUrl: 'https://images.unsplash.com/photo-1551754655-cd27e38d20f6?auto=format&fit=crop&w=400&q=80',
+						farmerId: 'seed-farmer-1',
+						farmerName: 'Ramesh Kumar',
+						status: 'Available',
+						createdAt: new Date().toISOString()
 					},
 					{
-						id: 'wheat',
 						name: 'Winter Wheat',
-						location: 'North Plateau',
-						farmer: 'Surinder Singh',
-						planted: 'Oct 05',
-						progress: 95,
-						size: '120 Quintals',
+						category: 'Grains',
 						price: '₹2,400 / Qtl',
-						stage: 'Harvest-Ready',
-						stageColor: 'bg-amber-50 text-amber-800 border-amber-100',
-						statusDot: 'bg-amber-500',
-						imageUrl: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=400&q=80'
+						size: '120 Quintals',
+						description: 'High-quality winter wheat ready for direct shipping.',
+						imageUrl: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=400&q=80',
+						farmerId: 'seed-farmer-2',
+						farmerName: 'Surinder Singh',
+						status: 'Available',
+						createdAt: new Date().toISOString()
+					},
+					{
+						name: 'Organic Soybeans',
+						category: 'Grains',
+						price: '₹4,100 / Qtl',
+						size: '75 Quintals',
+						description: 'Non-GMO organic soybeans from valley sector 3.',
+						imageUrl: 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?auto=format&fit=crop&w=400&q=80',
+						farmerId: 'seed-farmer-3',
+						farmerName: 'Vikas Patil',
+						status: 'Available',
+						createdAt: new Date().toISOString()
 					}
 				];
+
+				for (const item of seedProducts) {
+					await adminDb.collection('products').add(item);
+				}
+				produceSnapshot = await adminDb.collection('products').get();
+			}
+
+			const produce = [];
+			for (const doc of produceSnapshot.docs) {
+				const prodData = doc.data();
+				
+				// Only show available listings to customers
+				if (prodData.status !== 'Available') continue;
+
+				let farmerName = prodData.farmerName || 'Verified Farmer';
+				let farmerPhone = '+919876543210';
+				let farmerEmail = 'farmer@agriconnect.com';
+				let farmName = 'Local Family Farm';
+				let location = prodData.location || 'Local Fields';
+
+				// Fetch farmer profile details from 'users' collection
+				if (prodData.farmerId) {
+					try {
+						const farmerDoc = await adminDb.collection('users').doc(prodData.farmerId).get();
+						if (farmerDoc.exists) {
+							const fData = farmerDoc.data();
+							farmerName = fData.fullName || farmerName;
+							farmerPhone = fData.phone || farmerPhone;
+							farmerEmail = fData.email || farmerEmail;
+							farmName = fData.farmName || farmName;
+							location = fData.address || location;
+						}
+					} catch (e) {
+						console.error(`Error fetching farmer profile for product ${doc.id}:`, e);
+					}
+				}
+
+				produce.push({
+					id: doc.id,
+					...prodData,
+					farmer: farmerName,
+					farmerName,
+					farmerPhone,
+					farmerEmail,
+					farmName,
+					location,
+					farmLocation: location,
+					plantedDate: prodData.createdAt ? new Date(prodData.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently Harvested',
+					progress: 100, // listed products are harvest-ready
+					stage: 'Harvest-Ready',
+					stageColor: 'bg-emerald-50 text-dark-green border-emerald-100/50',
+					statusDot: 'bg-primary-green'
+				});
 			}
 
 			// Query Customer Orders / Contracts

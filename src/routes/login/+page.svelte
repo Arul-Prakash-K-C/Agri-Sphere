@@ -70,8 +70,8 @@
 		<!-- Left Side: Farming Illustration -->
 		<div class="relative hidden flex-col justify-between bg-linear-to-tr from-primary-green/90 to-dark-green p-10 text-white md:flex">
 			<div class="space-y-2">
-				<div class="flex items-center gap-2">
-					<span class="text-3xl">🌱</span>
+				<div class="flex items-center gap-3">
+					<img src="/logo.png" alt="AgriConnect Logo" class="size-11 object-contain rounded-full border border-emerald-100/50 shadow-sm bg-white" />
 					<span class="text-xl font-bold tracking-tight">AgriConnect</span>
 				</div>
 				<p class="text-sm text-white/70">Connecting Growers & Traders Digitally</p>

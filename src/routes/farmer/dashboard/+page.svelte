@@ -24,6 +24,7 @@
 	let financialChartInstance;
 	let cropChartInstance;
 
+
 	onMount(() => {
 		// Initialize Chart.js once loaded from layout.svelte
 		const interval = setInterval(() => {

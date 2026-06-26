@@ -77,9 +77,7 @@
 		<!-- Desktop Left Sidebar -->
 		<aside class="glass-sidebar w-64 h-screen fixed left-0 top-0 z-40 hidden md:flex flex-col p-6 space-y-6">
 			<div class="flex items-center gap-3 mb-2">
-				<span class="grid size-10 place-items-center rounded-2xl bg-gradient-to-br from-primary-green to-dark-green font-bold text-white shadow-md shadow-primary-green/25">
-					🌱
-				</span>
+				<img src="/logo.png" alt="AgriConnect Logo" class="size-10 object-contain rounded-full border border-emerald-100/50 shadow-sm" />
 				<div>
 					<h1 class="font-bold text-lg tracking-tight text-slate-800 leading-none">AgriConnect</h1>
 					<span class="text-[10px] text-dark-green font-semibold uppercase tracking-wider mt-1 block">Smart AgriTech</span>
@@ -105,7 +103,7 @@
 							page.url.pathname === item.href
 								? 'bg-primary-green text-white shadow-md shadow-primary-green/20'
 								: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-						]}
+						].filter(Boolean).join(' ')}
 					>
 						<span class="material-symbols-outlined text-[20px]">{item.icon}</span>
 						<span>{item.label}</span>
@@ -145,8 +143,9 @@
 			<!-- Portal Header -->
 			<header class="bg-white/75 backdrop-blur-md sticky top-0 w-full z-30 border-b border-emerald-100/50 px-6 py-4 flex justify-between items-center">
 				<div>
-					<h2 class="font-extrabold text-slate-800 text-base md:hidden flex items-center gap-2">
-						<span class="text-lg">🌱</span> AgriConnect
+					<h2 class="font-extrabold text-slate-800 text-base md:hidden flex items-center gap-2.5">
+						<img src="/logo.png" alt="AgriConnect Logo" class="size-8 object-contain rounded-full border border-emerald-100/50 shadow-sm" />
+						AgriConnect
 					</h2>
 				</div>
 				
@@ -186,7 +185,7 @@
 						class={[
 							'flex flex-col items-center gap-0.5 text-xs font-bold transition-colors duration-200',
 							page.url.pathname === item.href ? 'text-primary-green' : 'text-slate-500'
-						]}
+						].filter(Boolean).join(' ')}
 					>
 						<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' {page.url.pathname === item.href ? '1' : '0'};">{item.icon}</span>
 						<span class="text-[9px] mt-0.5 tracking-tight">{item.label}</span>
@@ -209,9 +208,7 @@
 			<header class="border-b border-emerald-100 bg-white/80 backdrop-blur-md sticky top-0 z-50">
 				<div class="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
 					<a href="/" class="flex items-center gap-3 group">
-						<span class="grid size-10 place-items-center rounded-2xl bg-gradient-to-br from-primary-green to-dark-green font-bold text-white shadow-md shadow-primary-green/20 transition-all duration-300 group-hover:scale-105">
-							🌱
-						</span>
+						<img src="/logo.png" alt="AgriConnect Logo" class="size-10 object-contain rounded-full border border-emerald-100/50 shadow-sm transition-all duration-300 group-hover:scale-105" />
 						<span>
 							<span class="block text-lg font-bold tracking-tight text-slate-800">AgriConnect</span>
 							<span class="block text-xs text-dark-green font-medium -mt-0.5">Smart AgriTech Platform</span>
@@ -227,7 +224,7 @@
 									page.url.pathname === item.href
 										? 'bg-primary-green text-white shadow-sm shadow-primary-green/10'
 										: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-								]}
+								].filter(Boolean).join(' ')}
 							>
 								{item.label}
 							</a>

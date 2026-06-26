@@ -22,7 +22,7 @@
 	},
 	"dependencies": {
 		"firebase": "^12.15.0",
-		"firebase-admin": "^14.1.0"
+		"firebase-admin": "^13.10.0"
 	},
 	"overrides": {
 		"jose": "4.15.5"

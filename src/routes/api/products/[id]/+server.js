@@ -45,7 +45,7 @@ export async function PATCH({ params, request, locals }) {
 		}
 
 		const body = await request.json();
-		const { name, category, price, size, description, imageUrl, status } = body;
+		const { name, category, price, quantity, unit, harvestDate, description, imageUrl, farmLocation, status } = body;
 
 		// Manual Validation
 		if (name !== undefined && (typeof name !== 'string' || name.trim().length === 0)) {
@@ -54,8 +54,11 @@ export async function PATCH({ params, request, locals }) {
 		if (price !== undefined && (typeof price !== 'string' || price.trim().length === 0)) {
 			return json({ error: 'Price must be a non-empty string' }, { status: 400 });
 		}
-		if (size !== undefined && (typeof size !== 'string' || size.trim().length === 0)) {
-			return json({ error: 'Size must be a non-empty string' }, { status: 400 });
+		if (quantity !== undefined && (isNaN(Number(quantity)) || Number(quantity) <= 0)) {
+			return json({ error: 'Quantity must be a valid number greater than 0' }, { status: 400 });
+		}
+		if (unit !== undefined && (typeof unit !== 'string' || unit.trim().length === 0)) {
+			return json({ error: 'Unit must be a non-empty string' }, { status: 400 });
 		}
 		if (status !== undefined && !['Available', 'Sold'].includes(status)) {
 			return json({ error: 'Status must be Available or Sold' }, { status: 400 });
@@ -65,9 +68,12 @@ export async function PATCH({ params, request, locals }) {
 		if (name !== undefined) updatePayload.name = name;
 		if (category !== undefined) updatePayload.category = category;
 		if (price !== undefined) updatePayload.price = price;
-		if (size !== undefined) updatePayload.size = size;
+		if (quantity !== undefined) updatePayload.quantity = Number(quantity);
+		if (unit !== undefined) updatePayload.unit = unit;
+		if (harvestDate !== undefined) updatePayload.harvestDate = harvestDate;
 		if (description !== undefined) updatePayload.description = description;
 		if (imageUrl !== undefined) updatePayload.imageUrl = imageUrl;
+		if (farmLocation !== undefined) updatePayload.farmLocation = farmLocation;
 		if (status !== undefined) updatePayload.status = status;
 
 		await docRef.update(updatePayload);

@@ -20,13 +20,52 @@
 	let newAcres = $state(10);
 	let newImageUrl = $state('');
 
+	// Image Upload Options
+	let imageInputType = $state('url'); // 'url' or 'file'
+	let uploadedImagePreview = $state('');
 	let loading = $state(false);
 	let error = $state('');
+
+	function handleFileChange(event) {
+		const file = event.target.files[0];
+		if (!file) return;
+
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			uploadedImagePreview = e.target.result;
+		};
+		reader.readAsDataURL(file);
+	}
+
+	function handleRemoveUploadedFile() {
+		uploadedImagePreview = '';
+	}
+
+	function closeModal() {
+		newName = '';
+		newLocation = '';
+		newStage = 'Vegetative Stage';
+		newPlantedDate = '';
+		newProgress = 50;
+		newAcres = 10;
+		newImageUrl = '';
+		uploadedImagePreview = '';
+		imageInputType = 'url';
+		showAddModal = false;
+	}
 
 	async function handleAddCrop(event) {
 		event.preventDefault();
 		loading = true;
 		error = '';
+
+		const defaultImage = 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=600&q=80';
+		let imageUrl = defaultImage;
+		if (imageInputType === 'url') {
+			imageUrl = newImageUrl || defaultImage;
+		} else {
+			imageUrl = uploadedImagePreview || defaultImage;
+		}
 
 		try {
 			const res = await fetch('/api/crops', {
@@ -39,7 +78,7 @@
 					plantedDate: newPlantedDate || 'Today',
 					progress: Number(newProgress),
 					acres: Number(newAcres),
-					imageUrl: newImageUrl
+					imageUrl
 				})
 			});
 
@@ -51,15 +90,7 @@
 			const addedCrop = await res.json();
 			crops = [...crops, addedCrop];
 
-			// Clear form & close
-			newName = '';
-			newLocation = '';
-			newStage = 'Vegetative Stage';
-			newPlantedDate = '';
-			newProgress = 50;
-			newAcres = 10;
-			newImageUrl = '';
-			showAddModal = false;
+			closeModal();
 		} catch (err) {
 			error = err.message;
 		} finally {
@@ -112,7 +143,7 @@
 			<div transition:slide={{ duration: 200 }} class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-6 overflow-hidden">
 				<div class="flex justify-between items-center pb-4 border-b border-slate-100">
 					<h3 class="font-extrabold text-slate-800 text-base">New Crop Registration</h3>
-					<button onclick={() => showAddModal = false} class="text-slate-400 hover:text-slate-600 transition-colors">
+					<button onclick={closeModal} class="text-slate-400 hover:text-slate-600 transition-colors">
 						<span class="material-symbols-outlined text-lg">close</span>
 					</button>
 				</div>
@@ -153,10 +184,66 @@
 						</label>
 					</div>
 
-					<label class="block">
-						<span class="block mb-1">Image URL (Optional)</span>
-						<input type="url" bind:value={newImageUrl} placeholder="https://..." class="input-field w-full text-xs" />
-					</label>
+					<!-- Image Selection (URL or File Upload) -->
+					<div class="space-y-2">
+						<span class="block mb-1">Crop Image (Optional)</span>
+						<div class="flex rounded-xl bg-slate-100 p-1 border border-slate-200/50">
+							<button
+								type="button"
+								onclick={() => { imageInputType = 'url'; }}
+								class={[
+									'flex-1 py-1.5 text-center text-[10px] font-bold rounded-lg transition-all',
+									imageInputType === 'url' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+								].filter(Boolean).join(' ')}
+							>
+								Image URL
+							</button>
+							<button
+								type="button"
+								onclick={() => { imageInputType = 'file'; }}
+								class={[
+									'flex-1 py-1.5 text-center text-[10px] font-bold rounded-lg transition-all',
+									imageInputType === 'file' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+								].filter(Boolean).join(' ')}
+							>
+								Upload Image
+							</button>
+						</div>
+
+						{#if imageInputType === 'url'}
+							<input
+								type="url"
+								bind:value={newImageUrl}
+								placeholder="https://images.unsplash.com..."
+								class="input-field w-full text-xs"
+							/>
+						{:else}
+							{#if uploadedImagePreview}
+								<div class="relative rounded-2xl overflow-hidden border border-slate-200 h-28 flex items-center justify-center bg-slate-50">
+									<img src={uploadedImagePreview} alt="Uploaded crop preview" class="w-full h-full object-cover" />
+									<button
+										type="button"
+										onclick={handleRemoveUploadedFile}
+										class="absolute top-2 right-2 bg-slate-900/80 text-white p-1 rounded-full hover:bg-slate-900 transition-colors shadow-sm"
+									>
+										<span class="material-symbols-outlined text-[14px]">close</span>
+									</button>
+								</div>
+							{:else}
+								<label class="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-primary-green hover:bg-emerald-50/20 rounded-2xl p-4 cursor-pointer transition-all duration-200 group">
+									<span class="material-symbols-outlined text-2xl text-slate-400 group-hover:text-primary-green mb-1 transition-colors">cloud_upload</span>
+									<span class="text-[10px] text-slate-500 font-bold group-hover:text-primary-green transition-colors">Click to upload crop photo</span>
+									<span class="text-[8px] text-slate-400 mt-0.5">PNG, JPG, JPEG up to 5MB</span>
+									<input
+										type="file"
+										accept="image/*"
+										class="hidden"
+										onchange={handleFileChange}
+									/>
+								</label>
+							{/if}
+						{/if}
+					</div>
 
 					{#if error}
 						<div class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 animate-fade-in">
@@ -167,7 +254,7 @@
 					<div class="flex gap-3 pt-3 border-t border-slate-100">
 						<button 
 							type="button" 
-							onclick={() => showAddModal = false}
+							onclick={closeModal}
 							class="btn-secondary flex-1 py-3 text-xs"
 						>
 							Cancel
@@ -208,8 +295,8 @@
 				</div>
 				<div class="p-5 flex-grow flex flex-col justify-between gap-4">
 					<div class="flex justify-between items-center text-xs">
-						<span class={['px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1.5', crop.stageColor]}>
-							<span class={['w-1.5 h-1.5 rounded-full', crop.statusDot]}></span>
+						<span class={['px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1.5', crop.stageColor].filter(Boolean).join(' ')}>
+							<span class={['w-1.5 h-1.5 rounded-full', crop.statusDot].filter(Boolean).join(' ')}></span>
 							{crop.stage}
 						</span>
 						<span class="text-slate-400 font-semibold flex items-center gap-1">

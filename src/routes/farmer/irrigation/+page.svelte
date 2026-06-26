@@ -14,7 +14,17 @@
 
 	// Sync data on page load or update
 	$effect(() => {
-		scheduleRuns = data.scheduleRuns || [];
+		const today = new Date();
+		const currentM = today.getMonth();
+		const currentY = today.getFullYear();
+
+		// Map seeded runs to the current year/month if they are October 2023 so they are visible on load
+		scheduleRuns = (data.scheduleRuns || []).map(r => {
+			if ((r.id === '1' || r.id === '2' || r.id === '3') && Number(r.month ?? 9) === 9 && Number(r.year ?? 2023) === 2023) {
+				return { ...r, month: currentM, year: currentY };
+			}
+			return r;
+		});
 		upcomingRuns = data.upcomingRuns || [];
 		activities = data.activities || [];
 		
@@ -27,7 +37,45 @@
 	let activeTab = $state('schedule'); // 'schedule' | 'health' | 'manual'
 	let showAddModal = $state(false);
 
-	// Form values for new run
+	// Calendar Navigation
+	const today = new Date();
+	const todayDate = today.getDate();
+	const todayMonth = today.getMonth();
+	const todayYear = today.getFullYear();
+
+	let currentYear = $state(todayYear);
+	let currentMonth = $state(todayMonth);
+
+	const monthNames = [
+		'January', 'February', 'March', 'April', 'May', 'June',
+		'July', 'August', 'September', 'October', 'November', 'December'
+	];
+
+	function prevMonth() {
+		if (currentMonth === 0) {
+			currentMonth = 11;
+			currentYear -= 1;
+		} else {
+			currentMonth -= 1;
+		}
+	}
+
+	function nextMonth() {
+		if (currentMonth === 11) {
+			currentMonth = 0;
+			currentYear += 1;
+		} else {
+			currentMonth += 1;
+		}
+	}
+
+	let firstDayIndex = $derived(new Date(currentYear, currentMonth, 1).getDay());
+	let totalDaysInMonth = $derived(new Date(currentYear, currentMonth + 1, 0).getDate());
+	let remainingCells = $derived((7 - ((firstDayIndex + totalDaysInMonth) % 7)) % 7);
+
+	// Form values for new run or note
+	let isCustomNote = $state(false);
+	let customNoteText = $state('');
 	let newZone = $state('Zone 1: North Orchard');
 	let newDate = $state(5);
 	let newTime = $state('05:00 - 06:00');
@@ -35,10 +83,23 @@
 	let loading = $state(false);
 	let error = $state('');
 
+	function openAddModalForDate(day) {
+		newDate = day;
+		isCustomNote = false;
+		customNoteText = '';
+		newZone = 'Zone 1: North Orchard';
+		newTime = '05:00 - 06:00';
+		error = '';
+		showAddModal = true;
+	}
+
 	async function handleAddRun(event) {
 		event.preventDefault();
 		loading = true;
 		error = '';
+
+		const displayZone = isCustomNote ? `Note: ${customNoteText}` : newZone;
+		const displayTime = isCustomNote && !newTime ? 'All Day' : (newTime || '05:00 - 06:00');
 
 		try {
 			const res = await fetch('/api/irrigation', {
@@ -47,22 +108,26 @@
 				body: JSON.stringify({
 					action: 'add_run',
 					payload: {
-						zone: newZone,
+						zone: displayZone,
 						date: Number(newDate),
-						time: newTime
+						month: currentMonth,
+						year: currentYear,
+						time: displayTime
 					}
 				})
 			});
 
 			if (!res.ok) {
-				const data = await res.json();
-				throw new Error(data.error || 'Failed to add run');
+				const resData = await res.json();
+				throw new Error(resData.error || 'Failed to add schedule item');
 			}
 
 			const result = await res.json();
 			scheduleRuns = [...scheduleRuns, result.run];
 
 			// Clear form & close
+			isCustomNote = false;
+			customNoteText = '';
 			newZone = 'Zone 1: North Orchard';
 			newDate = 5;
 			newTime = '05:00 - 06:00';
@@ -108,64 +173,105 @@
 	<!-- Page Header & Actions -->
 	<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
 		<div>
-			<h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Irrigation Control</h1>
+			<h1 class="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+				<span class="text-primary-green">💧</span> Irrigation Control
+			</h1>
 			<p class="text-sm text-slate-500 mt-1">Monitor and schedule water distribution zones.</p>
 		</div>
 		<button 
-			onclick={() => showAddModal = true}
-			class="bg-gradient-to-br from-primary-green to-dark-green text-white font-bold text-xs px-5 py-3 rounded-full flex items-center justify-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/45 hover:-translate-y-0.5 transition-all whitespace-nowrap"
+			onclick={() => openAddModalForDate(1)}
+			class="bg-gradient-to-br from-primary-green to-dark-green text-white font-bold text-xs px-5 py-3 rounded-full flex items-center justify-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/45 hover:-translate-y-0.5 transition-all whitespace-nowrap cursor-pointer"
 		>
 			<span class="material-symbols-outlined text-[18px]">calendar_today</span>
-			<span>Schedule New Run</span>
+			<span>Schedule New Run / Note</span>
 		</button>
 	</div>
 
-	<!-- Add Run Modal -->
+	<!-- Add Run / Note Modal -->
 	{#if showAddModal}
 		<div transition:fade={{ duration: 150 }} class="fixed inset-0 bg-slate-950/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
 			<div transition:slide={{ duration: 200 }} class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-6 overflow-hidden">
 				<div class="flex justify-between items-center pb-4 border-b border-slate-100">
-					<h3 class="font-extrabold text-slate-800 text-base">Irrigation Schedule Event</h3>
-					<button onclick={() => showAddModal = false} class="text-slate-400 hover:text-slate-600 transition-colors">
+					<h3 class="font-extrabold text-slate-800 text-base flex items-center gap-1">
+						<span class="material-symbols-outlined text-primary-green text-lg">event_note</span>
+						<span>{isCustomNote ? 'Add Calendar Note' : 'Schedule Irrigation Event'}</span>
+					</h3>
+					<button onclick={() => showAddModal = false} class="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-full hover:bg-slate-100 flex items-center cursor-pointer">
 						<span class="material-symbols-outlined text-lg">close</span>
 					</button>
 				</div>
 				<form onsubmit={handleAddRun} class="mt-4 space-y-4 text-xs font-semibold text-slate-700">
-					<label class="block">
-						<span class="block mb-1">Select Zone</span>
-						<select bind:value={newZone} class="input-field w-full text-xs bg-white py-[9.5px]">
-							<option value="Zone 1: North Orchard">Zone 1: North Orchard</option>
-							<option value="Zone 2: Berries">Zone 2: Berries</option>
-							<option value="Zone 3: Greenhouses">Zone 3: Greenhouses</option>
-							<option value="Zone 4: Vineyard">Zone 4: Vineyard</option>
-							<option value="Fertigation Alpha">Fertigation Alpha</option>
-						</select>
-					</label>
+					
+					<!-- Event Type Toggle -->
+					<div class="space-y-1">
+						<span class="block mb-1 text-slate-500">Event Type</span>
+						<div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
+							<button 
+								type="button" 
+								onclick={() => { isCustomNote = false; newTime = '05:00 - 06:00'; }} 
+								class={['py-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer', !isCustomNote ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'].filter(Boolean).join(' ')}
+							>
+								Watering Zone
+							</button>
+							<button 
+								type="button" 
+								onclick={() => { isCustomNote = true; newTime = ''; }} 
+								class={['py-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer', isCustomNote ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'].filter(Boolean).join(' ')}
+							>
+								Custom Note
+							</button>
+						</div>
+					</div>
+
+					{#if !isCustomNote}
+						<label class="block">
+							<span class="block mb-1">Select Zone</span>
+							<select bind:value={newZone} class="input-field w-full text-xs bg-white py-[9.5px]">
+								<option value="Zone 1: North Orchard">Zone 1: North Orchard</option>
+								<option value="Zone 2: Berries">Zone 2: Berries</option>
+								<option value="Zone 3: Greenhouses">Zone 3: Greenhouses</option>
+								<option value="Zone 4: Vineyard">Zone 4: Vineyard</option>
+								<option value="Fertigation Alpha">Fertigation Alpha</option>
+							</select>
+						</label>
+					{:else}
+						<label class="block">
+							<span class="block mb-1">Note Description</span>
+							<textarea bind:value={customNoteText} required placeholder="e.g. Clean zone sprinkler heads, record soil moisture, inspect pipeline..." class="input-field w-full text-xs" rows="2"></textarea>
+						</label>
+					{/if}
 
 					<div class="grid grid-cols-2 gap-4">
 						<label class="block">
-							<span class="block mb-1">Calendar Day (Oct)</span>
-							<input type="number" min="1" max="31" bind:value={newDate} required class="input-field w-full text-xs" />
+							<span class="block mb-1">Calendar Day ({monthNames[currentMonth].substring(0, 3)})</span>
+							<input type="number" min="1" max={totalDaysInMonth} bind:value={newDate} required class="input-field w-full text-xs" />
 						</label>
 						<label class="block">
 							<span class="block mb-1">Time Block</span>
-							<input type="text" bind:value={newTime} required placeholder="e.g. 05:00 - 06:00" class="input-field w-full text-xs" />
+							<input type="text" bind:value={newTime} required={!isCustomNote} placeholder={isCustomNote ? "e.g. All Day (optional)" : "e.g. 05:00 - 06:00"} class="input-field w-full text-xs" />
 						</label>
 					</div>
+
+					{#if error}
+						<div class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+							⚠️ {error}
+						</div>
+					{/if}
 
 					<div class="flex gap-3 pt-3 border-t border-slate-100">
 						<button 
 							type="button" 
 							onclick={() => showAddModal = false}
-							class="btn-secondary flex-1 py-3 text-xs"
+							class="btn-secondary flex-1 py-3 text-xs cursor-pointer"
 						>
 							Cancel
 						</button>
 						<button 
 							type="submit" 
-							class="btn-primary flex-1 py-3 text-xs"
+							disabled={loading}
+							class="btn-primary flex-1 py-3 text-xs cursor-pointer"
 						>
-							Add Run
+							{loading ? 'Adding...' : 'Add Item'}
 						</button>
 					</div>
 				</form>
@@ -219,21 +325,21 @@
 				<button 
 					onclick={() => activeTab = 'schedule'}
 					class={['pb-4 px-1 font-bold text-xs tracking-wider transition-all border-b-2', 
-						activeTab === 'schedule' ? 'border-primary-green text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600']}
+						activeTab === 'schedule' ? 'border-primary-green text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'].filter(Boolean).join(' ')}
 				>
 					IRRIGATION SCHEDULE
 				</button>
 				<button 
 					onclick={() => activeTab = 'health'}
 					class={['pb-4 px-1 font-bold text-xs tracking-wider transition-all border-b-2', 
-						activeTab === 'health' ? 'border-primary-green text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600']}
+						activeTab === 'health' ? 'border-primary-green text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'].filter(Boolean).join(' ')}
 				>
 					SYSTEM HEALTH
 				</button>
 				<button 
 					onclick={() => activeTab = 'manual'}
 					class={['pb-4 px-1 font-bold text-xs tracking-wider transition-all border-b-2', 
-						activeTab === 'manual' ? 'border-primary-green text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600']}
+						activeTab === 'manual' ? 'border-primary-green text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'].filter(Boolean).join(' ')}
 				>
 					MANUAL OVERRIDE
 				</button>
@@ -243,12 +349,12 @@
 			{#if activeTab === 'schedule'}
 				<div transition:fade={{ duration: 100 }} class="glass-card rounded-2xl overflow-hidden bg-white">
 					<div class="p-6 border-b border-slate-100 flex items-center justify-between">
-						<h3 class="font-extrabold text-slate-800 text-base">October 2023</h3>
+						<h3 class="font-extrabold text-slate-850 text-base">{monthNames[currentMonth]} {currentYear}</h3>
 						<div class="flex gap-2">
-							<button class="size-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+							<button onclick={prevMonth} class="size-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer" title="Previous Month">
 								<span class="material-symbols-outlined text-base">chevron_left</span>
 							</button>
-							<button class="size-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+							<button onclick={nextMonth} class="size-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer" title="Next Month">
 								<span class="material-symbols-outlined text-base">chevron_right</span>
 							</button>
 						</div>
@@ -262,34 +368,53 @@
 						{/each}
 
 						<!-- Empty Cells for previous month alignment -->
-						<div class="min-h-[100px] border-r border-b border-slate-100 bg-slate-50/20"></div>
-						<div class="min-h-[100px] border-r border-b border-slate-100 bg-slate-50/20"></div>
+						{#each Array.from({ length: firstDayIndex }) as _}
+							<div class="min-h-[110px] border-r border-b border-slate-100 bg-slate-50/10"></div>
+						{/each}
 
-						<!-- Days of October 2023 -->
-						{#each Array(10) as _, index}
+						<!-- Days of current month -->
+						{#each Array.from({ length: totalDaysInMonth }) as _, index}
 							{@const dateNumber = index + 1}
-							{@const cellRuns = scheduleRuns.filter(r => r.date === dateNumber)}
+							{@const cellRuns = scheduleRuns.filter(r => 
+								r.date === dateNumber && 
+								Number(r.month ?? 9) === currentMonth && 
+								Number(r.year ?? 2023) === currentYear
+							)}
 							
 							<div 
 								role="gridcell"
 								tabindex="-1"
+								onclick={() => openAddModalForDate(dateNumber)}
 								onmouseenter={() => hoveredCell = dateNumber}
 								onmouseleave={() => hoveredCell = null}
-								class={['min-h-[110px] p-3 border-r border-b border-slate-100 flex flex-col justify-between transition-colors relative cursor-pointer',
+								class={['min-h-[110px] p-3 border-r border-b border-slate-100 flex flex-col justify-between transition-colors relative cursor-pointer group hover:bg-slate-50/50',
 									hoveredCell === dateNumber ? 'bg-slate-50' : 'bg-white',
-									dateNumber === 7 ? 'bg-emerald-50/30' : ''
-								]}
+									(dateNumber === todayDate && currentMonth === todayMonth && currentYear === todayYear) ? 'bg-emerald-50/40 border-primary-green/30' : ''
+								].filter(Boolean).join(' ')}
 							>
-								<span class={['text-[11px] font-bold', dateNumber === 7 ? 'text-primary-green font-black' : 'text-slate-400']}>
-									{dateNumber}
-								</span>
+								<div class="flex justify-between items-center w-full">
+									<span class={['text-[11px] font-bold', (dateNumber === todayDate && currentMonth === todayMonth && currentYear === todayYear) ? 'text-primary-green font-black underline decoration-2 underline-offset-2' : 'text-slate-400'].filter(Boolean).join(' ')}>
+										{dateNumber}
+									</span>
+									<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 text-slate-400 hover:text-primary-green transition-opacity">add</span>
+								</div>
 								
 								{#if cellRuns.length > 0}
-									<div class="space-y-1.5 mt-2">
+									<div class="space-y-1.5 mt-2 w-full">
 										{#each cellRuns as run}
-											<div class={['p-2 rounded-lg text-[9px] font-extrabold border shadow-sm leading-tight', run.colorClass]}>
-												{run.zone}
-												<div class="font-normal opacity-85 mt-0.5">{run.time}</div>
+											<div class={['p-1.5 rounded-lg text-[9px] font-extrabold border shadow-sm leading-tight break-words', run.colorClass].filter(Boolean).join(' ')}>
+												{#if run.zone.startsWith('Note:')}
+													<div class="flex items-start gap-1 text-slate-800">
+														<span class="material-symbols-outlined text-[10px] shrink-0 mt-0.5 text-amber-600">description</span>
+														<div class="flex-1">
+															<span>{run.zone.substring(5).trim()}</span>
+															<div class="font-normal opacity-85 mt-0.5 text-[8px]">{run.time}</div>
+														</div>
+													</div>
+												{:else}
+													<div>{run.zone}</div>
+													<div class="font-normal opacity-85 mt-0.5">{run.time}</div>
+												{/if}
 											</div>
 										{/each}
 									</div>
@@ -297,9 +422,10 @@
 							</div>
 						{/each}
 
-						<!-- Additional empty cells to finish row -->
-						<div class="min-h-[110px] border-r border-b border-slate-100 bg-slate-50/20"></div>
-						<div class="min-h-[110px] border-b border-slate-100 bg-slate-50/20"></div>
+						<!-- Additional empty cells to finish grid rows -->
+						{#each Array.from({ length: remainingCells }) as _}
+							<div class="min-h-[110px] border-r border-b border-slate-100 bg-slate-50/10"></div>
+						{/each}
 					</div>
 				</div>
 
@@ -333,7 +459,7 @@
 								<button 
 									onclick={() => { valveStateZone1 = !valveStateZone1; saveValves(); }}
 									class={['px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm transition-all',
-										valveStateZone1 ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-primary-green text-white hover:bg-dark-green']}
+										valveStateZone1 ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-primary-green text-white hover:bg-dark-green'].filter(Boolean).join(' ')}
 								>
 									{valveStateZone1 ? 'STOP WATER' : 'START WATER'}
 								</button>
@@ -347,7 +473,7 @@
 								<button 
 									onclick={() => { valveStateZone2 = !valveStateZone2; saveValves(); }}
 									class={['px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm transition-all',
-										valveStateZone2 ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-primary-green text-white hover:bg-dark-green']}
+										valveStateZone2 ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-primary-green text-white hover:bg-dark-green'].filter(Boolean).join(' ')}
 								>
 									{valveStateZone2 ? 'STOP WATER' : 'START WATER'}
 								</button>
@@ -361,7 +487,7 @@
 								<button 
 									onclick={() => { valveStateZone3 = !valveStateZone3; saveValves(); }}
 									class={['px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm transition-all',
-										valveStateZone3 ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-primary-green text-white hover:bg-dark-green']}
+										valveStateZone3 ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-primary-green text-white hover:bg-dark-green'].filter(Boolean).join(' ')}
 								>
 									{valveStateZone3 ? 'STOP WATER' : 'START WATER'}
 								</button>
@@ -384,7 +510,7 @@
 					{#each upcomingRuns as run (run.id)}
 						<div class="flex gap-4 items-center">
 							<div class="size-12 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col items-center justify-center shrink-0">
-								<p class="text-[9px] font-black text-slate-400 leading-none">OCT</p>
+								<p class="text-[9px] font-black text-slate-400 leading-none">{monthNames[currentMonth].substring(0, 3).toUpperCase()}</p>
 								<p class="text-base font-black text-slate-800 leading-none mt-1">{run.day}</p>
 							</div>
 							<div>
@@ -405,7 +531,7 @@
 
 					{#each activities as act (act.id)}
 						<div class="flex gap-4 items-center relative z-10">
-							<div class={['size-10 rounded-full flex items-center justify-center shrink-0 shadow-sm border border-slate-100/50', act.colorClass]}>
+							<div class={['size-10 rounded-full flex items-center justify-center shrink-0 shadow-sm border border-slate-100/50', act.colorClass].filter(Boolean).join(' ')}>
 								<span class="material-symbols-outlined text-[16px]">{act.icon}</span>
 							</div>
 							<div>
