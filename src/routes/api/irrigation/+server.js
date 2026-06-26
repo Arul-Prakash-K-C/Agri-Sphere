@@ -16,12 +16,15 @@ export async function GET({ locals }) {
 		const docSnap = await docRef.get();
 
 		if (!docSnap.exists) {
+			const now = new Date();
+			const currentM = now.getMonth();
+			const currentY = now.getFullYear();
 			// Seed irrigation configuration if empty
 			const seedData = {
 				scheduleRuns: [
-					{ id: '1', date: 3, zone: 'Zone 1: North Orchard', time: '05:00 - 06:30', colorClass: 'bg-emerald-50 text-dark-green border-emerald-100/50' },
-					{ id: '2', date: 7, zone: 'Zone 4: Vineyard', time: '04:30 - 05:30', colorClass: 'bg-emerald-50 text-dark-green border-emerald-100/50' },
-					{ id: '3', date: 7, zone: 'Fertigation Alpha', time: '06:00 - 07:00', colorClass: 'bg-amber-50 text-amber-800 border-amber-100/50' }
+					{ id: '1', date: 3, month: currentM, year: currentY, zone: 'Zone 1: North Orchard', time: '05:00 - 06:30', colorClass: 'bg-emerald-50 text-dark-green border-emerald-100/50' },
+					{ id: '2', date: 7, month: currentM, year: currentY, zone: 'Zone 4: Vineyard', time: '04:30 - 05:30', colorClass: 'bg-emerald-50 text-dark-green border-emerald-100/50' },
+					{ id: '3', date: 7, month: currentM, year: currentY, zone: 'Fertigation Alpha', time: '06:00 - 07:00', colorClass: 'bg-amber-50 text-amber-800 border-amber-100/50' }
 				],
 				upcomingRuns: [
 					{ id: 'u1', day: 14, zone: 'Zone 2: Berries', details: 'Starts in 4 hours • 45m' },
@@ -75,7 +78,7 @@ export async function POST({ request, locals }) {
 		const data = docSnap.data();
 
 		if (action === 'add_run') {
-			const { zone, date, time } = payload;
+			const { zone, date, time, month, year } = payload;
 			if (!zone || typeof zone !== 'string') {
 				return json({ error: 'Zone is required' }, { status: 400 });
 			}
@@ -83,13 +86,16 @@ export async function POST({ request, locals }) {
 				return json({ error: 'Date must be a number' }, { status: 400 });
 			}
 
-			const colorClass = zone.includes('Fertigation')
+			const colorClass = (zone.includes('Fertigation') || zone.startsWith('Note:'))
 				? 'bg-amber-50 text-amber-800 border-amber-100/50'
 				: 'bg-emerald-50 text-dark-green border-emerald-100/50';
 
+			const now = new Date();
 			const newRun = {
 				id: String(Date.now()),
 				date: Number(date),
+				month: month !== undefined ? Number(month) : now.getMonth(),
+				year: year !== undefined ? Number(year) : now.getFullYear(),
 				zone,
 				time: time || '05:00 - 06:00',
 				colorClass

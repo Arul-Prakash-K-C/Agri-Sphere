@@ -8,49 +8,21 @@
 	let scanning = $state(false);
 	let scanCompleted = $state(false);
 
-	// Leaf preset options for interactive scanning
-	const leafPresets = [
-		{
-			id: 'tomato',
-			name: 'Tomato Leaf (Suspected Blight)',
-			image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDqofGA-IXnNOuFDH15CO5Hl_pKTBapb4gIkLHk05VbolHdeneAxwGk4zAOyAaPVXxGsJHm2QbM9fRg92rxCtG5jAfbCLc5wQkgLpiQGgKAdbNluZ0cv05vAHJSwg5CXr1Ua7EVZXfvN3jhd_lZueAe8uXPmMl7lEwO99-SZHnrjfIBAUXCuE1zmIEEpu0_BleMjkK_gjKpyMzqlxMqbPgqTrChwIqfLC2pPVyUnqS7eHNihs6zNk6WZai5J4gHK-cIvWyNoHEmP7I',
-			pathogen: 'Tomato Early Blight',
-			confidence: 94,
-			severity: 'Moderate',
-			severityColor: 'bg-amber-500',
-			severityTextColor: 'text-amber-800 bg-amber-50 border-amber-100/50',
-			treatment: 'Apply copper-based fungicide immediately. Ensure proper spacing between plants to improve air circulation. Remove and destroy affected lower leaves to prevent upward spread.',
-			field: 'Tomato - Field Block A'
-		},
-		{
-			id: 'potato_unhealthy',
-			name: 'Potato Leaf (Suspected Rust/Blight)',
-			image: 'https://images.unsplash.com/photo-1592417817098-8f3d6eb19675?auto=format&fit=crop&w=600&q=80',
-			pathogen: 'Potato Late Blight',
-			confidence: 88,
-			severity: 'High',
-			severityColor: 'bg-red-500',
-			severityTextColor: 'text-red-700 bg-red-50 border-red-100/50',
-			treatment: 'Destroy infected plants immediately to prevent infestation of adjacent areas. Apply protective chlorothalonil or mancozeb fungicides on remaining healthy plants. Avoid overhead irrigation.',
-			field: 'Potato - Field B'
-		},
-		{
-			id: 'wheat_healthy',
-			name: 'Wheat Leaf (Healthy Sample)',
-			image: 'https://lh3.googleusercontent.com/aida-public/AB6AXu8Fjey_BmSvrU2kOY6X2Qo-phKkZodEqyMTKEj5U1bu9LJg_QGcIE-rWRTuNo_zpSVMLXIE87GxLQnxEOW49z8Y47uXSejLE2aORA7fnW4e6Kg30TV-mDuezEEdRD2UKbxt715Yl2Cv9qH7BiQLtbBxj0-ZkRrvhisviMpLZrymakqEnxRqZEN1EUF8n65Vvf0PCjOd9naXwMSWelo5Bv7fr7qz5rkbSZ-6yPAKveFCtZf_o2s7vcxpetJr4-dfvEQcQxvdqprCrU',
-			pathogen: 'Healthy (No Disease Detected)',
-			confidence: 99,
-			severity: 'None',
-			severityColor: 'bg-primary-green',
-			severityTextColor: 'text-dark-green bg-emerald-50 border-emerald-100/50',
-			treatment: 'No active pathogens detected. Maintain standard nitrogen fertilization schedule and monitor soil moisture levels regularly.',
-			field: 'Wheat - North Plateau'
-		}
-	];
+	let customImage = $state('');
+	let customImageName = $state('');
+	
+	let selectedLeaf = $derived({
+		id: 'custom',
+		name: customImageName || 'Uploaded Leaf',
+		image: customImage,
+		pathogen: 'Custom Analysis',
+		confidence: 90,
+		severity: 'Moderate',
+		treatment: 'Please scan to analyze.',
+		field: 'Custom Field'
+	});
 
-	// Currently selected leaf for scanning
-	let selectedPresetIndex = $state(0);
-	let selectedLeaf = $derived(leafPresets[selectedPresetIndex]);
+	let currentDiagnosis = $state(null);
 
 	// History of recent scans
 	let recentScans = $state([]);
@@ -58,18 +30,50 @@
 		recentScans = data.history || [];
 	});
 
-	function selectPreset(index) {
+	function handleFileUpload(event) {
+		const file = event.target.files[0];
+		if (!file) return;
+		readLeafFile(file);
+	}
+
+	function readLeafFile(file) {
 		if (scanning) return;
-		selectedPresetIndex = index;
-		imageLoaded = true;
-		scanCompleted = false;
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			customImage = e.target.result;
+			customImageName = file.name;
+			imageLoaded = true;
+			scanCompleted = false;
+			currentDiagnosis = {
+				id: 'custom',
+				name: file.name,
+				image: e.target.result,
+				pathogen: 'Pending Analysis',
+				confidence: 0,
+				severity: 'Unknown',
+				treatment: 'Click Scan below to diagnose this leaf.',
+				field: 'Custom Uploaded'
+			};
+		};
+		reader.readAsDataURL(file);
+	}
+
+	function handleDragOver(event) {
+		event.preventDefault();
+	}
+
+	function handleDrop(event) {
+		event.preventDefault();
+		if (scanning) return;
+		const file = event.dataTransfer.files[0];
+		if (file && file.type.startsWith('image/')) {
+			readLeafFile(file);
+		}
 	}
 
 	function handleDropZoneClick() {
 		if (scanning) return;
-		// Clicking drop zone selects the currently selected preset leaf
-		imageLoaded = true;
-		scanCompleted = false;
+		document.getElementById('leaf-upload-input')?.click();
 	}
 
 	async function handleScan() {
@@ -83,9 +87,11 @@
 			try {
 				const res = await fetch('/api/disease-detection', {
 					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
+					headers: { 
+						'Content-Type': 'application/json'
+					},
 					body: JSON.stringify({
-						presetId: selectedLeaf.id,
+						filename: customImageName,
 						imageUrl: selectedLeaf.image
 					})
 				});
@@ -96,8 +102,21 @@
 				}
 
 				const scanResult = await res.json();
-				recentScans = [scanResult, ...recentScans];
 				
+				currentDiagnosis = {
+					id: 'custom',
+					name: selectedLeaf.name,
+					image: selectedLeaf.image,
+					pathogen: scanResult.pathogen,
+					confidence: scanResult.confidence,
+					severity: scanResult.severity,
+					treatment: scanResult.treatment,
+					field: scanResult.crop || scanResult.field,
+					severityTextColor: scanResult.statusColor || 'text-amber-800 bg-amber-50 border-amber-100/50',
+					severityColor: scanResult.severity === 'High' ? 'bg-red-500' : (scanResult.severity === 'None' ? 'bg-primary-green' : 'bg-amber-500')
+				};
+
+				recentScans = [scanResult, ...recentScans];
 				scanning = false;
 				scanCompleted = true;
 			} catch (err) {
@@ -112,6 +131,9 @@
 		imageLoaded = false;
 		scanCompleted = false;
 		scanning = false;
+		customImage = '';
+		customImageName = '';
+		currentDiagnosis = null;
 	}
 </script>
 
@@ -124,46 +146,17 @@
 	<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
 		<div>
 			<h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">AI Crop Disease Detection</h1>
-			<p class="text-sm text-slate-500 mt-1">Upload a clear leaf image or pick a demo preset for real-time diagnostic scanning.</p>
+			<p class="text-sm text-slate-500 mt-1">Upload a clear leaf image for real-time web-grounded diagnostic analysis and treatment remedies.</p>
 		</div>
 	</div>
+
+
 
 	<!-- Main Bento Grid -->
 	<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 		
 		<!-- Upload Area (Left - 7 cols) -->
 		<div class="lg:col-span-7 flex flex-col space-y-6">
-			<!-- Demo Presets Selection -->
-			<div class="glass-card rounded-2xl p-6 bg-white space-y-4">
-				<h3 class="font-extrabold text-slate-800 text-sm flex items-center gap-2">
-					<span class="material-symbols-outlined text-primary-green">science</span>
-					Select Demo Leaf Preset
-				</h3>
-				<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-					{#each leafPresets as preset, i}
-						<button 
-							type="button"
-							onclick={() => selectPreset(i)}
-							class={['p-3 rounded-xl border text-left transition-all flex flex-col justify-between h-28 relative overflow-hidden group',
-								selectedPresetIndex === i && imageLoaded
-									? 'border-primary-green bg-emerald-50/20 ring-2 ring-primary-green/20' 
-									: 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50']}
-						>
-							<div class="absolute inset-0 opacity-10 group-hover:opacity-15 transition-opacity">
-								<img src={preset.image} alt={preset.name} class="w-full h-full object-cover" />
-							</div>
-							<div class="relative z-10 flex flex-col justify-between h-full">
-								<span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-									Preset {i + 1}
-								</span>
-								<p class="text-xs font-bold text-slate-700 leading-snug mt-1">
-									{preset.name}
-								</p>
-							</div>
-						</button>
-					{/each}
-				</div>
-			</div>
 
 			<!-- Image Dropzone & Preview Card -->
 			<div class="glass-card rounded-2xl p-6 bg-white flex-grow flex flex-col min-h-[420px] justify-between">
@@ -173,9 +166,20 @@
 				</div>
 
 				<!-- Visual upload box -->
+				<!-- Hidden input file element -->
+				<input 
+					type="file" 
+					id="leaf-upload-input" 
+					accept="image/*" 
+					class="hidden" 
+					onchange={handleFileUpload} 
+				/>
+
 				<div 
 					onclick={handleDropZoneClick}
 					onkeydown={(e) => e.key === 'Enter' && handleDropZoneClick()}
+					ondragover={handleDragOver}
+					ondrop={handleDrop}
 					role="button"
 					tabindex="0"
 					class="flex-grow border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 flex flex-col items-center justify-center p-6 relative overflow-hidden group hover:border-primary-green hover:bg-slate-50 transition-all cursor-pointer"
@@ -255,8 +259,8 @@
 			<div 
 				class={['glass-card rounded-2xl p-6 bg-white border-t-4 transition-all duration-500 flex flex-col justify-between h-full min-h-[300px]', 
 					scanCompleted 
-						? (selectedLeaf.pathogen.includes('Healthy') ? 'border-t-emerald-500 border-l-0 shadow-md shadow-emerald-500/5' : 'border-t-red-500 border-l-0 shadow-md shadow-red-500/5') 
-						: 'border-t-slate-300 opacity-60 grayscale pointer-events-none']}
+						? (currentDiagnosis?.pathogen?.includes('Healthy') ? 'border-t-emerald-500 border-l-0 shadow-md shadow-emerald-500/5' : 'border-t-red-500 border-l-0 shadow-md shadow-red-500/5') 
+						: 'border-t-slate-300 opacity-60 grayscale pointer-events-none'].filter(Boolean).join(' ')}
 			>
 				<div class="space-y-5">
 					<div class="flex justify-between items-start pb-4 border-b border-slate-100">
@@ -278,13 +282,13 @@
 							<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pathogen / Condition</p>
 							<div class="flex justify-between items-end mt-1.5">
 								<h2 class={['text-xl font-extrabold tracking-tight leading-none', 
-									scanCompleted && !selectedLeaf.pathogen.includes('Healthy') ? 'text-red-500' : 'text-slate-800']}>
-									{scanCompleted ? selectedLeaf.pathogen : 'Pending Scan'}
+									scanCompleted && !currentDiagnosis?.pathogen?.includes('Healthy') ? 'text-red-500' : 'text-slate-800'].filter(Boolean).join(' ')}>
+									{scanCompleted ? currentDiagnosis?.pathogen : 'Pending Scan'}
 								</h2>
 								<div class="text-right">
 									<p class="text-[9px] font-bold text-slate-400 uppercase">AI Confidence</p>
 									<p class="text-base font-black text-primary-green leading-none mt-1">
-										{scanCompleted ? selectedLeaf.confidence : 0}%
+										{scanCompleted ? currentDiagnosis?.confidence : 0}%
 									</p>
 								</div>
 							</div>
@@ -293,16 +297,16 @@
 						<!-- Severity Indicator -->
 						<div class="bg-slate-50 border border-slate-100 rounded-xl p-3.5 flex items-center justify-between">
 							<div class="flex items-center gap-2.5">
-								<div class="w-1.5 h-8 rounded-full bg-slate-300" class:bg-emerald-500={scanCompleted && selectedLeaf.severity === 'None'} class:bg-amber-400={scanCompleted && selectedLeaf.severity === 'Moderate'} class:bg-red-500={scanCompleted && selectedLeaf.severity === 'High'}></div>
+								<div class="w-1.5 h-8 rounded-full bg-slate-300" class:bg-emerald-500={scanCompleted && currentDiagnosis?.severity === 'None'} class:bg-amber-400={scanCompleted && currentDiagnosis?.severity === 'Moderate'} class:bg-red-500={scanCompleted && currentDiagnosis?.severity === 'High'}></div>
 								<div>
 									<p class="text-[10px] font-bold text-slate-400 uppercase">Severity Class</p>
 									<p class="text-xs font-extrabold text-slate-700 mt-0.5">
-										{scanCompleted ? selectedLeaf.severity : 'Unknown'}
+										{scanCompleted ? currentDiagnosis?.severity : 'Unknown'}
 									</p>
 								</div>
 							</div>
-							{#if scanCompleted && selectedLeaf.severity !== 'None'}
-								<span class={['px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1', selectedLeaf.severityTextColor]}>
+							{#if scanCompleted && currentDiagnosis?.severity !== 'None'}
+								<span class={['px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1', currentDiagnosis?.severityTextColor || 'text-amber-800 bg-amber-50 border-amber-100/50'].filter(Boolean).join(' ')}>
 									<span class="material-symbols-outlined text-[12px]">warning</span>
 									Risk Warning
 								</span>
@@ -316,7 +320,7 @@
 								Treatment Protocol
 							</p>
 							<div class="mt-2 bg-emerald-50/20 border border-emerald-100/50 rounded-xl p-4 text-xs text-slate-600 leading-relaxed font-semibold">
-								{scanCompleted ? selectedLeaf.treatment : 'Run detection to fetch recommended fungicide treatment, watering frequency updates, and pathogen spread mitigation protocols.'}
+								{scanCompleted ? currentDiagnosis?.treatment : 'Run detection to fetch recommended fungicide treatment, watering frequency updates, and pathogen spread mitigation protocols.'}
 							</div>
 						</div>
 					</div>
@@ -336,7 +340,7 @@
 								</div>
 								<div>
 									<p class="text-xs font-bold text-slate-800">{scan.crop}</p>
-									<span class={['inline-block px-1.5 py-0.5 rounded text-[9px] font-bold border mt-0.5', scan.statusColor]}>
+									<span class={['inline-block px-1.5 py-0.5 rounded text-[9px] font-bold border mt-0.5', scan.statusColor].filter(Boolean).join(' ')}>
 										{scan.pathogen}
 									</span>
 								</div>

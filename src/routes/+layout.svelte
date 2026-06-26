@@ -103,7 +103,7 @@
 							page.url.pathname === item.href
 								? 'bg-primary-green text-white shadow-md shadow-primary-green/20'
 								: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-						]}
+						].filter(Boolean).join(' ')}
 					>
 						<span class="material-symbols-outlined text-[20px]">{item.icon}</span>
 						<span>{item.label}</span>
@@ -185,7 +185,7 @@
 						class={[
 							'flex flex-col items-center gap-0.5 text-xs font-bold transition-colors duration-200',
 							page.url.pathname === item.href ? 'text-primary-green' : 'text-slate-500'
-						]}
+						].filter(Boolean).join(' ')}
 					>
 						<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' {page.url.pathname === item.href ? '1' : '0'};">{item.icon}</span>
 						<span class="text-[9px] mt-0.5 tracking-tight">{item.label}</span>
@@ -224,7 +224,7 @@
 									page.url.pathname === item.href
 										? 'bg-primary-green text-white shadow-sm shadow-primary-green/10'
 										: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-								]}
+								].filter(Boolean).join(' ')}
 							>
 								{item.label}
 							</a>

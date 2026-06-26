@@ -23,9 +23,12 @@ export async function GET({ url, locals }) {
 			const seedProducts = [
 				{
 					name: 'Sweet Corn',
-					category: 'Grains',
-					price: '₹1,800 / Qtl',
-					size: '50 Quintals',
+					category: 'Vegetables',
+					price: '1,800',
+					quantity: 50,
+					unit: 'Tons',
+					harvestDate: 'Jun 10, 2026',
+					farmLocation: 'Field Block A, Punjab',
 					description: 'Fresh organic sweet corn harvested from field Block A.',
 					imageUrl: 'https://images.unsplash.com/photo-1551754655-cd27e38d20f6?auto=format&fit=crop&w=400&q=80',
 					farmerId: 'seed-farmer-1',
@@ -36,8 +39,11 @@ export async function GET({ url, locals }) {
 				{
 					name: 'Winter Wheat',
 					category: 'Grains',
-					price: '₹2,400 / Qtl',
-					size: '120 Quintals',
+					price: '2,400',
+					quantity: 120,
+					unit: 'Tons',
+					harvestDate: 'May 20, 2026',
+					farmLocation: 'North Plateau, Haryana',
 					description: 'High-quality winter wheat ready for direct shipping.',
 					imageUrl: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=400&q=80',
 					farmerId: 'seed-farmer-2',
@@ -47,9 +53,12 @@ export async function GET({ url, locals }) {
 				},
 				{
 					name: 'Organic Soybeans',
-					category: 'Legumes',
-					price: '₹4,100 / Qtl',
-					size: '75 Quintals',
+					category: 'Grains',
+					price: '4,100',
+					quantity: 75,
+					unit: 'Tons',
+					harvestDate: 'Jun 15, 2026',
+					farmLocation: 'Valley Sector 3, Maharashtra',
 					description: 'Non-GMO organic soybeans from valley sector 3.',
 					imageUrl: 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?auto=format&fit=crop&w=400&q=80',
 					farmerId: 'seed-farmer-3',
@@ -84,7 +93,7 @@ export async function POST({ request, locals }) {
 
 	try {
 		const body = await request.json();
-		const { name, category, price, size, description, imageUrl } = body;
+		const { name, category, price, quantity, unit, harvestDate, description, imageUrl, farmLocation } = body;
 
 		// Manual Validation
 		if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -93,19 +102,25 @@ export async function POST({ request, locals }) {
 		if (!price || typeof price !== 'string' || price.trim().length === 0) {
 			return json({ error: 'Price specification is required' }, { status: 400 });
 		}
-		if (!size || typeof size !== 'string' || size.trim().length === 0) {
-			return json({ error: 'Quantity size is required' }, { status: 400 });
+		if (quantity === undefined || isNaN(Number(quantity)) || Number(quantity) <= 0) {
+			return json({ error: 'Valid quantity greater than 0 is required' }, { status: 400 });
+		}
+		if (!unit || typeof unit !== 'string' || unit.trim().length === 0) {
+			return json({ error: 'Unit specification is required' }, { status: 400 });
 		}
 
 		const newProduct = {
 			name,
-			category: category || 'General',
+			category: category || 'Vegetables',
 			price,
-			size,
+			quantity: Number(quantity),
+			unit,
+			harvestDate: harvestDate || 'Recently Harvested',
 			description: description || '',
 			imageUrl: imageUrl || 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=400&q=80',
+			farmLocation: farmLocation || locals.profile?.address || 'Local Fields',
 			farmerId: locals.user.uid,
-			farmerName: locals.profile.fullName || 'Farmer',
+			farmerName: locals.profile?.fullName || 'Farmer',
 			status: 'Available',
 			createdAt: new Date().toISOString()
 		};

@@ -39,6 +39,23 @@
 	let filterMaxPrice = $state(null);
 	let sortBy = $state('default'); // 'default', 'price-low', 'price-high'
 
+	// Transient skeleton loading simulation on filter changes
+	let isFiltering = $state(false);
+	let filterTimeout;
+	function triggerFilterLoading() {
+		isFiltering = true;
+		clearTimeout(filterTimeout);
+		filterTimeout = setTimeout(() => {
+			isFiltering = false;
+		}, 300);
+	}
+
+	$effect(() => {
+		// Run whenever search filters change
+		const _ = [searchQuery, selectedCategory, filterLocation, filterMaxPrice, sortBy];
+		triggerFilterLoading();
+	});
+
 	let filteredProduce = $derived.by(() => {
 		let list = produce.filter(item => {
 			const name = item.name || '';
@@ -47,12 +64,7 @@
 			const category = item.category || '';
 			
 			// Parse numeric price for filtering
-			let priceVal = 0;
-			if (item.priceVal) {
-				priceVal = Number(item.priceVal);
-			} else if (item.price) {
-				priceVal = Number(item.price.replace(/[^0-9]/g, ''));
-			}
+			let priceVal = Number(item.price ? String(item.price).replace(/[^0-9]/g, '') : 0);
 
 			const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			                      farmerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -69,14 +81,14 @@
 
 		if (sortBy === 'price-low') {
 			list.sort((a, b) => {
-				const priceA = Number(a.priceVal || (a.price ? a.price.replace(/[^0-9]/g, '') : 0));
-				const priceB = Number(b.priceVal || (b.price ? b.price.replace(/[^0-9]/g, '') : 0));
+				const priceA = Number(a.price ? String(a.price).replace(/[^0-9]/g, '') : 0);
+				const priceB = Number(b.price ? String(b.price).replace(/[^0-9]/g, '') : 0);
 				return priceA - priceB;
 			});
 		} else if (sortBy === 'price-high') {
 			list.sort((a, b) => {
-				const priceA = Number(a.priceVal || (a.price ? a.price.replace(/[^0-9]/g, '') : 0));
-				const priceB = Number(b.priceVal || (b.price ? b.price.replace(/[^0-9]/g, '') : 0));
+				const priceA = Number(a.price ? String(a.price).replace(/[^0-9]/g, '') : 0);
+				const priceB = Number(b.price ? String(b.price).replace(/[^0-9]/g, '') : 0);
 				return priceB - priceA;
 			});
 		}
@@ -89,7 +101,8 @@
 	let selectedProduct = $state(null);
 	let currentModalView = $state('details'); // 'details' or 'profile'
 
-	function viewDetails(product) {
+	function viewDetails(product, event) {
+		if (event) event.stopPropagation();
 		selectedProduct = product;
 		currentModalView = 'details';
 		showProductModal = true;
@@ -247,16 +260,16 @@
 		<!-- Category Chips Selection -->
 		<div class="flex items-center gap-2 overflow-x-auto no-scrollbar border-t border-slate-100 pt-3">
 			<span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mr-2">Categories:</span>
-			{#each ['All', 'Vegetables', 'Fruits', 'Grains', 'Dairy'] as cat}
+			{#each ['All', 'Vegetables', 'Fruits', 'Grains', 'Legumes', 'Dairy'] as cat}
 				<button
 					type="button"
 					onclick={() => { selectedCategory = cat; }}
 					class={[
-						'px-4 py-1.5 rounded-full text-xs font-bold transition-all border whitespace-nowrap',
+						'px-4 py-1.5 rounded-full text-xs font-bold transition-all border whitespace-nowrap cursor-pointer',
 						selectedCategory === cat
 							? 'bg-primary-green text-white border-primary-green shadow-sm'
 							: 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
-					]}
+					].filter(Boolean).join(' ')}
 				>
 					{cat}
 				</button>
@@ -265,107 +278,130 @@
 	</div>
 
 	<!-- Marketplace Grid and Side widgets -->
-	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+	<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 		
-		<!-- Marketplace Crops Cards (2 cols) -->
-		<div class="lg:col-span-2 space-y-4">
+		<!-- Marketplace Crops Cards (3 cols on desktop) -->
+		<div class="lg:col-span-9 space-y-4">
 			<div class="flex justify-between items-center mb-1">
 				<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Verified Produce Available</h3>
-				<span class="text-xs font-semibold text-slate-400">{filteredProduce.length} harvests listed</span>
+				<span class="text-xs font-semibold text-slate-400">{filteredProduce.length} listings found</span>
 			</div>
 
-			<div class="grid gap-6 sm:grid-cols-2">
-				{#each filteredProduce as crop (crop.id)}
-					<article 
-						onclick={() => viewDetails(crop)}
-						class="bg-white rounded-2xl border border-slate-200/50 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col group cursor-pointer"
-					>
-						<div class="h-44 w-full relative">
-							<img src={crop.imageUrl || 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=400&q=80'} alt={crop.name} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-							<div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
-							<div class="absolute bottom-3 left-4 text-white">
-								<h4 class="font-extrabold text-lg">{crop.name}</h4>
-								<p class="text-[10px] text-white/80 font-medium">Sourced by {crop.farmer || 'Verified Farmer'}</p>
+			<!-- Product grid (4-column on desktop/XL, 2-column on tablet, single-column on mobile) -->
+			<div class="grid gap-6 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+				{#if isFiltering}
+					{#each Array(4) as _}
+						<div class="bg-white rounded-2xl border border-slate-100 p-4 space-y-4 animate-pulse">
+							<div class="h-40 bg-slate-200 rounded-xl w-full"></div>
+							<div class="space-y-2">
+								<div class="h-4 bg-slate-200 rounded w-2/3"></div>
+								<div class="h-3 bg-slate-200 rounded w-1/2"></div>
 							</div>
-						</div>
-
-						<div class="p-4 flex-grow flex flex-col justify-between gap-4">
-							<div class="flex justify-between items-center text-xs">
-								<span class={['px-2.5 py-0.5 rounded-full text-[10px] font-bold border', crop.stageColor || 'bg-emerald-50 text-dark-green border-emerald-100/50']}>
-									{crop.stage || 'Harvest-Ready'}
-								</span>
-								<span class="text-slate-400 font-semibold">{crop.location || 'Local Fields'}</span>
-							</div>
-
-							<!-- Growth Progress bar -->
-							<div class="space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-								<div class="flex justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-									<span>Harvest Progress</span>
-									<span>{crop.progress || 100}%</span>
-								</div>
-								<div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-									<div class="bg-primary-green h-full rounded-full" style="width: {crop.progress || 100}%"></div>
-								</div>
-							</div>
-
-							<div class="flex items-center justify-between border-t border-slate-100 pt-3">
-								<div>
-									<p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Price / Quantity</p>
-									<p class="text-sm font-extrabold text-dark-green mt-0.5">{crop.price || '₹2,000 / Qtl'}</p>
-									<p class="text-[10px] text-slate-500 font-medium">{crop.acres ? (crop.acres * 2) + ' Qtl' : crop.size || '30 Qtl'} available</p>
-								</div>
-								<button class="bg-primary-green hover:bg-dark-green text-white text-xs font-bold px-4 py-2 rounded-2xl shadow-sm transition-colors">
-									Buy Produce
-								</button>
-							</div>
-						</div>
-					</article>
-				{:else}
-					<div class="col-span-full py-16 text-center bg-white border border-slate-200/50 rounded-2xl shadow-sm">
-						<span class="material-symbols-outlined text-4xl text-slate-300">storefront</span>
-						<p class="mt-2 text-slate-500 font-medium">No produce matches your filters.</p>
-					</div>
-				{/each}
-			</div>
-		</div>
-
-		<!-- Right Side Widgets -->
-		<div class="space-y-6">
-			<!-- Order Shipment Tracker -->
-			<div class="glass-card rounded-2xl p-6 space-y-4">
-				<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-					<span class="material-symbols-outlined text-[18px] text-primary-green">local_shipping</span>
-					Cargo Shipment Transit
-				</h3>
-
-				{#if activeOrders.length > 0}
-					{#each activeOrders.slice(0, 1) as order}
-						<div class="space-y-2">
-							<p class="text-sm font-bold text-slate-800">{order.quantity} - {order.cropName}</p>
-							<p class="text-xs text-slate-500">Shipped from {order.farmerName}</p>
-						</div>
-
-						<div class="space-y-2 pt-2 border-t border-slate-100">
-							<div class="flex justify-between text-[9px] text-slate-400 font-bold uppercase tracking-wider">
-								<span>On Route</span>
-								<span>Status: {order.status}</span>
-							</div>
-							<div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-								<div class="bg-primary-green h-full rounded-full" style="width: {order.progress || 50}%"></div>
-							</div>
-						</div>
-
-						<div class="bg-slate-50 border border-slate-100 rounded-xl p-3 text-[10px] text-slate-500 leading-relaxed">
-							🚚 <strong>Status Update:</strong> Shipment in transit. Estimated delivery progress: {order.progress || 50}%.
+							<div class="h-10 bg-slate-200 rounded-xl w-full"></div>
 						</div>
 					{/each}
 				{:else}
-					<p class="text-xs text-slate-500">No active cargo shipments currently.</p>
+					{#each filteredProduce as crop (crop.id)}
+						<article 
+							onclick={(e) => viewDetails(crop, e)}
+							class="bg-white rounded-2xl border border-slate-200/50 shadow-sm hover:shadow-lg hover:-translate-y-1.5 transition-all duration-300 overflow-hidden flex flex-col group cursor-pointer"
+						>
+							<div class="h-40 w-full relative overflow-hidden flex-shrink-0">
+								<img src={crop.imageUrl || 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=400&q=80'} alt={crop.name} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+								<div class="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent"></div>
+								<div class="absolute bottom-2.5 left-3 text-white">
+									<h4 class="font-extrabold text-sm leading-tight truncate">{crop.name}</h4>
+									<p class="text-[9px] text-white/85 font-bold flex items-center gap-0.5 mt-0.5">
+										{crop.farmer || 'Verified Farmer'}
+										<span class="material-symbols-outlined text-[11px] text-emerald-400 filled">verified</span>
+									</p>
+								</div>
+							</div>
+
+							<div class="p-3.5 flex-grow flex flex-col justify-between gap-3.5">
+								<div class="flex justify-between items-center text-[10px]">
+									<span class="bg-emerald-50 text-dark-green border border-emerald-100/50 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+										{crop.category || 'Produce'}
+									</span>
+									<span class="text-slate-400 font-bold flex items-center gap-0.5 truncate max-w-[100px]">
+										<span class="material-symbols-outlined text-[12px]">pin_drop</span>
+										{crop.location || 'Local Fields'}
+									</span>
+								</div>
+
+								<!-- Stock & Harvest Info -->
+								<div class="space-y-1 bg-slate-50 p-2 rounded-xl border border-slate-100/50 text-[10px] font-semibold text-slate-500">
+									<div class="flex justify-between">
+										<span>Available Stock</span>
+										<strong class="text-slate-700">{crop.quantity || '30'} {crop.unit || 'KG'}</strong>
+									</div>
+									<div class="flex justify-between">
+										<span>Harvest Date</span>
+										<strong class="text-slate-700">{crop.harvestDate || 'Recently'}</strong>
+									</div>
+								</div>
+
+								<!-- Price display in Rupees -->
+								<div class="border-t border-slate-50 pt-2 flex justify-between items-center">
+									<div>
+										<p class="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Direct Price</p>
+										<p class="text-sm font-black text-primary-green mt-0.5">
+											₹{crop.price} 
+											<span class="text-[9px] text-slate-400 font-normal">/ {crop.unit || 'KG'}</span>
+										</p>
+									</div>
+								</div>
+
+								<!-- Action Buttons on Card -->
+								<div class="grid grid-cols-2 gap-1.5 pt-2 border-t border-slate-100 flex-shrink-0">
+									<a 
+										href="tel:{crop.farmerPhone || '+919876543210'}" 
+										onclick={(e) => e.stopPropagation()}
+										class="bg-emerald-50 hover:bg-emerald-100 text-dark-green text-[10px] font-bold py-1.5 rounded-lg flex items-center justify-center gap-0.5 shadow-sm transition-all border border-emerald-200/50 cursor-pointer"
+									>
+										📞 Call
+									</a>
+									<a 
+										href="mailto:{crop.farmerEmail || 'farmer@agriconnect.com'}?subject=AgriConnect Sourcing - {crop.name}" 
+										onclick={(e) => e.stopPropagation()}
+										class="bg-primary-green hover:bg-dark-green text-white text-[10px] font-bold py-1.5 rounded-lg flex items-center justify-center gap-0.5 shadow transition-all cursor-pointer"
+									>
+										✉ Email
+									</a>
+								</div>
+								<button 
+									onclick={(e) => viewDetails(crop, e)}
+									class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold py-1.5 rounded-lg border border-slate-200/50 transition-all flex items-center justify-center gap-0.5 cursor-pointer"
+								>
+									View Details
+								</button>
+							</div>
+						</article>
+					{:else}
+						<!-- Empty State -->
+						<div class="col-span-full py-16 px-4 text-center bg-white border border-slate-200/50 rounded-2xl shadow-sm space-y-4">
+							<svg class="mx-auto size-24 text-emerald-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10S2 17.523 2 12A10 10 0 0 1 12 2z"/>
+								<path d="M12 6v6l4 2"/>
+								<circle cx="12" cy="12" r="10" />
+							</svg>
+							<p class="text-slate-500 font-bold text-sm">No produce available at the moment.</p>
+							<button 
+								onclick={resetFilters}
+								class="mt-2 bg-primary-green hover:bg-dark-green text-white font-bold text-xs px-6 py-2.5 rounded-full shadow transition-colors cursor-pointer"
+							>
+								Browse Other Categories
+							</button>
+						</div>
+					{/each}
 				{/if}
 			</div>
+		</div>
 
+		<!-- Right Side Widgets (3 cols on desktop) -->
+		<div class="lg:col-span-3 space-y-6">
 			<!-- Escrow Quality Guarantee -->
-			<div class="glass-card rounded-2xl p-6 bg-gradient-to-br from-emerald-50/50 to-white/70 space-y-3">
+			<div class="glass-card rounded-2xl p-6 bg-gradient-to-br from-emerald-50/50 to-white/70 space-y-3 border border-emerald-100">
 				<h3 class="text-sm font-bold text-dark-green uppercase tracking-wider">🛡️ Escrow Protected Sourcing</h3>
 				<p class="text-xs text-slate-500 leading-relaxed">
 					All trades on AgriConnect are protected. Payments remain in escrow until harvest inspection reports are uploaded and confirmed.
@@ -374,7 +410,7 @@
 			
 			<button 
 				onclick={resetFilters}
-				class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-3 rounded-full border border-slate-200/50 transition-all flex items-center justify-center gap-1.5"
+				class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-3 rounded-full border border-slate-200/50 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
 			>
 				<span class="material-symbols-outlined text-[16px]">restart_alt</span>
 				Clear All Filters
@@ -395,7 +431,7 @@
 						<span class="text-slate-300">/</span>
 						<span class="text-xs font-bold text-primary-green uppercase tracking-wider">{selectedProduct.category || 'Produce'}</span>
 					</div>
-					<button onclick={() => { showProductModal = false; }} class="text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-full hover:bg-slate-100 flex items-center">
+					<button onclick={() => { showProductModal = false; }} class="text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-full hover:bg-slate-100 flex items-center cursor-pointer">
 						<span class="material-symbols-outlined text-xl">close</span>
 					</button>
 				</div>
@@ -417,15 +453,15 @@
 
 							<!-- Details Right -->
 							<div class="flex flex-col justify-between">
-								<div class="space-y-3">
+								<div class="space-y-4">
 									<h2 class="text-2xl font-black text-slate-900 leading-tight">{selectedProduct.name}</h2>
 									
 									<div class="flex flex-wrap items-center gap-2">
-										<span class="bg-emerald-50 text-dark-green text-xs font-bold px-3 py-1 rounded-full border border-emerald-200/50">
-											Price: {selectedProduct.price || '₹2,000 / Qtl'}
+										<span class="bg-[#DCFCE7] text-dark-green text-xs font-bold px-3 py-1.5 rounded-full border border-emerald-200/50">
+											Price: ₹{selectedProduct.price} / {selectedProduct.unit || 'KG'}
 										</span>
-										<span class="bg-slate-100 text-slate-600 text-xs font-bold px-3 py-1 rounded-full border border-slate-200">
-											Stock: {selectedProduct.acres ? (selectedProduct.acres * 2) + ' Qtl' : selectedProduct.size || '30 Qtl'}
+										<span class="bg-slate-100 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-full border border-slate-200">
+											Stock: {selectedProduct.quantity} {selectedProduct.unit || 'KG'}
 										</span>
 									</div>
 
@@ -438,7 +474,7 @@
 								<div class="pt-4 mt-4 border-t border-slate-100 space-y-2 text-xs font-semibold text-slate-500">
 									<div class="flex items-center gap-2">
 										<span class="material-symbols-outlined text-[16px] text-primary-green">calendar_month</span>
-										<span>Planted/Harvest Date: <strong class="text-slate-700">{selectedProduct.plantedDate || 'Recently Harvested'}</strong></span>
+										<span>Harvest Date: <strong class="text-slate-700">{selectedProduct.harvestDate || 'Recently Harvested'}</strong></span>
 									</div>
 									<div class="flex items-center gap-2">
 										<span class="material-symbols-outlined text-[16px] text-primary-green">pin_drop</span>
@@ -454,7 +490,7 @@
 								<h4 class="text-xs font-black text-slate-400 uppercase tracking-wider">Farmer Information</h4>
 								<button 
 									onclick={() => { currentModalView = 'profile'; }}
-									class="text-xs font-bold text-primary-green hover:text-dark-green hover:underline flex items-center gap-0.5"
+									class="text-xs font-bold text-primary-green hover:text-dark-green hover:underline flex items-center gap-0.5 cursor-pointer"
 								>
 									View Full Farm Profile →
 								</button>
@@ -479,13 +515,13 @@
 								<div class="flex items-center gap-2">
 									<a 
 										href="tel:{selectedProduct.farmerPhone || '+919876543210'}" 
-										class="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-1 shadow-sm transition-all"
+										class="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-1 shadow-sm transition-all cursor-pointer"
 									>
 										📞 Call
 									</a>
 									<a 
 										href="mailto:{selectedProduct.farmerEmail || 'farmer@agriconnect.com'}?subject=Marketplace Inquiry - {selectedProduct.name}" 
-										class="bg-primary-green hover:bg-dark-green text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-1 shadow-md shadow-primary-green/15 transition-all"
+										class="bg-primary-green hover:bg-dark-green text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-1 shadow-md shadow-primary-green/15 transition-all cursor-pointer"
 									>
 										✉ Send Email
 									</a>
@@ -497,18 +533,18 @@
 						<div class="bg-gradient-to-br from-emerald-100/40 to-emerald-50/20 border border-emerald-200/50 rounded-2xl p-5 text-center space-y-2">
 							<h3 class="font-extrabold text-dark-green text-base">Interested in this produce?</h3>
 							<p class="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-								Delivery arrangements, bulk quantity discounts, and final pricing negotiations are handled directly between the buyer and farmer.
+								Delivery, quantity, and pricing negotiations are handled directly between the buyer and farmer.
 							</p>
 							<div class="flex justify-center gap-3 pt-2">
 								<a 
 									href="tel:{selectedProduct.farmerPhone || '+919876543210'}" 
-									class="bg-white hover:bg-slate-100 border border-emerald-200 text-dark-green text-xs font-bold px-6 py-2.5 rounded-xl shadow-sm transition-all"
+									class="bg-white hover:bg-slate-100 border border-emerald-200 text-dark-green text-xs font-bold px-6 py-2.5 rounded-xl shadow-sm transition-all cursor-pointer"
 								>
 									📞 Call Farmer
 								</a>
 								<a 
 									href="mailto:{selectedProduct.farmerEmail || 'farmer@agriconnect.com'}?subject=Inquiry about {selectedProduct.name}" 
-									class="bg-white hover:bg-slate-100 border border-emerald-200 text-dark-green text-xs font-bold px-6 py-2.5 rounded-xl shadow-sm transition-all"
+									class="bg-white hover:bg-slate-100 border border-emerald-200 text-dark-green text-xs font-bold px-6 py-2.5 rounded-xl shadow-sm transition-all cursor-pointer"
 								>
 									✉ Email Farmer
 								</a>
@@ -519,7 +555,7 @@
 					{:else}
 						<button 
 							onclick={() => { currentModalView = 'details'; }} 
-							class="text-xs font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1 mb-2"
+							class="text-xs font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1 mb-2 cursor-pointer"
 						>
 							← Back to product details
 						</button>
@@ -563,11 +599,11 @@
 										<p class="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Active Lists</p>
 									</div>
 									<div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-										<p class="text-lg font-black text-primary-green">6+</p>
+										<p class="text-lg font-black text-primary-green">5+</p>
 										<p class="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Years Farming</p>
 									</div>
 									<div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-										<p class="text-lg font-black text-primary-green">450+ TN</p>
+										<p class="text-lg font-black text-primary-green">150+ TN</p>
 										<p class="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Total Yield</p>
 									</div>
 								</div>
@@ -609,7 +645,7 @@
 										<img src={otherProd.imageUrl || 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=400&q=80'} alt={otherProd.name} class="size-12 rounded-lg object-cover" />
 										<div class="flex-grow min-w-0">
 											<p class="font-bold text-slate-800 text-xs truncate group-hover:text-primary-green transition-colors">{otherProd.name}</p>
-											<p class="text-[10px] text-slate-400 mt-0.5 font-medium">{otherProd.acres ? (otherProd.acres * 2) + ' Qtl' : otherProd.size || '30 Qtl'} • {otherProd.price || '₹2,000 / Qtl'}</p>
+											<p class="text-[10px] text-slate-400 mt-0.5 font-medium">{otherProd.quantity || '0'} {otherProd.unit || 'KG'} • ₹{otherProd.price || '0'}/{otherProd.unit || 'KG'}</p>
 										</div>
 									</button>
 								{:else}

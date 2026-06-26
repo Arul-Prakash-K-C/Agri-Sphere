@@ -147,7 +147,7 @@
 					class={[
 						'size-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all duration-300 border',
 						currentStep >= 1 ? 'bg-primary-green text-white border-primary-green' : 'bg-white text-slate-400 border-slate-200'
-					]}
+					].filter(Boolean).join(' ')}
 				>
 					1
 				</span>
@@ -160,7 +160,7 @@
 					class={[
 						'size-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all duration-300 border',
 						currentStep >= 2 ? 'bg-primary-green text-white border-primary-green' : 'bg-white text-slate-400 border-slate-200'
-					]}
+					].filter(Boolean).join(' ')}
 				>
 					2
 				</span>
@@ -173,7 +173,7 @@
 					class={[
 						'size-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all duration-300 border',
 						currentStep >= 3 ? 'bg-primary-green text-white border-primary-green' : 'bg-white text-slate-400 border-slate-200'
-					]}
+					].filter(Boolean).join(' ')}
 				>
 					3
 				</span>

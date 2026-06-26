@@ -484,7 +484,7 @@
 							<td class="p-4 text-slate-500">{expense.description}</td>
 							<td class="p-4 font-extrabold text-slate-800">₹{expense.amount.toFixed(2)}</td>
 							<td class="p-4">
-								<span class={['px-2.5 py-0.5 rounded-full text-[10px] font-bold border', expense.statusColor]}>
+								<span class={['px-2.5 py-0.5 rounded-full text-[10px] font-bold border', expense.statusColor].filter(Boolean).join(' ')}>
 									{expense.status}
 								</span>
 							</td>

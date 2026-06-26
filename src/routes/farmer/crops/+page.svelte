@@ -194,7 +194,7 @@
 								class={[
 									'flex-1 py-1.5 text-center text-[10px] font-bold rounded-lg transition-all',
 									imageInputType === 'url' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'
-								]}
+								].filter(Boolean).join(' ')}
 							>
 								Image URL
 							</button>
@@ -204,7 +204,7 @@
 								class={[
 									'flex-1 py-1.5 text-center text-[10px] font-bold rounded-lg transition-all',
 									imageInputType === 'file' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'
-								]}
+								].filter(Boolean).join(' ')}
 							>
 								Upload Image
 							</button>
@@ -295,8 +295,8 @@
 				</div>
 				<div class="p-5 flex-grow flex flex-col justify-between gap-4">
 					<div class="flex justify-between items-center text-xs">
-						<span class={['px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1.5', crop.stageColor]}>
-							<span class={['w-1.5 h-1.5 rounded-full', crop.statusDot]}></span>
+						<span class={['px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1.5', crop.stageColor].filter(Boolean).join(' ')}>
+							<span class={['w-1.5 h-1.5 rounded-full', crop.statusDot].filter(Boolean).join(' ')}></span>
 							{crop.stage}
 						</span>
 						<span class="text-slate-400 font-semibold flex items-center gap-1">

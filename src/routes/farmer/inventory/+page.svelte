@@ -285,7 +285,7 @@
 							class={['px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all',
 								filterCategory === cat 
 									? 'bg-primary-green text-white border-primary-green' 
-									: 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50']}
+									: 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'].filter(Boolean).join(' ')}
 						>
 							{cat}
 						</button>
@@ -308,11 +308,11 @@
 					</thead>
 					<tbody class="divide-y divide-slate-50 font-medium text-slate-600">
 						{#each filteredItems as item (item.id)}
-							<tr class={['transition-colors', item.status === 'Low' ? 'hover:bg-red-50/10' : 'hover:bg-slate-50/30']}>
+							<tr class={['transition-colors', item.status === 'Low' ? 'hover:bg-red-50/10' : 'hover:bg-slate-50/30'].filter(Boolean).join(' ')}>
 								<td class="p-4 pl-6">
 									<div class="flex items-center gap-3">
 										<div class={['w-8 h-8 rounded-lg flex items-center justify-center border border-slate-100 shadow-sm', 
-											item.status === 'Low' ? 'bg-red-50 text-red-500' : 'bg-slate-50 text-slate-400']}>
+											item.status === 'Low' ? 'bg-red-50 text-red-500' : 'bg-slate-50 text-slate-400'].filter(Boolean).join(' ')}>
 											<span class="material-symbols-outlined text-[16px]">{item.icon}</span>
 										</div>
 										<span class="font-bold text-slate-800">{item.name}</span>
@@ -323,20 +323,20 @@
 								<td class="p-4 text-right text-slate-400">{(item.soldUsed || 0).toLocaleString()} {item.unit}</td>
 								<td class="p-4 text-right">
 									<div class="flex flex-col items-end">
-										<span class={['font-bold', item.status === 'Low' ? 'text-red-500' : 'text-slate-800']}>
+										<span class={['font-bold', item.status === 'Low' ? 'text-red-500' : 'text-slate-800'].filter(Boolean).join(' ')}>
 											{((item.total || 0) - (item.soldUsed || 0)).toLocaleString()} {item.unit}
 										</span>
 										<!-- Micro progress bar -->
 										<div class="w-16 bg-slate-100 rounded-full h-1 mt-1.5 overflow-hidden">
 											<div 
-												class={['h-full rounded-full', item.status === 'Low' ? 'bg-red-500' : item.status === 'Warning' ? 'bg-amber-400' : 'bg-primary-green']} 
+												class={['h-full rounded-full', item.status === 'Low' ? 'bg-red-500' : item.status === 'Warning' ? 'bg-amber-400' : 'bg-primary-green'].filter(Boolean).join(' ')} 
 												style="width: {item.progress}%"
 											></div>
 										</div>
 									</div>
 								</td>
 								<td class="p-4 pr-6 text-center">
-									<span class={['px-2.5 py-0.5 rounded-full text-[10px] font-bold border', item.statusColor]}>
+									<span class={['px-2.5 py-0.5 rounded-full text-[10px] font-bold border', item.statusColor].filter(Boolean).join(' ')}>
 										{item.status}
 									</span>
 								</td>
