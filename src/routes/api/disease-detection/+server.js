@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { adminDb } from '$lib/server/firebase-admin';
+import { env } from '$env/dynamic/private';
 
 // Diagnostic preset database mapping
 const DIAGNOSTIC_PRESETS = {
@@ -82,7 +83,7 @@ export async function GET({ locals }) {
 }
 
 /** @type {import('./$types').RequestHandler} */
-export async function POST({ request, locals }) {
+export async function POST({ request, locals, fetch }) {
 	if (!locals.user) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
@@ -92,145 +93,137 @@ export async function POST({ request, locals }) {
 	}
 
 	try {
+		const apiKey = env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : '');
+		if (!apiKey) {
+			return json({ error: 'Gemini API key is not configured on the server. Please add GEMINI_API_KEY to your .env file.' }, { status: 400 });
+		}
+
 		const body = await request.json();
 		const { filename, imageUrl } = body;
 
-		const nameLower = (filename || '').toLowerCase();
-		let diagnosis = null;
-
-		// Classify based on crop name keyword matching (fruits, vegetables, grains, crops)
-		if (nameLower.includes('tomato')) {
-			if (nameLower.includes('healthy')) {
-				diagnosis = {
-					pathogen: 'Healthy Tomato (No Pathogens Detected)',
-					confidence: 98,
-					severity: 'None',
-					treatment: 'No active pathogens detected. Maintain standard watering schedule (avoiding overhead sprinklers to protect tomato foliage) and monitor weekly.',
-					field: 'Tomato - Field Block A'
-				};
-			} else {
-				diagnosis = {
-					pathogen: 'Tomato Early Blight (Alternaria solani)',
-					confidence: 94,
-					severity: 'Moderate',
-					treatment: 'Apply copper-based organic fungicides immediately. Prune and destroy lower affected leaves to stop upward splash dispersion. Space plants at least 3 feet apart to facilitate dry airflow.',
-					field: 'Tomato - Field Block A'
-				};
-			}
-		} else if (nameLower.includes('potato')) {
-			if (nameLower.includes('healthy')) {
-				diagnosis = {
-					pathogen: 'Healthy Potato (No Pathogens Detected)',
-					confidence: 99,
-					severity: 'None',
-					treatment: 'Crop condition is optimal. Continue standard moisture monitoring and inspect crop borders periodically for late blight warning signs.',
-					field: 'Potato - Field B'
-				};
-			} else {
-				diagnosis = {
-					pathogen: 'Potato Late Blight (Phytophthora infestans)',
-					confidence: 88,
-					severity: 'High',
-					treatment: 'Uproot and destroy infected tubers/foliage immediately. Apply protective chlorothalonil or mancozeb fungicides on adjacent rows. Avoid watering in late evening to minimize leaf moisture duration.',
-					field: 'Potato - Field B'
-				};
-			}
-		} else if (nameLower.includes('wheat')) {
-			if (nameLower.includes('rust') || nameLower.includes('unhealthy') || nameLower.includes('disease')) {
-				diagnosis = {
-					pathogen: 'Wheat Leaf Rust (Puccinia triticina)',
-					confidence: 92,
-					severity: 'Moderate',
-					treatment: 'Apply triazole or strobilurin-based foliar fungicides at flag leaf emergence. For future seasons, rotate crops and plant rust-resistant wheat seed varieties.',
-					field: 'Wheat - North Plateau'
-				};
-			} else {
-				diagnosis = {
-					pathogen: 'Healthy Wheat (No Disease Detected)',
-					confidence: 99,
-					severity: 'None',
-					treatment: 'Leaves are robust. Maintain standard nitrogen top-dressing schedules and monitor soil moisture at root level.',
-					field: 'Wheat - North Plateau'
-				};
-			}
-		} else if (nameLower.includes('rice')) {
-			diagnosis = {
-				pathogen: 'Rice Bacterial Leaf Blight (Xanthomonas oryzae)',
-				confidence: 86,
-				severity: 'High',
-				treatment: 'Drain the field if flooded to reduce pathogen propagation. Avoid applying excess nitrogen fertilizer which promotes disease. Spray copper oxychloride at early booting stage.',
-				field: 'Rice Paddy Block 2'
-			};
-		} else if (nameLower.includes('corn') || nameLower.includes('maize')) {
-			diagnosis = {
-				pathogen: 'Corn Common Rust (Puccinia sorghi)',
-				confidence: 89,
-				severity: 'Low',
-				treatment: 'Apply strobilurin fungicides if symptoms appear prior to tasseling. Plant resistant hybrids. Till under infected residue post-harvest to reduce overwintering fungi.',
-				field: 'Maize - Block D'
-			};
-		} else if (nameLower.includes('apple')) {
-			diagnosis = {
-				pathogen: 'Apple Scab (Venturia inaequalis)',
-				confidence: 91,
-				severity: 'Moderate',
-				treatment: 'Spray sulfur or copper fungicides during the green tip stage in spring. Clean and destroy fallen leaf debris in autumn to prevent overwintering spores.',
-				field: 'Apple Orchard North'
-			};
-		} else if (nameLower.includes('grape')) {
-			diagnosis = {
-				pathogen: 'Grape Powdery Mildew (Erysiphe necator)',
-				confidence: 93,
-				severity: 'Moderate',
-				treatment: 'Spray potassium bicarbonate or horticultural neem oils pre-bloom. Ensure rigorous canopy pruning to maximize sunlight penetration and airflow.',
-				field: 'Vineyard South'
-			};
-		} else {
-			// Catch-all general crop disease diagnosis generated dynamically but realistically
-			const catchAlls = [
-				{
-					pathogen: 'Powdery Mildew (Podosphaera)',
-					confidence: 87,
-					severity: 'Low',
-					treatment: 'Spray standard horticultural oils, neem oil, or potassium bicarbonate. Improve sun exposure and thin the crop canopy to enhance airflow and reduce humidity.',
-					field: 'General Cultivation Plot'
-				},
-				{
-					pathogen: 'Bacterial Leaf Spot (Pseudomonas syringae)',
-					confidence: 83,
-					severity: 'Moderate',
-					treatment: 'Apply copper-based sprays in dry conditions. Prune affected branches and avoid overhead watering to prevent the bacterium from spreading via water droplets.',
-					field: 'General Cultivation Plot'
-				},
-				{
-					pathogen: 'Spider Mite Infestation (Tetranychidae)',
-					confidence: 79,
-					severity: 'High',
-					treatment: 'Release predatory mites (Phytoseiidae). Spray insecticidal soap or neem oil on leaf undersides where mites nest. Maintain high plant vigor through watering.',
-					field: 'General Cultivation Plot'
-				}
-			];
-			const seedHash = imageUrl ? imageUrl.length : (filename ? filename.length : Date.now());
-			const hashIdx = seedHash % catchAlls.length;
-			diagnosis = catchAlls[hashIdx];
+		if (!imageUrl) {
+			return json({ error: 'No image data provided' }, { status: 400 });
 		}
 
-		const statusColor = diagnosis.pathogen.includes('Healthy')
+		// Extract MIME type and base64 string from data URL
+		let mimeType = 'image/jpeg';
+		let base64Data = imageUrl;
+
+		if (imageUrl.startsWith('data:')) {
+			const parts = imageUrl.split(',');
+			base64Data = parts[1];
+			const mimePart = parts[0].match(/data:(.*?);base64/);
+			if (mimePart) {
+				mimeType = mimePart[1];
+			}
+		}
+
+		const prompt = `You are an expert plant pathologist. Analyze the uploaded leaf image of a crop, vegetable, or fruit.
+Use Google Search grounding to fetch the most accurate, up-to-date scientific remedies, fungicide/treatment protocols, and pathogen spread mitigation protocols.
+
+You must respond ONLY with a raw JSON object containing the following keys:
+1. "pathogen": The common and scientific name of the disease/pathogen (e.g., "Tomato Early Blight (Alternaria solani)"). If the leaf is healthy, write "Healthy (No Disease Detected)" or "Healthy [Crop Name]".
+2. "confidence": A numeric value between 0 and 100 representing your diagnosis confidence.
+3. "severity": One of "None", "Low", "Moderate", "High".
+4. "why_it_happens": A brief, clear explanation (1-2 sentences) explaining why this disease/pathogen infects the leaf (vectors, humidity, environmental conditions, cause).
+5. "steps": An array of strings representing the sequential, step-by-step action plan to solve/treat the disease. Each step should be actionable (e.g. "Apply copper-based organic fungicides", "Prune and destroy infected leaves").
+6. "field": A realistic field location name based on the crop type (e.g., "Tomato - Field Block A", "Potato - Field B", "Wheat - North Plateau").
+
+Format the response as a single, clean JSON block:
+{
+  "pathogen": "...",
+  "confidence": 95,
+  "severity": "Moderate",
+  "why_it_happens": "...",
+  "steps": [
+    "Step 1...",
+    "Step 2..."
+  ],
+  "field": "..."
+}`;
+
+		const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+		const response = await fetch(endpoint, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				contents: [
+					{
+						parts: [
+							{
+								inlineData: {
+									mimeType: mimeType,
+									data: base64Data
+								}
+							},
+							{
+								text: prompt
+							}
+						]
+					}
+				],
+				tools: [
+					{
+						google_search: {}
+					}
+				]
+			})
+		});
+
+		if (!response.ok) {
+			const errorData = await response.json().catch(() => ({}));
+			console.error('Gemini API Error:', errorData);
+			return json({ error: `Gemini API returned error: ${errorData.error?.message || response.statusText}` }, { status: 502 });
+		}
+
+		const result = await response.json();
+		const textResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+		if (!textResponse) {
+			console.error('Gemini API returned empty response:', result);
+			return json({ error: 'Failed to generate diagnostic report from Gemini API' }, { status: 502 });
+		}
+
+		let cleanText = textResponse.trim();
+		const jsonMatch = cleanText.match(/```json\s*([\s\S]*?)\s*```/) || cleanText.match(/```\s*([\s\S]*?)\s*```/);
+		if (jsonMatch) {
+			cleanText = jsonMatch[1];
+		}
+		cleanText = cleanText.trim();
+
+		let parsed;
+		try {
+			parsed = JSON.parse(cleanText);
+		} catch (parseErr) {
+			console.error('Failed to parse Gemini response as JSON. Raw text:', textResponse, parseErr);
+			return json({ error: 'AI response was not in the expected format. Please try scanning again.' }, { status: 502 });
+		}
+
+		const isHealthy = (parsed.pathogen || '').toLowerCase().includes('healthy') || parsed.severity === 'None';
+		const severity = parsed.severity || 'Moderate';
+
+		const statusColor = isHealthy
 			? 'text-dark-green bg-emerald-50 border-emerald-100/50'
-			: diagnosis.severity === 'High'
+			: severity === 'High'
 				? 'text-red-700 bg-red-50 border-red-100/50'
 				: 'text-amber-800 bg-amber-50 border-amber-100/50';
 
 		const newScan = {
-			crop: diagnosis.field,
-			pathogen: diagnosis.pathogen,
-			confidence: diagnosis.confidence,
-			severity: diagnosis.severity,
+			crop: parsed.field || 'General Cultivation Plot',
+			pathogen: parsed.pathogen || 'Unknown Condition',
+			confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 80,
+			severity: severity,
 			statusColor,
 			time: 'Just now',
 			image: imageUrl,
 			farmerId: locals.user.uid,
-			createdAt: new Date().toISOString()
+			createdAt: new Date().toISOString(),
+			whyItHappens: parsed.why_it_happens || parsed.whyItHappens || 'Pathogen vectors or environmental factors.',
+			steps: Array.isArray(parsed.steps) ? parsed.steps : (parsed.treatment ? [parsed.treatment] : []),
+			treatment: parsed.treatment || (Array.isArray(parsed.steps) ? parsed.steps.join(' ') : 'No treatment protocol provided.')
 		};
 
 		const docRef = await adminDb.collection('disease_scans').add(newScan);

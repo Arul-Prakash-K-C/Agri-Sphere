@@ -111,6 +111,8 @@
 					confidence: scanResult.confidence,
 					severity: scanResult.severity,
 					treatment: scanResult.treatment,
+					whyItHappens: scanResult.whyItHappens,
+					steps: scanResult.steps,
 					field: scanResult.crop || scanResult.field,
 					severityTextColor: scanResult.statusColor || 'text-amber-800 bg-amber-50 border-amber-100/50',
 					severityColor: scanResult.severity === 'High' ? 'bg-red-500' : (scanResult.severity === 'None' ? 'bg-primary-green' : 'bg-amber-500')
@@ -313,14 +315,44 @@
 							{/if}
 						</div>
 
+						<!-- Why It Happens -->
+						<div>
+							<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+								<span class="material-symbols-outlined text-[14px]">help_center</span>
+								Why It Happens
+							</p>
+							<div class="mt-2 bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs text-slate-600 leading-relaxed font-semibold">
+								{scanCompleted ? (currentDiagnosis?.whyItHappens || 'N/A') : 'Run detection to understand the primary cause of this condition.'}
+							</div>
+						</div>
+
 						<!-- Suggested Treatment Actions -->
 						<div>
 							<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
 								<span class="material-symbols-outlined text-[14px]">medication</span>
-								Treatment Protocol
+								Step-by-Step Remedies
 							</p>
-							<div class="mt-2 bg-emerald-50/20 border border-emerald-100/50 rounded-xl p-4 text-xs text-slate-600 leading-relaxed font-semibold">
-								{scanCompleted ? currentDiagnosis?.treatment : 'Run detection to fetch recommended fungicide treatment, watering frequency updates, and pathogen spread mitigation protocols.'}
+							<div class="mt-2 space-y-2.5">
+								{#if scanCompleted}
+									{#if currentDiagnosis?.steps && currentDiagnosis.steps.length > 0}
+										{#each currentDiagnosis.steps as step, idx}
+											<div class="bg-emerald-50/20 border border-emerald-100/50 rounded-xl p-3 flex items-start gap-3 text-xs text-slate-600 font-semibold" transition:slide={{ duration: 150 }}>
+												<span class="w-5 h-5 rounded-full bg-emerald-50 text-dark-green font-bold flex items-center justify-center flex-shrink-0 text-[10px]">
+													{idx + 1}
+												</span>
+												<p class="leading-normal">{step}</p>
+											</div>
+										{/each}
+									{:else}
+										<div class="bg-emerald-50/20 border border-emerald-100/50 rounded-xl p-4 text-xs text-slate-600 leading-relaxed font-semibold">
+											{currentDiagnosis?.treatment || 'No remedies found.'}
+										</div>
+									{/if}
+								{:else}
+									<div class="bg-emerald-50/20 border border-emerald-100/50 rounded-xl p-4 text-xs text-slate-600 leading-relaxed font-semibold">
+										Run detection to fetch recommended fungicide treatment, watering updates, and pathogen spread mitigation protocols.
+									</div>
+								{/if}
 							</div>
 						</div>
 					</div>

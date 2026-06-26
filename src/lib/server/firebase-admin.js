@@ -7,7 +7,7 @@ let adminDb;
 
 if (env.FIREBASE_SERVICE_ACCOUNT_KEY) {
 	// Standard Admin SDK initialization when Service Account Key is provided
-	const { initializeApp, cert } = await import('firebase-admin/app');
+	const { initializeApp, cert, getApps } = await import('firebase-admin/app');
 	const { getAuth } = await import('firebase-admin/auth');
 	const { getFirestore } = await import('firebase-admin/firestore');
 
@@ -31,7 +31,8 @@ if (env.FIREBASE_SERVICE_ACCOUNT_KEY) {
 		serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
 	}
 
-	const adminApp = initializeApp({
+	const apps = getApps();
+	const adminApp = apps.length > 0 ? apps[0] : initializeApp({
 		credential: cert(serviceAccount)
 	});
 
