@@ -60,6 +60,49 @@
 		await logout();
 		goto('/login');
 	}
+
+	// Notifications state
+	let notifications = $state([]);
+	let showNotifications = $state(false);
+	let unreadCount = $derived(notifications.filter(n => !n.read).length);
+
+	$effect(() => {
+		if (authState.user) {
+			fetchNotifications();
+		} else {
+			notifications = [];
+		}
+	});
+
+	async function fetchNotifications() {
+		try {
+			const res = await fetch('/api/notifications');
+			if (res.ok) {
+				notifications = await res.json();
+			}
+		} catch (e) {
+			console.error('Error fetching notifications:', e);
+		}
+	}
+
+	async function markAsRead(id) {
+		try {
+			const res = await fetch('/api/notifications', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id, read: true })
+			});
+			if (res.ok) {
+				notifications = notifications.map(n => n.id === id ? { ...n, read: true } : n);
+			}
+		} catch (e) {
+			console.error('Error marking notification as read:', e);
+		}
+	}
+
+	function toggleNotificationsDropdown() {
+		showNotifications = !showNotifications;
+	}
 </script>
 
 <svelte:head>
@@ -162,10 +205,47 @@
 						/>
 					</div>
 
-					<button class="text-slate-500 hover:text-primary-green hover:bg-emerald-50 p-2 rounded-2xl transition-all scale-95 active:scale-90 relative">
-						<span class="material-symbols-outlined text-[22px]">notifications</span>
-						<span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-					</button>
+					<div class="relative">
+						<button 
+							onclick={toggleNotificationsDropdown}
+							class="text-slate-500 hover:text-primary-green hover:bg-emerald-50 p-2 rounded-2xl transition-all scale-95 active:scale-90 relative cursor-pointer"
+						>
+							<span class="material-symbols-outlined text-[22px]">notifications</span>
+							{#if unreadCount > 0}
+								<span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+							{/if}
+						</button>
+
+						{#if showNotifications}
+							<!-- Notifications Dropdown Dialog -->
+							<div class="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-4 space-y-3 text-xs text-slate-700 animate-fade-in">
+								<div class="flex justify-between items-center border-b border-slate-100 pb-2">
+									<span class="font-extrabold text-slate-800">Notifications</span>
+									{#if unreadCount > 0}
+										<span class="bg-red-50 text-red-650 px-2 py-0.5 rounded-full text-[10px] font-bold">{unreadCount} New</span>
+									{/if}
+								</div>
+								<div class="max-h-60 overflow-y-auto space-y-2.5 pr-1">
+									{#each notifications.slice(0, 5) as item}
+										<div class={['p-2.5 rounded-xl border flex flex-col gap-1 transition-colors', item.read ? 'bg-slate-50 border-slate-100 text-slate-450 font-normal' : 'bg-emerald-50/30 border-emerald-100/50 text-slate-850 font-bold'].join(' ')}>
+											<div class="flex justify-between items-start gap-2">
+												<span class="font-black truncate text-[11px] text-slate-800">{item.title}</span>
+												{#if !item.read}
+													<button onclick={() => markAsRead(item.id)} class="text-[9px] text-primary-green hover:underline shrink-0 font-bold cursor-pointer">Mark read</button>
+												{/if}
+											</div>
+											<p class="text-[10px] leading-relaxed text-slate-500 font-medium">{item.message}</p>
+										</div>
+									{:else}
+										<div class="text-center text-slate-400 py-6 font-medium">
+											<span class="material-symbols-outlined text-2xl text-slate-350 block">notifications_off</span>
+											<p class="mt-1">No notifications yet.</p>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
+					</div>
 
 					<button class="text-slate-500 hover:text-primary-green hover:bg-emerald-50 p-2 rounded-2xl transition-all scale-95 active:scale-90">
 						<span class="material-symbols-outlined text-[22px]">settings</span>
@@ -237,8 +317,9 @@
 									</div>
 								</div>
 								<div class="lg:col-span-4 space-y-6">
+									<div class="skeleton h-44 w-full rounded-2xl"></div>
+									<div class="skeleton h-60 w-full rounded-2xl bg-slate-200/50"></div>
 									<div class="skeleton h-64 w-full rounded-2xl"></div>
-									<div class="skeleton h-[360px] w-full rounded-2xl"></div>
 								</div>
 							</div>
 						</div>

@@ -9,25 +9,13 @@
 	let activities = $state([]);
 	let weatherOverrides = $state({});
 
-	// Manual override valves state
-	let valveStateZone1 = $state(false);
-	let valveStateZone2 = $state(false);
-	let valveStateZone3 = $state(false);
-
 	// Sync data on page load or update
 	$effect(() => {
 		scheduleRuns = data.scheduleRuns || [];
 		upcomingRuns = data.upcomingRuns || [];
 		activities = data.activities || [];
 		weatherOverrides = data.weatherOverrides || {};
-		
-		// Set values without triggering the save effect
-		valveStateZone1 = !!data.valves?.zone1;
-		valveStateZone2 = !!data.valves?.zone2;
-		valveStateZone3 = !!data.valves?.zone3;
 	});
-
-	let activeTab = $state('schedule'); // 'schedule' | 'health' | 'manual'
 	let showAddModal = $state(false);
 
 	// Calendar Navigation
@@ -109,6 +97,8 @@
 		const coordRegex = /^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/;
 		const match = address.trim().match(coordRegex);
 
+		const apiKey = import.meta.env.VITE_OPENWEATHER_API_KEY;
+
 		if (match) {
 			lat = parseFloat(match[1]);
 			lon = parseFloat(match[2]);
@@ -132,23 +122,46 @@
 				console.error('Reverse geocoding error:', e);
 			}
 		} else {
-			try {
-				const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(address)}&count=1&language=en&format=json`);
-				if (geoRes.ok) {
-					const geoData = await geoRes.json();
-					if (geoData.results && geoData.results[0]) {
-						const result = geoData.results[0];
-						lat = result.latitude;
-						lon = result.longitude;
-						resolvedLocationName = [result.name, result.admin1, result.country].filter(Boolean).slice(0, 2).join(', ');
-						activeWeatherAddress = address;
+			let geocoded = false;
+			if (apiKey) {
+				try {
+					const geoRes = await fetch(`http://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(address)}&limit=1&appid=${apiKey}`);
+					if (geoRes.ok) {
+						const geoData = await geoRes.json();
+						if (geoData && geoData[0]) {
+							const result = geoData[0];
+							lat = result.lat;
+							lon = result.lon;
+							resolvedLocationName = [result.name, result.state, result.country].filter(Boolean).slice(0, 2).join(', ');
+							activeWeatherAddress = address;
+							geocoded = true;
+						}
 					}
+				} catch (e) {
+					console.error('Frontend OpenWeather geocoding error:', e);
 				}
-			} catch (e) {
-				console.error('Frontend geocoding error:', e);
+			}
+
+			if (!geocoded) {
+				try {
+					const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(address)}&count=1&language=en&format=json`);
+					if (geoRes.ok) {
+						const geoData = await geoRes.json();
+						if (geoData.results && geoData.results[0]) {
+							const result = geoData.results[0];
+							lat = result.latitude;
+							lon = result.longitude;
+							resolvedLocationName = [result.name, result.admin1, result.country].filter(Boolean).slice(0, 2).join(', ');
+							activeWeatherAddress = address;
+						}
+					}
+				} catch (e) {
+					console.error('Frontend fallback geocoding error:', e);
+				}
 			}
 		}
 
+		// First fetch Open-Meteo to populate 16 days baseline and general current temp/precip
 		try {
 			const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,precipitation&daily=precipitation_probability_max,temperature_2m_max&temperature_unit=fahrenheit&timezone=auto&forecast_days=16`);
 			if (weatherRes.ok) {
@@ -176,10 +189,52 @@
 				}
 			}
 		} catch (e) {
-			console.error('Frontend weather fetch error:', e);
-		} finally {
-			weatherLoading = false;
+			console.error('Frontend Open-Meteo weather fetch error:', e);
 		}
+
+		// Overwrite/merge with OpenWeatherMap data if API key is present
+		if (apiKey) {
+			try {
+				const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}`);
+				if (weatherRes.ok) {
+					const weatherData = await weatherRes.json();
+					if (weatherData.list) {
+						// Group 3-hourly forecast records by day to get the daily maximum precipitation probability
+						const maxPopsByDate = {};
+						weatherData.list.forEach(item => {
+							const dStr = item.dt_txt.split(' ')[0];
+							const popPercent = Math.round((item.pop || 0) * 100);
+							if (maxPopsByDate[dStr] === undefined || popPercent > maxPopsByDate[dStr]) {
+								maxPopsByDate[dStr] = popPercent;
+							}
+						});
+
+						// Overwrite the baseline precipitation values for the matching OpenWeatherMap forecast days
+						const updatedPrecip = { ...dailyPrecipitation };
+						Object.entries(maxPopsByDate).forEach(([dStr, popPercent]) => {
+							updatedPrecip[dStr] = popPercent;
+						});
+						dailyPrecipitation = updatedPrecip;
+
+						// Update today's weather variables with OpenWeatherMap values
+						const todayStr = `${todayYear}-${pad(todayMonth + 1)}-${pad(todayDate)}`;
+						if (maxPopsByDate[todayStr] !== undefined) {
+							weatherPrecipitationToday = maxPopsByDate[todayStr];
+						}
+
+						// Convert first interval's temperature from Kelvin to Fahrenheit
+						if (weatherData.list[0] && weatherData.list[0].main && weatherData.list[0].main.temp !== undefined) {
+							const tempKelvin = weatherData.list[0].main.temp;
+							weatherTempToday = Math.round((tempKelvin - 273.15) * 1.8 + 32);
+						}
+					}
+				}
+			} catch (e) {
+				console.error('Frontend OpenWeather weather fetch/parse error:', e);
+			}
+		}
+
+		weatherLoading = false;
 	}
 
 	function detectBrowserLocation() {
@@ -247,6 +302,7 @@
 
 		const displayZone = isCustomNote ? `Note: ${customNoteText}` : newZone;
 		const displayTime = isCustomNote && !newTime ? 'All Day' : (newTime || '05:00 - 06:00');
+		const clickedDateStr = `${currentYear}-${pad(currentMonth + 1)}-${pad(clickedDay)}`;
 
 		try {
 			const res = await fetch('/api/irrigation', {
@@ -256,8 +312,7 @@
 					action: 'add_run',
 					payload: {
 						zone: displayZone,
-						startDateStr: newStartDateStr,
-						endDateStr: newEndDateStr,
+						startDateStr: clickedDateStr,
 						intervalDays: Number(newIntervalDays),
 						time: displayTime,
 						location: activeWeatherAddress
@@ -331,32 +386,118 @@
 		}
 	}
 
-	// Save valves state whenever a toggle changes
-	async function saveValves() {
+	async function deleteRun(runId) {
+		if (!confirm('Are you sure you want to delete this scheduled item?')) return;
+		loading = true;
+		error = '';
+
 		try {
 			const res = await fetch('/api/irrigation', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					action: 'update_valves',
-					payload: {
-						valves: {
-							zone1: valveStateZone1,
-							zone2: valveStateZone2,
-							zone3: valveStateZone3
-						}
-					}
+					action: 'delete_run',
+					payload: { runId }
 				})
 			});
-			if (res.ok) {
-				const result = await res.json();
-				if (result.activities) {
-					activities = result.activities;
-				}
+
+			if (!res.ok) {
+				const resData = await res.json();
+				throw new Error(resData.error || 'Failed to delete schedule item');
 			}
+
+			const result = await res.json();
+			scheduleRuns = result.runs || [];
+			if (result.upcomingRuns) upcomingRuns = result.upcomingRuns;
 		} catch (err) {
-			console.error('Error saving valves state:', err);
+			error = err.message;
+		} finally {
+			loading = false;
 		}
+	}
+
+	async function clearAll() {
+		if (!confirm('Are you sure you want to clear ALL scheduled irrigation events, notes, and weather adjustments? This cannot be undone.')) return;
+		loading = true;
+		error = '';
+
+		try {
+			const res = await fetch('/api/irrigation', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					action: 'clear_all'
+				})
+			});
+
+			if (!res.ok) {
+				const resData = await res.json();
+				throw new Error(resData.error || 'Failed to clear all items');
+			}
+
+			const result = await res.json();
+			scheduleRuns = result.runs || [];
+			upcomingRuns = result.upcomingRuns || [];
+			activities = result.activities || [];
+			weatherOverrides = {};
+		} catch (err) {
+			error = err.message;
+		} finally {
+			loading = false;
+		}
+	}
+
+	function getCropEmoji(zoneName) {
+		const name = (zoneName || '').toLowerCase();
+		
+		// Fruits
+		if (
+			name.includes('dragon') || name.includes('pitaya') || name.includes('pitahaya') ||
+			name.includes('berry') || name.includes('strawberry') || name.includes('blueberry') || name.includes('raspberry') ||
+			name.includes('grape') || name.includes('vineyard') || name.includes('wine') ||
+			name.includes('apple') || name.includes('pear') || name.includes('peach') || name.includes('orchard') ||
+			name.includes('orange') || name.includes('lemon') || name.includes('citrus') ||
+			name.includes('fruit') || name.includes('mango') || name.includes('banana') || name.includes('melon') || name.includes('watermelon')
+		) {
+			return '🍎';
+		}
+
+		// Vegies / Vegetables
+		if (
+			name.includes('tomato') || name.includes('cucumber') || name.includes('squash') || name.includes('zucchini') ||
+			name.includes('lettuce') || name.includes('spinach') || name.includes('cabbage') || name.includes('greens') || name.includes('salad') ||
+			name.includes('potato') || name.includes('tuber') || name.includes('yam') ||
+			name.includes('carrot') || name.includes('radish') ||
+			name.includes('chili') || name.includes('pepper') ||
+			name.includes('vegie') || name.includes('vegetable') || name.includes('onion') || name.includes('garlic') || name.includes('broccoli')
+		) {
+			return '🥕';
+		}
+
+		// Crops / Grains
+		if (
+			name.includes('wheat') || name.includes('rice') || name.includes('grain') || name.includes('paddy') ||
+			name.includes('corn') || name.includes('maize') || name.includes('crop') || name.includes('field') ||
+			name.includes('barley') || name.includes('oat') || name.includes('rye')
+		) {
+			return '🌾';
+		}
+
+		return '🌱'; // Default fallback
+	}
+
+	function getCropColorClasses(zoneName) {
+		const emoji = getCropEmoji(zoneName);
+		if (emoji === '🍎') {
+			return 'bg-red-50 text-red-950 border-red-100';
+		}
+		if (emoji === '🥕') {
+			return 'bg-orange-50 text-orange-950 border-orange-100';
+		}
+		if (emoji === '🌾') {
+			return 'bg-amber-50/70 text-amber-950 border-amber-100';
+		}
+		return 'bg-emerald-50 text-emerald-950 border-emerald-100';
 	}
 
 	// Interactive calendar hover highlights
@@ -376,13 +517,25 @@
 			</h1>
 			<p class="text-sm text-slate-500 mt-1">Monitor and schedule water distribution zones.</p>
 		</div>
-		<button 
-			onclick={() => openAddModalForDate(1)}
-			class="bg-gradient-to-br from-primary-green to-dark-green text-white font-bold text-xs px-5 py-3 rounded-full flex items-center justify-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/45 hover:-translate-y-0.5 transition-all whitespace-nowrap cursor-pointer"
-		>
-			<span class="material-symbols-outlined text-[18px]">calendar_today</span>
-			<span>Schedule New Run / Note</span>
-		</button>
+		<div class="flex items-center gap-3">
+			{#if scheduleRuns.length > 0}
+				<button 
+					onclick={clearAll}
+					class="border border-red-200 text-red-650 hover:bg-red-50/50 font-bold text-xs px-4 py-3 rounded-full flex items-center justify-center gap-1.5 transition-all whitespace-nowrap cursor-pointer"
+					title="Clear all events and weather overrides"
+				>
+					<span class="material-symbols-outlined text-[16px]">delete_sweep</span>
+					<span>Clear All</span>
+				</button>
+			{/if}
+			<button 
+				onclick={() => openAddModalForDate(1)}
+				class="bg-gradient-to-br from-primary-green to-dark-green text-white font-bold text-xs px-5 py-3 rounded-full flex items-center justify-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/45 hover:-translate-y-0.5 transition-all whitespace-nowrap cursor-pointer"
+			>
+				<span class="material-symbols-outlined text-[18px]">calendar_today</span>
+				<span>Schedule New Run / Note</span>
+			</button>
+		</div>
 	</div>
 
 	<!-- Add Run / Note Modal -->
@@ -394,7 +547,7 @@
 						<span class="material-symbols-outlined text-primary-green text-lg">
 							{modalActiveTab === 'weather' ? 'wb_sunny' : 'event_note'}
 						</span>
-						<span>{modalActiveTab === 'weather' ? `Adjust Weather (${monthNames[currentMonth].substring(0, 3)} ${clickedDay})` : (isCustomNote ? 'Add Calendar Note' : 'Schedule Irrigation Event')}</span>
+						<span>{modalActiveTab === 'weather' ? `Adjust Weather (${monthNames[currentMonth].substring(0, 3)} ${clickedDay})` : (isCustomNote ? `Add Note for ${monthNames[currentMonth].substring(0, 3)} ${clickedDay}` : `Schedule Irrigation (starts ${monthNames[currentMonth].substring(0, 3)} ${clickedDay})`)}</span>
 					</h3>
 					<button onclick={() => showAddModal = false} class="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-full hover:bg-slate-100 flex items-center cursor-pointer">
 						<span class="material-symbols-outlined text-lg">close</span>
@@ -466,16 +619,7 @@
 							</label>
 						{/if}
 
-						<div class="grid grid-cols-2 gap-4">
-							<label class="block">
-								<span class="block mb-1">Start Date</span>
-								<input type="date" bind:value={newStartDateStr} required class="input-field w-full text-xs" />
-							</label>
-							<label class="block">
-								<span class="block mb-1">End Date</span>
-								<input type="date" min={newStartDateStr} bind:value={newEndDateStr} required class="input-field w-full text-xs" />
-							</label>
-						</div>
+
 
 						<div class="grid grid-cols-2 gap-4">
 							<label class="block">
@@ -586,90 +730,77 @@
 		</div>
 	{/if}
 
-	<!-- Summary Cards -->
-	<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-		<div class="glass-card rounded-2xl p-6 flex flex-col gap-3 border-l-4 border-l-primary-green">
-			<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Weekly Water Usage</p>
-			<div class="flex items-baseline gap-2">
-				<p class="text-3xl font-black text-slate-800">450 <span class="text-sm font-bold text-slate-400">gal</span></p>
-				<span class="text-red-500 text-xs font-bold flex items-center">
-					<span class="material-symbols-outlined text-sm">trending_up</span> 5%
-				</span>
-			</div>
-			<div class="w-full bg-slate-100 rounded-full h-1.5 mt-2">
-				<div class="bg-primary-green h-1.5 rounded-full" style="width: 65%"></div>
-			</div>
-		</div>
-
-		<div class="glass-card rounded-2xl p-6 flex flex-col gap-3 border-l-4 border-l-primary-green">
-			<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">System Health</p>
-			<p class="text-2xl font-black text-slate-800">All Zones Active</p>
-			<div class="flex items-center gap-1.5">
-				<span class="size-2 bg-primary-green rounded-full animate-pulse"></span>
-				<p class="text-primary-green text-xs font-bold">Online & Optimizing</p>
-			</div>
-		</div>
-
-		<div class="glass-card rounded-2xl p-6 flex flex-col gap-3 border-l-4 border-l-amber-500">
-			<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Estimated Savings</p>
-			<div class="flex items-baseline gap-2">
-				<p class="text-3xl font-black text-slate-800">15%</p>
-				<span class="text-primary-green text-xs font-bold flex items-center">
-					<span class="material-symbols-outlined text-sm">trending_down</span> 2%
-				</span>
-			</div>
-			{#if activeRainToday > 0}
-				<p class="text-slate-500 text-xs leading-relaxed">System adjusted for weather forecast: {activeRainToday}% rain probability today.</p>
-			{:else}
-				<p class="text-slate-500 text-xs leading-relaxed">No rain forecast today. Optimal watering scheduled.</p>
-			{/if}
-		</div>
-	</div>
 
 	<!-- Main Body Layout -->
 	<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 		
-		<!-- Left Panel: Interactive Schedule and Override Tabs (8 cols) -->
+		<!-- Left Panel: Interactive Schedule (8 cols) -->
 		<div class="lg:col-span-8 space-y-6">
-			<!-- Navigation Tabs -->
-			<div class="flex border-b border-slate-200 gap-8">
-				<button 
-					onclick={() => activeTab = 'schedule'}
-					class={['pb-4 px-1 font-bold text-xs tracking-wider transition-all border-b-2', 
-						activeTab === 'schedule' ? 'border-primary-green text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'].filter(Boolean).join(' ')}
-				>
-					IRRIGATION SCHEDULE
-				</button>
-				<button 
-					onclick={() => activeTab = 'health'}
-					class={['pb-4 px-1 font-bold text-xs tracking-wider transition-all border-b-2', 
-						activeTab === 'health' ? 'border-primary-green text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'].filter(Boolean).join(' ')}
-				>
-					SYSTEM HEALTH
-				</button>
-				<button 
-					onclick={() => activeTab = 'manual'}
-					class={['pb-4 px-1 font-bold text-xs tracking-wider transition-all border-b-2', 
-						activeTab === 'manual' ? 'border-primary-green text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'].filter(Boolean).join(' ')}
-				>
-					MANUAL OVERRIDE
-				</button>
-			</div>
-
-			<!-- Tab contents -->
-			{#if activeTab === 'schedule'}
-				<div transition:fade={{ duration: 100 }} class="glass-card rounded-2xl overflow-hidden bg-white">
-					<div class="p-6 border-b border-slate-100 flex items-center justify-between">
-						<h3 class="font-extrabold text-slate-850 text-base">{monthNames[currentMonth]} {currentYear}</h3>
-						<div class="flex gap-2">
-							<button onclick={prevMonth} class="size-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer" title="Previous Month">
-								<span class="material-symbols-outlined text-base">chevron_left</span>
-							</button>
-							<button onclick={nextMonth} class="size-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer" title="Next Month">
-								<span class="material-symbols-outlined text-base">chevron_right</span>
-							</button>
-						</div>
+			<div class="glass-card rounded-2xl overflow-hidden bg-white">
+				<div class="p-6 border-b border-slate-100 flex items-center justify-between">
+					<h3 class="font-extrabold text-slate-850 text-base">{monthNames[currentMonth]} {currentYear}</h3>
+					<div class="flex gap-2">
+						<button onclick={prevMonth} class="size-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer" title="Previous Month">
+							<span class="material-symbols-outlined text-base">chevron_left</span>
+						</button>
+						<button onclick={nextMonth} class="size-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer" title="Next Month">
+							<span class="material-symbols-outlined text-base">chevron_right</span>
+						</button>
 					</div>
+				</div>
+				
+				<!-- Calendar Grid -->
+				<div class="grid grid-cols-7 bg-slate-50/50">
+					<!-- Day Headers -->
+					{#each ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as day}
+						<div class="p-3 text-center text-[10px] font-black text-slate-400 border-r border-b border-slate-100">{day}</div>
+					{/each}
+
+					<!-- Empty Cells for previous month alignment -->
+					{#each Array.from({ length: firstDayIndex }) as _}
+						<div class="min-h-[110px] border-r border-b border-slate-100 bg-slate-50/10"></div>
+					{/each}
+
+					<!-- Days of current month -->
+					{#each Array.from({ length: totalDaysInMonth }) as _, index}
+						{@const dateNumber = index + 1}
+						{@const dateKey = `${currentYear}-${pad(currentMonth + 1)}-${pad(dateNumber)}`}
+						{@const override = weatherOverrides[dateKey]}
+						{@const rainChance = override ? override.rainProbability : (dailyPrecipitation[dateKey] || 0)}
+						{@const didItRain = override ? override.didRain : false}
+						{@const cellRuns = scheduleRuns.filter(r => 
+							r.date === dateNumber && 
+							Number(r.month ?? 9) === currentMonth && 
+							Number(r.year ?? 2023) === currentYear
+						)}
+						
+						<div 
+							role="gridcell"
+							tabindex="-1"
+							onclick={() => openAddModalForDate(dateNumber)}
+							onmouseenter={() => hoveredCell = dateNumber}
+							onmouseleave={() => hoveredCell = null}
+							class={['min-h-[110px] p-3 border-r border-b border-slate-100 flex flex-col justify-between transition-colors relative cursor-pointer group hover:bg-slate-50/50',
+								hoveredCell === dateNumber ? 'bg-slate-50' : 'bg-white',
+								(dateNumber === todayDate && currentMonth === todayMonth && currentYear === todayYear) ? 'bg-emerald-50/45 border-primary-green/30 font-black ring-1 ring-inset ring-primary-green/20' : ''
+							].filter(Boolean).join(' ')}
+						>
+							<div class="flex justify-between items-center w-full">
+								<span class={['text-[11px] font-bold', 
+									(dateNumber === todayDate && currentMonth === todayMonth && currentYear === todayYear) ? 'text-primary-green font-black underline decoration-2 underline-offset-2' : 'text-slate-400'
+								].filter(Boolean).join(' ')}>
+									{dateNumber}
+								</span>
+								<div class="flex items-center gap-1">
+									{#if rainChance > 0 || didItRain}
+										<span 
+											class={['text-[8px] font-black flex items-center gap-0.5', 
+												didItRain ? 'text-sky-700 bg-sky-100/50 px-1.5 py-0.5 rounded-md border border-sky-200/30' : 'text-sky-650 bg-sky-50 px-1 py-0.5 rounded border border-sky-100'
+											].filter(Boolean).join(' ')} 
+											title={didItRain ? `Manual override: Rained (${rainChance}%)` : `Rain probability: ${rainChance}%`}
+										>
+											<span class="material-symbols-outlined text-[10px] text-sky-550 fill-1">
+												{didItRain ? 'umbrella' : 'rainy'}
 					
 					<!-- Calendar Grid -->
 					<div class="grid grid-cols-7 bg-slate-50/50">
@@ -723,190 +854,80 @@
 												</span>
 												{didItRain ? 'Rained' : `${rainChance}%`}
 											</span>
-										{/if}
-										<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 text-slate-400 hover:text-primary-green transition-opacity">add</span>
-									</div>
+											{didItRain ? 'Rained' : `${rainChance}%`}
+										</span>
+									{/if}
+									<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 text-slate-400 hover:text-primary-green transition-opacity">add</span>
 								</div>
-								
-								{#if cellRuns.length > 0}
-									<div class="space-y-1.5 mt-2 w-full">
-										{#each cellRuns as run}
-											<div class={['p-1.5 rounded-lg text-[9px] font-extrabold border shadow-sm leading-tight break-words', run.colorClass].filter(Boolean).join(' ')}>
-												{#if run.zone.startsWith('Note:')}
-													<div class="flex items-start gap-1 text-slate-800">
+							</div>
+							
+							{#if cellRuns.length > 0}
+								<div class="space-y-1.5 mt-2 w-full">
+									{#each cellRuns as run}
+										{#if run.zone.startsWith('Note:')}
+											<div class="relative rounded-xl overflow-hidden text-[9px] font-extrabold border border-amber-200/50 shadow-sm leading-tight min-h-[44px] flex flex-col justify-between group/run text-amber-950 bg-gradient-to-br from-amber-50 to-amber-100">
+												<div class="p-1.5 flex flex-col justify-between h-full min-h-[44px] pr-5">
+													<div class="flex items-start gap-1">
 														<span class="material-symbols-outlined text-[10px] shrink-0 mt-0.5 text-amber-600">description</span>
-														<div class="flex-1">
-															<span>{run.zone.substring(5).trim()}</span>
-															<div class="font-normal opacity-85 mt-0.5 text-[8px]">{run.time}</div>
-														</div>
+														<span class="font-bold line-clamp-2">{run.zone.substring(5).trim()}</span>
 													</div>
-												{:else}
+													<div class="font-normal opacity-85 text-[8px] mt-1">{run.time}</div>
+												</div>
+												<button 
+													onclick={(e) => { e.stopPropagation(); deleteRun(run.id); }}
+													class="absolute right-1 top-1 text-amber-650/80 hover:text-red-500 opacity-0 group-hover/run:opacity-100 transition-opacity p-0.5 rounded hover:bg-amber-200/50 flex items-center justify-center cursor-pointer animate-fade-in"
+													title="Delete note"
+												>
+													<span class="material-symbols-outlined text-[10px]">close</span>
+												</button>
+											</div>
+										{:else}
+											<div class={['relative rounded-xl overflow-hidden text-[9px] font-extrabold border shadow-sm leading-tight min-h-[44px] flex flex-col justify-between group/run', getCropColorClasses(run.zone)].filter(Boolean).join(' ')}>
+												<!-- Content Overlaid -->
+												<div class="relative p-1.5 flex flex-col justify-between h-full min-h-[44px] z-10">
 													<div class="flex items-center justify-between gap-1">
-														<span class="font-black text-slate-800 truncate">{run.zone}</span>
+														<span class="font-black truncate flex items-center gap-1">
+															<span class="text-[11px] shrink-0">{getCropEmoji(run.zone)}</span>
+															<span class="truncate">{run.zone}</span>
+														</span>
 														{#if run.extensionDays > 0}
-															<span class="text-[8px] text-sky-600 flex items-center cursor-help shrink-0" title="Shifted +{run.extensionDays}d due to {run.rainProbability}% rain forecast on original date.">☔</span>
+															<span class="text-[8px] flex items-center cursor-help shrink-0" title="Shifted +{run.extensionDays}d due to {run.rainProbability}% rain forecast.">☔</span>
 														{/if}
 													</div>
 													{#if run.extensionDays > 0}
-														<div class="text-[8px] text-sky-700 font-bold mt-0.5">
-															Postponed +{run.extensionDays}d ({run.rainProbability}% Rain)
+														<div class="text-[8px] font-bold text-sky-600">
+															Postponed +{run.extensionDays}d
 														</div>
 													{/if}
-													<div class="font-normal opacity-80 mt-0.5 text-[8px]">{run.time}</div>
-												{/if}
+													<div class="font-normal opacity-75 text-[8px] mt-0.5">{run.time}</div>
+												</div>
+
+												<!-- Hover Action Button to delete individual item -->
+												<button 
+													onclick={(e) => { e.stopPropagation(); deleteRun(run.id); }}
+													class="absolute right-1 top-1 text-slate-400 hover:text-red-500 opacity-0 group-hover/run:opacity-100 transition-opacity p-0.5 rounded hover:bg-black/5 flex items-center justify-center cursor-pointer z-20"
+													title="Delete event"
+												>
+													<span class="material-symbols-outlined text-[10px]">close</span>
+												</button>
 											</div>
-										{/each}
-									</div>
-								{/if}
-							</div>
-						{/each}
-
-						<!-- Additional empty cells to finish grid rows -->
-						{#each Array.from({ length: remainingCells }) as _}
-							<div class="min-h-[110px] border-r border-b border-slate-100 bg-slate-50/10"></div>
-						{/each}
-					</div>
-				</div>
-
-			{:else}
-				<!-- System Health / Manual Override content -->
-				<div transition:fade={{ duration: 100 }} class="glass-card rounded-2xl p-6 bg-white space-y-6">
-					{#if activeTab === 'health'}
-						<h3 class="font-extrabold text-slate-800 text-base mb-4">Sprinkler Valve Status</h3>
-						<div class="grid gap-4 md:grid-cols-2">
-							{#each ['Zone 1: North Orchard', 'Zone 2: Berries', 'Zone 3: Greenhouses', 'Zone 4: Vineyard'] as zone, idx}
-								<div class="border border-slate-100 rounded-2xl p-4 flex justify-between items-center bg-slate-50/50">
-									<div>
-										<h4 class="font-bold text-slate-800">{zone}</h4>
-										<p class="text-[10px] text-slate-400 font-bold mt-1 uppercase">Signal: Good • Pressure: 42 PSI</p>
-									</div>
-									<span class="px-2.5 py-0.5 rounded-full bg-emerald-50 text-dark-green text-[10px] font-bold border border-emerald-100">
-										Active
-									</span>
+										{/if}
+									{/each}
 								</div>
-							{/each}
+							{/if}
 						</div>
-					{:else}
-						<h3 class="font-extrabold text-slate-800 text-base mb-4">Manual Valve Controls</h3>
-						<p class="text-xs text-slate-500 mb-6">Manually trigger irrigation zones. These timers run for a default 15 minutes safety limit.</p>
-						<div class="space-y-4">
-							<div class="flex justify-between items-center p-4 border border-slate-100 rounded-2xl bg-slate-50/50">
-								<div>
-									<h4 class="font-bold text-slate-800">Zone 1: North Orchard</h4>
-									<p class="text-[10px] text-slate-400 mt-1 font-bold uppercase">Status: {valveStateZone1 ? 'Irrigating' : 'Idle'}</p>
-								</div>
-								<button 
-									onclick={() => { valveStateZone1 = !valveStateZone1; saveValves(); }}
-									class={['px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm transition-all',
-										valveStateZone1 ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-primary-green text-white hover:bg-dark-green'].filter(Boolean).join(' ')}
-								>
-									{valveStateZone1 ? 'STOP WATER' : 'START WATER'}
-								</button>
-							</div>
+					{/each}
 
-							<div class="flex justify-between items-center p-4 border border-slate-100 rounded-2xl bg-slate-50/50">
-								<div>
-									<h4 class="font-bold text-slate-800">Zone 2: Berries</h4>
-									<p class="text-[10px] text-slate-400 mt-1 font-bold uppercase">Status: {valveStateZone2 ? 'Irrigating' : 'Idle'}</p>
-								</div>
-								<button 
-									onclick={() => { valveStateZone2 = !valveStateZone2; saveValves(); }}
-									class={['px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm transition-all',
-										valveStateZone2 ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-primary-green text-white hover:bg-dark-green'].filter(Boolean).join(' ')}
-								>
-									{valveStateZone2 ? 'STOP WATER' : 'START WATER'}
-								</button>
-							</div>
-
-							<div class="flex justify-between items-center p-4 border border-slate-100 rounded-2xl bg-slate-50/50">
-								<div>
-									<h4 class="font-bold text-slate-800">Zone 3: Greenhouses</h4>
-									<p class="text-[10px] text-slate-400 mt-1 font-bold uppercase">Status: {valveStateZone3 ? 'Irrigating' : 'Idle'}</p>
-								</div>
-								<button 
-									onclick={() => { valveStateZone3 = !valveStateZone3; saveValves(); }}
-									class={['px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm transition-all',
-										valveStateZone3 ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-primary-green text-white hover:bg-dark-green'].filter(Boolean).join(' ')}
-								>
-									{valveStateZone3 ? 'STOP WATER' : 'START WATER'}
-								</button>
-							</div>
-						</div>
-					{/if}
+					<!-- Additional empty cells to finish grid rows -->
+					{#each Array.from({ length: remainingCells }) as _}
+						<div class="min-h-[110px] border-r border-b border-slate-100 bg-slate-50/10"></div>
+					{/each}
 				</div>
-			{/if}
+			</div>
 		</div>
 
 		<!-- Right Panel: Upcoming Runs and Weather Widget (4 cols) -->
 		<div class="lg:col-span-4 space-y-6">
-			<!-- Upcoming Runs -->
-			<div class="glass-card rounded-2xl p-6 space-y-5 bg-white">
-				<div class="flex items-center justify-between">
-					<h3 class="font-extrabold text-slate-800 text-base">Upcoming Runs</h3>
-					<span class="text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-100 px-2.5 py-0.5 rounded-full">Weekly</span>
-				</div>
-				<div class="space-y-4">
-					{#if loading || weatherLoading}
-						<div class="flex w-full flex-col gap-4">
-							<div class="flex items-center gap-4">
-								<div class="skeleton h-12 w-12 shrink-0 rounded-2xl"></div>
-								<div class="flex flex-col gap-3">
-									<div class="skeleton h-4 w-20 rounded"></div>
-									<div class="skeleton h-3 w-28 rounded"></div>
-								</div>
-							</div>
-							<div class="skeleton h-14 w-full rounded-2xl"></div>
-						</div>
-					{:else}
-						{#each upcomingRuns as run (run.id)}
-							<div class="flex gap-4 items-center">
-								<div class="size-12 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col items-center justify-center shrink-0">
-									<p class="text-[9px] font-black text-slate-400 leading-none">{monthNames[run.month !== undefined ? run.month : currentMonth].substring(0, 3).toUpperCase()}</p>
-									<p class="text-base font-black text-slate-800 leading-none mt-1">{run.day}</p>
-								</div>
-								<div>
-									<p class="text-xs font-bold text-slate-850 leading-tight">{run.zone}</p>
-									<p class="text-[10px] text-slate-400 font-semibold mt-1">{run.details}</p>
-								</div>
-							</div>
-						{/each}
-					{/if}
-				</div>
-			</div>
-
-			<!-- Recent Activities -->
-			<div class="glass-card rounded-2xl p-6 space-y-5 bg-white">
-				<h3 class="font-extrabold text-slate-800 text-base">Recent Activity</h3>
-				<div class="relative space-y-6">
-					{#if loading || weatherLoading}
-						<div class="flex w-full flex-col gap-4">
-							<div class="flex items-center gap-4">
-								<div class="skeleton h-10 w-10 shrink-0 rounded-full"></div>
-								<div class="flex flex-col gap-3">
-									<div class="skeleton h-4 w-16 rounded"></div>
-									<div class="skeleton h-3 w-24 rounded"></div>
-								</div>
-							</div>
-						</div>
-					{:else}
-						<!-- Timeline vertical connector -->
-						<div class="absolute left-5 top-2 bottom-2 w-[1.5px] bg-slate-100"></div>
-
-						{#each activities as act (act.id)}
-							<div class="flex gap-4 items-center relative z-10">
-								<div class={['size-10 rounded-full flex items-center justify-center shrink-0 shadow-sm border border-slate-100/50', act.colorClass].filter(Boolean).join(' ')}>
-									<span class="material-symbols-outlined text-[16px]">{act.icon}</span>
-								</div>
-								<div>
-									<p class="text-xs font-bold text-slate-800 leading-tight">{act.title}</p>
-									<p class="text-[10px] text-slate-400 font-semibold mt-1">{act.desc}</p>
-								</div>
-							</div>
-						{/each}
-					{/if}
-				</div>
-			</div>
-
 			<!-- Location Selector -->
 			<div class="glass-card rounded-2xl p-6 bg-white space-y-4 shadow-sm border border-slate-100">
 				<div class="flex items-center justify-between">
@@ -981,6 +1002,44 @@
 						<p class="text-[9px] font-black text-white/70 uppercase tracking-wider mt-1.5">Local Weather: {weatherLocation}</p>
 					</div>
 				{/if}
+			</div>
+
+			<!-- Upcoming Runs -->
+			<div class="glass-card rounded-2xl p-6 space-y-5 bg-white">
+				<div class="flex items-center justify-between">
+					<h3 class="font-extrabold text-slate-800 text-base">Upcoming Runs</h3>
+					<span class="text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-100 px-2.5 py-0.5 rounded-full">Weekly</span>
+				</div>
+				<div class="space-y-4">
+					{#if loading || weatherLoading}
+						<div class="flex w-full flex-col gap-4">
+							<div class="flex items-center gap-4">
+								<div class="skeleton h-12 w-12 shrink-0 rounded-2xl"></div>
+								<div class="flex flex-col gap-3">
+									<div class="skeleton h-4 w-20 rounded"></div>
+									<div class="skeleton h-3 w-28 rounded"></div>
+								</div>
+							</div>
+							<div class="skeleton h-14 w-full rounded-2xl"></div>
+						</div>
+					{:else}
+						{#each upcomingRuns as run (run.id)}
+							<div class="flex gap-4 items-center">
+								<div class="size-12 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col items-center justify-center shrink-0 relative">
+									<p class="text-[9px] font-black text-slate-400 leading-none">{monthNames[run.month !== undefined ? run.month : currentMonth].substring(0, 3).toUpperCase()}</p>
+									<p class="text-base font-black text-slate-800 leading-none mt-1">{run.day}</p>
+									<span class="absolute -bottom-1 -right-1 size-5 bg-white rounded-full flex items-center justify-center text-[10px] border border-slate-100 shadow-sm" title={run.zone}>
+										{getCropEmoji(run.zone)}
+									</span>
+								</div>
+								<div>
+									<p class="text-xs font-bold text-slate-855 leading-tight">{run.zone}</p>
+									<p class="text-[10px] text-slate-400 font-semibold mt-1">{run.details}</p>
+								</div>
+							</div>
+						{/each}
+					{/if}
+				</div>
 			</div>
 		</div>
 
