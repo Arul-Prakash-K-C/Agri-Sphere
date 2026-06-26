@@ -14,11 +14,14 @@
 	// Form values
 	let newName = $state('');
 	let newLocation = $state('');
-	let newStage = $state('Vegetative Stage');
+	let newHarvestDurationType = $state('Seasonal');
+	let newHarvestDuration = $state('Seasonal ()');
 	let newPlantedDate = $state('');
-	let newProgress = $state(50);
 	let newAcres = $state(10);
 	let newImageUrl = $state('');
+
+	let selectedMonths = $state([]);
+	let harvestDays = $state(90);
 
 	// Image Upload Options
 	let imageInputType = $state('url'); // 'url' or 'file'
@@ -44,9 +47,11 @@
 	function closeModal() {
 		newName = '';
 		newLocation = '';
-		newStage = 'Vegetative Stage';
+		newHarvestDurationType = 'Seasonal';
+		newHarvestDuration = 'Seasonal ()';
+		selectedMonths = [];
+		harvestDays = 90;
 		newPlantedDate = '';
-		newProgress = 50;
 		newAcres = 10;
 		newImageUrl = '';
 		uploadedImagePreview = '';
@@ -74,9 +79,8 @@
 				body: JSON.stringify({
 					name: newName,
 					location: newLocation,
-					stage: newStage,
-					plantedDate: newPlantedDate || 'Today',
-					progress: Number(newProgress),
+					plantedDate: newPlantedDate,
+					harvestDuration: newHarvestDuration,
 					acres: Number(newAcres),
 					imageUrl
 				})
@@ -114,6 +118,91 @@
 		} catch (err) {
 			alert(err.message);
 		}
+	}
+
+	function getHarvestStatus(plantedDateStr, harvestDurationStr) {
+		if (!harvestDurationStr) return 'No duration specified';
+
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+
+		// Case 1: Days (e.g. "90 Days" or "Days: 90")
+		if (harvestDurationStr.toLowerCase().includes('days') || /^\d+$/.test(harvestDurationStr.trim())) {
+			const daysMatch = harvestDurationStr.match(/\d+/);
+			if (daysMatch) {
+				const days = parseInt(daysMatch[0], 10);
+				const plantedDate = new Date(plantedDateStr);
+				plantedDate.setHours(0, 0, 0, 0);
+
+				const harvestDate = new Date(plantedDate.getTime() + days * 24 * 60 * 60 * 1000);
+				const diffTime = harvestDate.getTime() - today.getTime();
+				const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+				if (diffDays > 0) {
+					return `harvest in ${diffDays}days`;
+				} else if (diffDays === 0) {
+					return `harvest today`;
+				} else {
+					return `harvested ${Math.abs(diffDays)}days ago`;
+				}
+			}
+		}
+
+		// Case 2: Seasonal (e.g. "Seasonal (May, Jun, Jul, Aug, Sep, Oct)")
+		if (harvestDurationStr.toLowerCase().includes('seasonal')) {
+			const monthsMatch = harvestDurationStr.match(/\(([^)]+)\)/);
+			if (monthsMatch) {
+				const monthsList = monthsMatch[1].split(',').map(m => m.trim()).filter(Boolean);
+				const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+				const activeMonthIndices = monthsList
+					.map(m => monthNames.findIndex(name => name.toLowerCase().startsWith(m.toLowerCase())))
+					.filter(idx => idx !== -1);
+
+				if (activeMonthIndices.length === 0) return 'Seasonal';
+
+				const currentMonthIdx = today.getMonth();
+				const currentYear = today.getFullYear();
+
+				if (activeMonthIndices.includes(currentMonthIdx)) {
+					const lastMonthName = monthsList[monthsList.length - 1];
+					const lastMonthIdx = monthNames.findIndex(name => name.toLowerCase().startsWith(lastMonthName.toLowerCase()));
+
+					let harvestYear = currentYear;
+					const harvestDate = new Date(harvestYear, lastMonthIdx + 1, 0);
+					harvestDate.setHours(0, 0, 0, 0);
+
+					const diffTime = harvestDate.getTime() - today.getTime();
+					const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+					if (diffDays > 0) {
+						return `harvest in ${diffDays}days`;
+					} else if (diffDays === 0) {
+						return `harvest today`;
+					} else {
+						return `harvested`;
+					}
+				} else {
+					const firstMonthName = monthsList[0];
+					const firstMonthIdx = monthNames.findIndex(name => name.toLowerCase().startsWith(firstMonthName.toLowerCase()));
+
+					let startYear = currentYear;
+					if (firstMonthIdx < currentMonthIdx) {
+						startYear = currentYear + 1;
+					}
+
+					const startDate = new Date(startYear, firstMonthIdx, 1);
+					startDate.setHours(0, 0, 0, 0);
+
+					const diffTime = startDate.getTime() - today.getTime();
+					const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+					return `season starts in ${diffDays}days`;
+				}
+			}
+		}
+
+		return harvestDurationStr;
 	}
 </script>
 
@@ -154,33 +243,79 @@
 					</label>
 
 					<label class="block">
-						<span class="block mb-1">Field Location</span>
+						<span class="block mb-1">Crop Field</span>
 						<input type="text" bind:value={newLocation} required placeholder="e.g. Field Block C" class="input-field w-full text-xs" />
 					</label>
 
 					<div class="grid grid-cols-2 gap-4">
 						<label class="block">
-							<span class="block mb-1">Stage</span>
-							<select bind:value={newStage} class="input-field w-full text-xs bg-white py-[9.5px]">
-								<option value="Vegetative Stage">Vegetative</option>
-								<option value="Flowering Stage">Flowering</option>
-								<option value="Harvest-Ready">Harvest-Ready</option>
-							</select>
+							<span class="block mb-1">Planted Date</span>
+							<input type="date" bind:value={newPlantedDate} required class="input-field w-full text-xs bg-white py-[7.5px]" />
 						</label>
 						<label class="block">
-							<span class="block mb-1">Planted Date</span>
-							<input type="text" bind:value={newPlantedDate} placeholder="e.g. Jun 10" class="input-field w-full text-xs" />
+							<span class="block mb-1">Harvest Duration</span>
+							<select bind:value={newHarvestDurationType} class="input-field w-full text-xs bg-white py-[9.5px]" onchange={() => {
+								if (newHarvestDurationType === 'Seasonal') {
+									newHarvestDuration = 'Seasonal (' + selectedMonths.join(', ') + ')';
+								} else {
+									newHarvestDuration = harvestDays + ' Days';
+								}
+							}}>
+								<option value="Seasonal">Seasonal</option>
+								<option value="Days">Days</option>
+							</select>
 						</label>
 					</div>
+
+					{#if newHarvestDurationType === 'Seasonal'}
+						<div class="space-y-1.5">
+							<span class="block mb-1 text-[11px] font-bold text-slate-500">Select Active Months</span>
+							<div class="grid grid-cols-4 gap-2">
+								{#each ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as month}
+									<button
+										type="button"
+										onclick={() => {
+											if (selectedMonths.includes(month)) {
+												selectedMonths = selectedMonths.filter(m => m !== month);
+											} else {
+												selectedMonths = [...selectedMonths, month];
+											}
+											newHarvestDuration = 'Seasonal (' + selectedMonths.join(', ') + ')';
+										}}
+										class={[
+											'py-2 px-1 text-[10px] font-bold rounded-xl border text-center transition-all duration-200',
+											selectedMonths.includes(month)
+												? 'bg-primary-green text-white border-primary-green shadow-sm'
+												: 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+										].filter(Boolean).join(' ')}
+									>
+										{month}
+									</button>
+								{/each}
+							</div>
+						</div>
+					{:else}
+						<div class="space-y-1.5">
+							<label class="block">
+								<span class="block mb-1">Days to Harvest</span>
+								<input
+									type="number"
+									bind:value={harvestDays}
+									min="1"
+									required
+									class="input-field w-full text-xs"
+									oninput={() => {
+										newHarvestDuration = harvestDays + ' Days';
+									}}
+								/>
+							</label>
+						</div>
+					{/if}
 
 					<div class="grid grid-cols-2 gap-4">
 						<label class="block">
 							<span class="block mb-1">Acreage (Acres)</span>
 							<input type="number" bind:value={newAcres} min="1" required class="input-field w-full text-xs" />
-						</label>
-						<label class="block">
-							<span class="block mb-1">Growth Progress (%)</span>
-							<input type="number" bind:value={newProgress} min="0" max="100" required class="input-field w-full text-xs" />
 						</label>
 					</div>
 
@@ -295,9 +430,9 @@
 				</div>
 				<div class="p-5 flex-grow flex flex-col justify-between gap-4">
 					<div class="flex justify-between items-center text-xs">
-						<span class={['px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1.5', crop.stageColor].filter(Boolean).join(' ')}>
-							<span class={['w-1.5 h-1.5 rounded-full', crop.statusDot].filter(Boolean).join(' ')}></span>
-							{crop.stage}
+						<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-emerald-100/50 bg-emerald-50 text-dark-green flex items-center gap-1.5" title={crop.harvestDuration}>
+							<span class="w-1.5 h-1.5 rounded-full bg-primary-green"></span>
+							{getHarvestStatus(crop.plantedDate, crop.harvestDuration)}
 						</span>
 						<span class="text-slate-400 font-semibold flex items-center gap-1">
 							<span class="material-symbols-outlined text-[16px] text-slate-400">calendar_month</span>
@@ -306,26 +441,11 @@
 					</div>
 
 					<div class="flex items-center gap-4 bg-slate-50/50 p-3.5 rounded-2xl border border-slate-100">
-						<!-- Circular Progress Widget -->
-						<div class="relative w-14 h-14 flex-shrink-0">
-							<svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-								<path class="text-slate-100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3"></path>
-								<path 
-									class={crop.progress >= 90 ? 'text-amber-500' : 'text-primary-green'} 
-									d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
-									fill="none" 
-									stroke="currentColor" 
-									stroke-dasharray="{crop.progress}, 100" 
-									stroke-linecap="round" 
-									stroke-width="3"
-								></path>
-							</svg>
-							<div class="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-800">
-								{crop.progress}%
-							</div>
+						<div class="size-10 rounded-xl bg-primary-green/10 flex items-center justify-center text-primary-green shrink-0">
+							<span class="material-symbols-outlined text-lg">potted_plant</span>
 						</div>
 						<div class="flex-1">
-							<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Growth Progress</p>
+							<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Acreage</p>
 							<div class="flex justify-between items-end mt-1">
 								<span class="text-xl font-black text-slate-800 leading-none">{crop.acres}</span>
 								<span class="text-[10px] font-bold text-slate-400 uppercase">Acres</span>
@@ -353,7 +473,7 @@
 					</div>
 
 					<div class="flex items-center gap-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-						<div class="skeleton h-14 w-14 rounded-full shrink-0"></div>
+						<div class="skeleton h-10 w-10 rounded-xl shrink-0"></div>
 						<div class="space-y-2 flex-1">
 							<div class="skeleton h-3 w-24 rounded"></div>
 							<div class="skeleton h-5 w-16 rounded"></div>

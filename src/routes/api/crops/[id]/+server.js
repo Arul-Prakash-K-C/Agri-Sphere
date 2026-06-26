@@ -50,7 +50,7 @@ export async function PATCH({ params, request, locals }) {
 		}
 
 		const body = await request.json();
-		const { name, location, stage, plantedDate, progress, acres, imageUrl } = body;
+		const { name, location, plantedDate, harvestDuration, acres, imageUrl } = body;
 
 		// Manual Validation
 		if (name !== undefined && (typeof name !== 'string' || name.trim().length === 0)) {
@@ -59,8 +59,8 @@ export async function PATCH({ params, request, locals }) {
 		if (location !== undefined && (typeof location !== 'string' || location.trim().length === 0)) {
 			return json({ error: 'Location must be a non-empty string' }, { status: 400 });
 		}
-		if (progress !== undefined && (isNaN(Number(progress)) || Number(progress) < 0 || Number(progress) > 100)) {
-			return json({ error: 'Progress must be a number between 0 and 100' }, { status: 400 });
+		if (harvestDuration !== undefined && (typeof harvestDuration !== 'string' || harvestDuration.trim().length === 0)) {
+			return json({ error: 'Harvest Duration must be a non-empty string' }, { status: 400 });
 		}
 		if (acres !== undefined && (isNaN(Number(acres)) || Number(acres) <= 0)) {
 			return json({ error: 'Acres must be a valid positive number' }, { status: 400 });
@@ -70,28 +70,9 @@ export async function PATCH({ params, request, locals }) {
 		if (name !== undefined) updatePayload.name = name;
 		if (location !== undefined) updatePayload.location = location;
 		if (plantedDate !== undefined) updatePayload.plantedDate = plantedDate;
+		if (harvestDuration !== undefined) updatePayload.harvestDuration = harvestDuration;
 		if (imageUrl !== undefined) updatePayload.imageUrl = imageUrl;
 		if (acres !== undefined) updatePayload.acres = Number(acres);
-		
-		if (progress !== undefined) {
-			updatePayload.progress = Number(progress);
-		}
-
-		if (stage !== undefined) {
-			updatePayload.stage = stage;
-			let stageColor = 'bg-emerald-50 text-dark-green border-emerald-100/50';
-			let statusDot = 'bg-primary-green';
-
-			if (stage === 'Harvest-Ready') {
-				stageColor = 'bg-amber-50 text-amber-800 border-amber-100/50';
-				statusDot = 'bg-amber-500';
-			} else if (stage === 'Flowering Stage') {
-				stageColor = 'bg-indigo-50 text-indigo-700 border-indigo-100/50';
-				statusDot = 'bg-indigo-500';
-			}
-			updatePayload.stageColor = stageColor;
-			updatePayload.statusDot = statusDot;
-		}
 
 		await docRef.update(updatePayload);
 		const updatedDoc = await docRef.get();

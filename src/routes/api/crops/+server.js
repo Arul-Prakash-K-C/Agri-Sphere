@@ -36,7 +36,7 @@ export async function POST({ request, locals }) {
 
 	try {
 		const body = await request.json();
-		const { name, location, stage, plantedDate, progress, acres, imageUrl } = body;
+		const { name, location, plantedDate, harvestDuration, acres, imageUrl } = body;
 
 		// Manual Validation
 		if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -45,35 +45,18 @@ export async function POST({ request, locals }) {
 		if (!location || typeof location !== 'string' || location.trim().length === 0) {
 			return json({ error: 'Location is required' }, { status: 400 });
 		}
-		if (!stage || typeof stage !== 'string') {
-			return json({ error: 'Stage is required' }, { status: 400 });
-		}
-		if (progress === undefined || isNaN(Number(progress)) || Number(progress) < 0 || Number(progress) > 100) {
-			return json({ error: 'Progress must be a number between 0 and 100' }, { status: 400 });
+		if (!harvestDuration || typeof harvestDuration !== 'string' || harvestDuration.trim().length === 0) {
+			return json({ error: 'Harvest Duration is required' }, { status: 400 });
 		}
 		if (acres === undefined || isNaN(Number(acres)) || Number(acres) <= 0) {
 			return json({ error: 'Acres must be a valid positive number' }, { status: 400 });
 		}
 
-		let stageColor = 'bg-emerald-50 text-dark-green border-emerald-100/50';
-		let statusDot = 'bg-primary-green';
-
-		if (stage === 'Harvest-Ready') {
-			stageColor = 'bg-amber-50 text-amber-800 border-amber-100/50';
-			statusDot = 'bg-amber-500';
-		} else if (stage === 'Flowering Stage') {
-			stageColor = 'bg-indigo-50 text-indigo-700 border-indigo-100/50';
-			statusDot = 'bg-indigo-500';
-		}
-
 		const newCrop = {
 			name,
 			location,
-			stage,
-			stageColor,
-			statusDot,
-			plantedDate: plantedDate || 'Today',
-			progress: Number(progress),
+			plantedDate: plantedDate || new Date().toISOString().split('T')[0],
+			harvestDuration,
 			acres: Number(acres),
 			imageUrl: imageUrl || 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=600&q=80',
 			farmerId: locals.user.uid,
