@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { adminDb } from '$lib/server/firebase-admin';
+import { env } from '$env/dynamic/private';
 
 /** @type {import('./$types').RequestHandler} */
 export async function GET({ locals }) {
@@ -80,20 +81,25 @@ export async function POST({ request, locals }) {
 		const data = docSnap.data();
 
 		if (action === 'add_run') {
-			const { zone, startDateStr, endDateStr, intervalDays, time, location } = payload;
+			const { zone, startDateStr, intervalDays, time, location } = payload;
 			if (!zone || typeof zone !== 'string') {
 				return json({ error: 'Zone/Crop is required' }, { status: 400 });
 			}
-			if (!startDateStr || !endDateStr) {
-				return json({ error: 'Start and End dates are required' }, { status: 400 });
+			if (!startDateStr) {
+				return json({ error: 'Start date is required' }, { status: 400 });
 			}
 			const interval = Math.max(1, Number(intervalDays || 1));
 
 			const [startYear, startMonth1, startDay] = startDateStr.split('-').map(Number);
-			const [endYear, endMonth1, endDay] = endDateStr.split('-').map(Number);
-
 			const startDate = new Date(startYear, startMonth1 - 1, startDay);
-			const endDate = new Date(endYear, endMonth1 - 1, endDay);
+
+			let endDate;
+			if (zone.startsWith('Note:')) {
+				endDate = new Date(startDate);
+			} else {
+				// Irrigation occurs throughout the year: set end date to 1 year in the future
+				endDate = new Date(startYear + 1, startMonth1 - 1, startDay);
+			}
 
 			if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
 				return json({ error: 'Invalid start or end date' }, { status: 400 });
@@ -106,25 +112,70 @@ export async function POST({ request, locals }) {
 			const coordRegex = /^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/;
 			const match = address ? address.trim().match(coordRegex) : null;
 
+			const apiKey = env.VITE_OPENWEATHER_API_KEY || env.OPENWEATHER_API_KEY || (typeof process !== 'undefined' ? process.env.VITE_OPENWEATHER_API_KEY || process.env.OPENWEATHER_API_KEY : '');
+
 			if (match) {
 				lat = parseFloat(match[1]);
 				lon = parseFloat(match[2]);
 			} else if (address && address.trim().length > 0) {
-				try {
-					const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(address)}&count=1&language=en&format=json`);
-					if (geoRes.ok) {
-						const geoData = await geoRes.json();
-						if (geoData.results && geoData.results[0]) {
-							lat = geoData.results[0].latitude;
-							lon = geoData.results[0].longitude;
+				let geocoded = false;
+				if (apiKey) {
+					try {
+						const geoRes = await fetch(`http://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(address)}&limit=1&appid=${apiKey}`);
+						if (geoRes.ok) {
+							const geoData = await geoRes.json();
+							if (geoData && geoData[0]) {
+								lat = geoData[0].lat;
+								lon = geoData[0].lon;
+								geocoded = true;
+							}
 						}
+					} catch (e) {
+						console.error('Server OpenWeather geocoding error:', e);
 					}
-				} catch (e) {
-					console.error('Server geocoding error:', e);
+				}
+				
+				if (!geocoded) {
+					try {
+						const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(address)}&count=1&language=en&format=json`);
+						if (geoRes.ok) {
+							const geoData = await geoRes.json();
+							if (geoData.results && geoData.results[0]) {
+								lat = geoData.results[0].latitude;
+								lon = geoData.results[0].longitude;
+							}
+						}
+					} catch (e) {
+						console.error('Server fallback geocoding error:', e);
+					}
 				}
 			}
 
 			let rainForecast = {};
+			if (apiKey) {
+				try {
+					const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}`);
+					if (weatherRes.ok) {
+						const weatherData = await weatherRes.json();
+						if (weatherData.list) {
+							const maxPopsByDate = {};
+							weatherData.list.forEach(item => {
+								const dStr = item.dt_txt.split(' ')[0];
+								const popPercent = Math.round((item.pop || 0) * 100);
+								if (maxPopsByDate[dStr] === undefined || popPercent > maxPopsByDate[dStr]) {
+									maxPopsByDate[dStr] = popPercent;
+								}
+							});
+							Object.entries(maxPopsByDate).forEach(([dStr, popVal]) => {
+								rainForecast[dStr] = popVal;
+							});
+						}
+					}
+				} catch (e) {
+					console.error('Server OpenWeather forecast error:', e);
+				}
+			}
+
 			try {
 				const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=precipitation_probability_max&timezone=auto&forecast_days=16`);
 				if (weatherRes.ok) {
@@ -133,12 +184,14 @@ export async function POST({ request, locals }) {
 						const times = weatherData.daily.time;
 						const probs = weatherData.daily.precipitation_probability_max;
 						times.forEach((tStr, idx) => {
-							rainForecast[tStr] = probs[idx] || 0;
+							if (rainForecast[tStr] === undefined) {
+								rainForecast[tStr] = probs[idx] || 0;
+							}
 						});
 					}
 				}
 			} catch (e) {
-				console.error('Server weather fetch error:', e);
+				console.error('Server Open-Meteo weather fetch error:', e);
 			}
 
 			const createdRuns = [];
@@ -193,14 +246,27 @@ export async function POST({ request, locals }) {
 					rainProbability: rainProb,
 					didRain: rained,
 					extensionDays,
-					colorClass
+					colorClass,
+					intervalDays: interval
 				};
 				createdRuns.push(newRun);
 
-				current.setDate(current.getDate() + interval);
+				// Advance next run original date to be after the shifted date of this run plus interval
+				current = new Date(actualYear, actualMonth, actualDate + interval);
 			}
 
-			const updatedRuns = [...(data.scheduleRuns || []), ...createdRuns];
+			const allRunsWithNew = [...(data.scheduleRuns || []), ...createdRuns];
+			const { updatedRuns, notificationsToCreate } = realignRuns(allRunsWithNew, data.weatherOverrides || {}, rainForecast, locals.user.uid);
+
+			// Write notifications to Firestore
+			if (notificationsToCreate.length > 0) {
+				const batch = adminDb.batch();
+				for (const notif of notificationsToCreate) {
+					const notifRef = adminDb.collection('notifications').doc();
+					batch.set(notifRef, notif);
+				}
+				await batch.commit();
+			}
 			
 			// Build activity logs for the created runs
 			const newActivities = createdRuns.map(run => {
@@ -314,57 +380,18 @@ export async function POST({ request, locals }) {
 				didRain: rained
 			};
 
-			const dateParts = dateString.split('-');
-			const targetYear = Number(dateParts[0]);
-			const targetMonth = Number(dateParts[1]) - 1; // 0-indexed
-			const targetDay = Number(dateParts[2]);
+			const allRuns = data.scheduleRuns || [];
+			const { updatedRuns: runs, notificationsToCreate } = realignRuns(allRuns, overrides, {}, locals.user.uid);
 
-			let runs = data.scheduleRuns || [];
-			runs = runs.map(run => {
-				const isMatch = run.originalDateStr 
-					? run.originalDateStr === dateString
-					: (run.originalDate === targetDay && (run.originalMonth !== undefined ? run.originalMonth === targetMonth : run.month === targetMonth) && (run.originalYear !== undefined ? run.originalYear === targetYear : run.year === targetYear));
-
-				if (isMatch) {
-					const extensionDays = rained ? Math.max(1, Math.floor(prob / 20)) : Math.floor(prob / 20);
-					
-					let origYear = run.originalYear !== undefined ? run.originalYear : run.year;
-					let origMonth = run.originalMonth !== undefined ? run.originalMonth : run.month;
-					let origDay = run.originalDate;
-					
-					if (run.originalDateStr) {
-						const [y, m, d] = run.originalDateStr.split('-').map(Number);
-						origYear = y;
-						origMonth = m - 1;
-						origDay = d;
-					}
-
-					const actualDateObj = new Date(origYear, origMonth, origDay + extensionDays);
-					const actualYear = actualDateObj.getFullYear();
-					const actualMonth = actualDateObj.getMonth();
-					const actualDay = actualDateObj.getDate();
-
-					const isPostponed = extensionDays > 0;
-					let colorClass = 'bg-emerald-50 text-dark-green border-emerald-100/50';
-					if (run.zone.startsWith('Note:')) {
-						colorClass = 'bg-amber-50 text-amber-800 border-amber-100/50';
-					} else if (isPostponed) {
-						colorClass = 'bg-sky-50 text-sky-855 border-sky-100/50';
-					}
-
-					return {
-						...run,
-						date: actualDay,
-						month: actualMonth,
-						year: actualYear,
-						rainProbability: prob,
-						didRain: rained,
-						extensionDays,
-						colorClass
-					};
+			// Write notifications to Firestore
+			if (notificationsToCreate.length > 0) {
+				const batch = adminDb.batch();
+				for (const notif of notificationsToCreate) {
+					const notifRef = adminDb.collection('notifications').doc();
+					batch.set(notifRef, notif);
 				}
-				return run;
-			});
+				await batch.commit();
+			}
 
 			const newActivity = {
 				id: `act-override-${Date.now()}`,
@@ -419,9 +446,169 @@ export async function POST({ request, locals }) {
 			});
 		}
 
+		if (action === 'delete_run') {
+			const { runId } = payload;
+			if (!runId) {
+				return json({ error: 'Run ID is required' }, { status: 400 });
+			}
+
+			const runs = (data.scheduleRuns || []).filter(r => r.id !== runId);
+			const overrides = data.weatherOverrides || {};
+
+			// Realign runs after deletion
+			const { updatedRuns, notificationsToCreate } = realignRuns(runs, overrides, {}, locals.user.uid);
+
+			const today = new Date();
+			const curDate = today.getDate();
+			const curMonth = today.getMonth();
+			const curYear = today.getFullYear();
+
+			const updatedUpcoming = updatedRuns
+				.filter(run => {
+					if (run.zone.startsWith('Note:')) return false;
+					if (run.year > curYear) return true;
+					if (run.year === curYear && run.month > curMonth) return true;
+					if (run.year === curYear && run.month === curMonth && run.date >= curDate) return true;
+					return false;
+				})
+				.map(run => ({
+					id: `up-${run.id}`,
+					day: run.date,
+					month: run.month,
+					year: run.year,
+					zone: run.zone,
+					details: run.time
+				}))
+				.sort((a, b) => {
+					const dateA = new Date(a.year ?? curYear, a.month ?? curMonth, a.day);
+					const dateB = new Date(b.year ?? curYear, b.month ?? curMonth, b.day);
+					return dateA - dateB;
+				})
+				.slice(0, 5);
+
+			await docRef.update({
+				scheduleRuns: updatedRuns,
+				upcomingRuns: updatedUpcoming
+			});
+
+			return json({ success: true, runs: updatedRuns, upcomingRuns: updatedUpcoming });
+		}
+
+		if (action === 'clear_all') {
+			await docRef.update({
+				scheduleRuns: [],
+				upcomingRuns: [],
+				activities: [],
+				weatherOverrides: {}
+			});
+			return json({ success: true, runs: [], upcomingRuns: [], activities: [] });
+		}
+
 		return json({ error: 'Invalid action' }, { status: 400 });
 	} catch (error) {
 		console.error('Error updating irrigation configuration:', error);
 		return json({ error: 'Internal Server Error' }, { status: 500 });
 	}
+}
+
+function realignRuns(runs, weatherOverrides, rainForecast, userId) {
+	const zones = [...new Set(runs.map(r => r.zone))];
+	const updatedRuns = [];
+	const notificationsToCreate = [];
+
+	for (const zone of zones) {
+		const zoneRuns = runs.filter(r => r.zone === zone);
+		
+		// Sort chronologically by original date
+		zoneRuns.sort((a, b) => {
+			const ad = a.originalDateStr ? new Date(a.originalDateStr) : new Date(a.originalYear, a.originalMonth, a.originalDate);
+			const bd = b.originalDateStr ? new Date(b.originalDateStr) : new Date(b.originalYear, b.originalMonth, b.originalDate);
+			return ad - bd;
+		});
+
+		let prevActualDateObj = null;
+
+		for (let i = 0; i < zoneRuns.length; i++) {
+			const run = zoneRuns[i];
+			const dateString = run.originalDateStr;
+			const [origYear, origMonth, origDay] = dateString.split('-').map(Number);
+			
+			const overrides = weatherOverrides || {};
+			let rainProb = 0;
+			let rained = false;
+
+			if (overrides[dateString]) {
+				rainProb = overrides[dateString].rainProbability;
+				rained = overrides[dateString].didRain;
+			} else if (rainForecast && rainForecast[dateString] !== undefined) {
+				rainProb = rainForecast[dateString];
+			} else {
+				rainProb = run.rainProbability || 0;
+				rained = run.didRain || false;
+			}
+
+			const weatherShift = rained ? Math.max(1, Math.floor(rainProb / 20)) : Math.floor(rainProb / 20);
+			
+			// Standard shifted date based purely on weather of this day
+			let actualShifted = new Date(origYear, origMonth - 1, origDay + weatherShift);
+
+			// If there is a previous run, ensure interval is respected (skip interval - 1 days)
+			if (prevActualDateObj) {
+				const interval = Math.max(1, Number(run.intervalDays || 1));
+				const minDateObj = new Date(prevActualDateObj.getFullYear(), prevActualDateObj.getMonth(), prevActualDateObj.getDate() + interval);
+				if (actualShifted < minDateObj) {
+					actualShifted = minDateObj;
+				}
+			}
+
+			// Calculate final shifted extension days from the original scheduled date
+			const origDateObj = new Date(origYear, origMonth - 1, origDay);
+			const diffTime = actualShifted.getTime() - origDateObj.getTime();
+			const finalExtensionDays = Math.max(0, Math.round(diffTime / (1000 * 60 * 60 * 24)));
+
+			const actualDate = actualShifted.getDate();
+			const actualMonth = actualShifted.getMonth();
+			const actualYear = actualShifted.getFullYear();
+			const isPostponed = finalExtensionDays > 0;
+
+			let colorClass = 'bg-emerald-50 text-dark-green border-emerald-100/50';
+			if (zone.startsWith('Note:')) {
+				colorClass = 'bg-amber-50 text-amber-800 border-amber-100/50';
+			} else if (isPostponed) {
+				colorClass = 'bg-sky-50 text-sky-855 border-sky-100/50';
+			}
+
+			const wasPostponedBefore = run.extensionDays > 0;
+			
+			// If a new postponement occurs or has been extended, schedule a database notification
+			if (isPostponed && (!wasPostponedBefore || run.extensionDays !== finalExtensionDays) && !zone.startsWith('Note:')) {
+				const pad2 = (n) => String(n).padStart(2, '0');
+				const nextWaterDateStr = `${actualYear}-${pad2(actualMonth + 1)}-${pad2(actualDate)}`;
+				notificationsToCreate.push({
+					title: 'Watering Postponed (Rain-Smart)',
+					message: `${zone} watering (originally scheduled for ${dateString}) has been postponed by ${finalExtensionDays} day(s) due to ${rainProb}% rain chance. Rescheduled to ${nextWaterDateStr}.`,
+					read: false,
+					type: 'irrigation',
+					userId,
+					createdAt: new Date().toISOString()
+				});
+			}
+
+			zoneRuns[i] = {
+				...run,
+				date: actualDate,
+				month: actualMonth,
+				year: actualYear,
+				rainProbability: rainProb,
+				didRain: rained,
+				extensionDays: finalExtensionDays,
+				colorClass
+			};
+
+			prevActualDateObj = actualShifted;
+		}
+		updatedRuns.push(...zoneRuns);
+	}
+
+	return { updatedRuns, notificationsToCreate };
 }
