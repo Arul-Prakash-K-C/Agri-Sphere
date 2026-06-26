@@ -322,7 +322,7 @@
 				{:else}
 					{#each filteredProduce as crop (crop.id)}
 						<div 
-							role="article"
+							role="button"
 							tabindex="0"
 							onclick={(e) => viewDetails(crop, e)}
 							onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && viewDetails(crop, e)}
