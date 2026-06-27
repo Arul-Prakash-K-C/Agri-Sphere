@@ -305,7 +305,7 @@
 									</div>
 								</td>
 								<td class="py-3.5 text-slate-400">Crop Cycle</td>
-								<td class="py-3.5"><span class="px-2 py-0.5 rounded-full bg-emerald-50 text-dark-green text-[10px] font-bold border border-emerald-100">{crop.stage}</span></td>
+								<td class="py-3.5"><span class="px-2 py-0.5 rounded-full bg-emerald-50 text-dark-green text-[10px] font-bold border border-emerald-100">{crop.harvestDuration || 'Seasonal'}</span></td>
 							</tr>
 						{:else}
 							<tr class="hover:bg-slate-50/50 transition-colors">

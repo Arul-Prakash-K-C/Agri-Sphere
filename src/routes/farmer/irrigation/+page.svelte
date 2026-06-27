@@ -751,6 +751,59 @@
 				
 				<!-- Calendar Grid -->
 				<div class="grid grid-cols-7 bg-slate-50/50">
+					<!-- Day Headers -->
+					{#each ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as day}
+						<div class="p-3 text-center text-[10px] font-black text-slate-400 border-r border-b border-slate-100">{day}</div>
+					{/each}
+
+					<!-- Empty Cells for previous month alignment -->
+					{#each Array.from({ length: firstDayIndex }) as _}
+						<div class="min-h-[110px] border-r border-b border-slate-100 bg-slate-50/10"></div>
+					{/each}
+
+					<!-- Days of current month -->
+					{#each Array.from({ length: totalDaysInMonth }) as _, index}
+						{@const dateNumber = index + 1}
+						{@const dateKey = `${currentYear}-${pad(currentMonth + 1)}-${pad(dateNumber)}`}
+						{@const override = weatherOverrides[dateKey]}
+						{@const rainChance = override ? override.rainProbability : (dailyPrecipitation[dateKey] || 0)}
+						{@const didItRain = override ? override.didRain : false}
+						{@const cellRuns = scheduleRuns.filter(r => 
+							r.date === dateNumber && 
+							Number(r.month ?? 9) === currentMonth && 
+							Number(r.year ?? 2023) === currentYear
+						)}
+						
+						<div 
+							role="gridcell"
+							tabindex="-1"
+							onclick={() => openAddModalForDate(dateNumber)}
+							onmouseenter={() => hoveredCell = dateNumber}
+							onmouseleave={() => hoveredCell = null}
+							class={['min-h-[110px] p-3 border-r border-b border-slate-100 flex flex-col justify-between transition-colors relative cursor-pointer group hover:bg-slate-50/50',
+								hoveredCell === dateNumber ? 'bg-slate-50' : 'bg-white',
+								(dateNumber === todayDate && currentMonth === todayMonth && currentYear === todayYear) ? 'bg-emerald-50/45 border-primary-green/30 font-black ring-1 ring-inset ring-primary-green/20' : ''
+							].filter(Boolean).join(' ')}
+						>
+							<div class="flex justify-between items-center w-full">
+								<span class={['text-[11px] font-bold', 
+									(dateNumber === todayDate && currentMonth === todayMonth && currentYear === todayYear) ? 'text-primary-green font-black underline decoration-2 underline-offset-2' : 'text-slate-400'
+								].filter(Boolean).join(' ')}>
+									{dateNumber}
+								</span>
+								<div class="flex items-center gap-1">
+									{#if rainChance > 0 || didItRain}
+										<span 
+											class={['text-[8px] font-black flex items-center gap-0.5', 
+												didItRain ? 'text-sky-700 bg-sky-100/50 px-1.5 py-0.5 rounded-md border border-sky-200/30' : 'text-sky-650 bg-sky-50 px-1 py-0.5 rounded border border-sky-100'
+											].filter(Boolean).join(' ')} 
+											title={didItRain ? `Manual override: Rained (${rainChance}%)` : `Rain probability: ${rainChance}%`}
+										>
+											<span class="material-symbols-outlined text-[10px] text-sky-550 fill-1">
+												{didItRain ? 'umbrella' : 'rainy'}
+					
+					<!-- Calendar Grid -->
+					<div class="grid grid-cols-7 bg-slate-50/50">
 						<!-- Day Headers -->
 						{#each ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as day}
 							<div class="p-3 text-center text-[10px] font-black text-slate-400 border-r border-b border-slate-100">{day}</div>
@@ -799,8 +852,10 @@
 												<span class="material-symbols-outlined text-[10px] text-sky-500 fill-1">
 													{didItRain ? 'umbrella' : 'rainy'}
 												</span>
-												{didItRain ? 'Rained' : rainChance + '%'}
+												{didItRain ? 'Rained' : `${rainChance}%`}
 											</span>
+											{didItRain ? 'Rained' : `${rainChance}%`}
+										</span>
 									{/if}
 									<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 text-slate-400 hover:text-primary-green transition-opacity">add</span>
 								</div>
