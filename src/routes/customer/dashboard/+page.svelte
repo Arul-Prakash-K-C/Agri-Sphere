@@ -32,12 +32,29 @@
 		}).format(val);
 	}
 
-	// Filter and Search states
-	let searchQuery = $state('');
-	let selectedCategory = $state('All');
-	let filterLocation = $state('');
-	let filterMaxPrice = $state(null);
-	let sortBy = $state('default'); // 'default', 'price-low', 'price-high'
+	// Filter and Search states with localStorage persistence
+	import { browser } from '$app/environment';
+
+	let searchQuery = $state(browser ? (localStorage.getItem('cust_search') || '') : '');
+	let selectedCategory = $state(browser ? (localStorage.getItem('cust_cat') || 'All') : 'All');
+	let filterLocation = $state(browser ? (localStorage.getItem('cust_loc') || '') : '');
+	let filterMaxPrice = $state(browser ? (localStorage.getItem('cust_max_price') ? Number(localStorage.getItem('cust_max_price')) : null) : null);
+	let sortBy = $state(browser ? (localStorage.getItem('cust_sort') || 'default') : 'default'); // 'default', 'price-low', 'price-high'
+
+	// Persist changes to localStorage
+	$effect(() => {
+		if (browser) {
+			localStorage.setItem('cust_search', searchQuery);
+			localStorage.setItem('cust_cat', selectedCategory);
+			localStorage.setItem('cust_loc', filterLocation);
+			if (filterMaxPrice !== null) {
+				localStorage.setItem('cust_max_price', String(filterMaxPrice));
+			} else {
+				localStorage.removeItem('cust_max_price');
+			}
+			localStorage.setItem('cust_sort', sortBy);
+		}
+	});
 
 	// Transient skeleton loading simulation on filter changes
 	let isFiltering = $state(false);
@@ -114,6 +131,13 @@
 		filterLocation = '';
 		filterMaxPrice = null;
 		sortBy = 'default';
+		if (browser) {
+			localStorage.removeItem('cust_search');
+			localStorage.removeItem('cust_cat');
+			localStorage.removeItem('cust_loc');
+			localStorage.removeItem('cust_max_price');
+			localStorage.removeItem('cust_sort');
+		}
 	}
 </script>
 

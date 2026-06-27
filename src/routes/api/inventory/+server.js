@@ -12,31 +12,28 @@ export async function GET({ locals }) {
 	}
 
 	try {
+		// Fetch inventory items
 		const snapshot = await adminDb.collection('inventory')
 			.where('farmerId', '==', locals.user.uid)
 			.get();
-		
 		let inventory = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-		// Seed initial stock items if empty
-		if (inventory.length === 0) {
-			const seedInventory = [
-				{ name: 'Premium Wheat Seed', category: 'Seeds', icon: 'grass', total: 5000, soldUsed: 1200, unit: 'kg', progress: 76, status: 'Optimal', statusColor: 'bg-emerald-50 text-dark-green border-emerald-100/50', farmerId: locals.user.uid, createdAt: new Date().toISOString() },
-				{ name: 'Nitrogen Fertilizer (N20)', category: 'Chemicals', icon: 'science', total: 2000, soldUsed: 1700, unit: 'L', progress: 15, status: 'Low', statusColor: 'bg-red-50 text-red-700 border-red-100/50', farmerId: locals.user.uid, createdAt: new Date().toISOString() },
-				{ name: 'Irrigation Drip Tape', category: 'Equipment', icon: 'precision_manufacturing', total: 10000, soldUsed: 4500, unit: 'm', progress: 55, status: 'Optimal', statusColor: 'bg-emerald-50 text-dark-green border-emerald-100/50', farmerId: locals.user.uid, createdAt: new Date().toISOString() },
-				{ name: 'Pesticide (Organic)', category: 'Chemicals', icon: 'bug_report', total: 500, soldUsed: 460, unit: 'L', progress: 8, status: 'Warning', statusColor: 'bg-amber-50 text-amber-800 border-amber-100/50', farmerId: locals.user.uid, createdAt: new Date().toISOString() },
-				{ name: 'Soybean Seeds', category: 'Seeds', icon: 'eco', total: 8000, soldUsed: 1000, unit: 'kg', progress: 87.5, status: 'Optimal', statusColor: 'bg-emerald-50 text-dark-green border-emerald-100/50', farmerId: locals.user.uid, createdAt: new Date().toISOString() }
-			];
+		// Fetch storage settings doc (utilization)
+		const settingsDoc = await adminDb.collection('inventory_settings')
+			.doc(locals.user.uid)
+			.get();
 
-			for (const item of seedInventory) {
-				const docRef = await adminDb.collection('inventory').add(item);
-				inventory.push({ id: docRef.id, ...item });
-			}
+		let settings = { silo1: 45, silo2: 30, coldStorage: 60 };
+		if (settingsDoc.exists) {
+			settings = settingsDoc.data();
+		} else {
+			// Save default settings
+			await adminDb.collection('inventory_settings').doc(locals.user.uid).set(settings);
 		}
 
-		return json(inventory);
+		return json({ inventory, settings });
 	} catch (error) {
-		console.error('Error fetching inventory:', error);
+		console.error('Error fetching inventory details:', error);
 		return json({ error: 'Internal Server Error' }, { status: 500 });
 	}
 }
@@ -53,101 +50,45 @@ export async function POST({ request, locals }) {
 
 	try {
 		const body = await request.json();
-		const { action, itemId, amount, type } = body;
+		const { action } = body;
 
-		const query = adminDb.collection('inventory').where('farmerId', '==', locals.user.uid);
-		
-		if (action === 'replenish') {
-			const snapshot = await query.get();
-			const batch = adminDb.batch();
-
-			snapshot.docs.forEach(doc => {
-				const data = doc.data();
-				if (data.status === 'Low' || data.status === 'Warning') {
-					const newTotal = Number(data.total || 0) + 2000;
-					const available = newTotal - Number(data.soldUsed || 0);
-					const progress = Math.min(100, Math.max(0, Math.round((available / newTotal) * 100)));
-					
-					let status = 'Optimal';
-					let statusColor = 'bg-emerald-50 text-dark-green border-emerald-100/50';
-					if (progress <= 10) {
-						status = 'Low';
-						statusColor = 'bg-red-50 text-red-700 border-red-100/50';
-					} else if (progress <= 25) {
-						status = 'Warning';
-						statusColor = 'bg-amber-50 text-amber-800 border-amber-100/50';
-					}
-
-					batch.update(doc.ref, {
-						total: newTotal,
-						progress,
-						status,
-						statusColor
-					});
-				}
-			});
-
-			await batch.commit();
-			return json({ success: true, message: 'Replenished successfully' });
+		if (action === 'update_settings') {
+			const { silo1, silo2, coldStorage } = body;
+			const settingsPayload = {
+				silo1: Number(silo1),
+				silo2: Number(silo2),
+				coldStorage: Number(coldStorage),
+				updatedAt: new Date().toISOString()
+			};
+			await adminDb.collection('inventory_settings').doc(locals.user.uid).set(settingsPayload, { merge: true });
+			return json({ success: true, settings: settingsPayload });
 		}
 
-		if (action === 'update_quantity') {
-			if (!itemId) {
-				return json({ error: 'Item ID is required' }, { status: 400 });
+		if (action === 'update_unit') {
+			const { itemId, unit } = body;
+			if (!itemId || !unit) {
+				return json({ error: 'Item ID and Unit are required' }, { status: 400 });
 			}
-			if (amount === undefined || isNaN(Number(amount)) || Number(amount) <= 0) {
-				return json({ error: 'Amount must be a valid positive number' }, { status: 400 });
+			if (!['Kg', 'Tons', 'Liters'].includes(unit)) {
+				return json({ error: 'Supported units: Kg, Tons, Liters' }, { status: 400 });
 			}
 
 			const docRef = adminDb.collection('inventory').doc(itemId);
 			const docSnap = await docRef.get();
-
 			if (!docSnap.exists) {
-				return json({ error: 'Inventory item not found' }, { status: 404 });
+				return json({ error: 'Item not found' }, { status: 404 });
 			}
-
-			const data = docSnap.data();
-			if (data.farmerId !== locals.user.uid) {
+			if (docSnap.data().farmerId !== locals.user.uid) {
 				return json({ error: 'Forbidden' }, { status: 403 });
 			}
 
-			let newTotal = Number(data.total || 0);
-			let newSoldUsed = Number(data.soldUsed || 0);
-
-			if (type === 'add') {
-				newTotal += Number(amount);
-			} else {
-				newSoldUsed = Math.min(newTotal, newSoldUsed + Number(amount));
-			}
-
-			const available = newTotal - newSoldUsed;
-			const progress = Math.min(100, Math.max(0, Math.round((available / newTotal) * 100)));
-			
-			let status = 'Optimal';
-			let statusColor = 'bg-emerald-50 text-dark-green border-emerald-100/50';
-			if (progress <= 10) {
-				status = 'Low';
-				statusColor = 'bg-red-50 text-red-700 border-red-100/50';
-			} else if (progress <= 25) {
-				status = 'Warning';
-				statusColor = 'bg-amber-50 text-amber-800 border-amber-100/50';
-			}
-
-			const updatePayload = {
-				total: newTotal,
-				soldUsed: newSoldUsed,
-				progress,
-				status,
-				statusColor
-			};
-
-			await docRef.update(updatePayload);
-			return json({ id: docRef.id, ...data, ...updatePayload });
+			await docRef.update({ unit });
+			return json({ success: true, itemId, unit });
 		}
 
-		return json({ error: 'Invalid action specified' }, { status: 400 });
+		return json({ error: 'Invalid action' }, { status: 400 });
 	} catch (error) {
-		console.error('Error modifying inventory:', error);
+		console.error('Error updating inventory properties:', error);
 		return json({ error: 'Internal Server Error' }, { status: 500 });
 	}
 }

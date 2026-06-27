@@ -26,7 +26,7 @@ export async function GET({ locals }) {
 						name: 'Sweet Corn',
 						location: 'Field Block A',
 						plantedDate: '2026-04-12',
-						harvestDuration: 'Days',
+						harvestDuration: '90 Days',
 						acres: 50,
 						imageUrl: 'https://images.unsplash.com/photo-1551754655-cd27e38d20f6?auto=format&fit=crop&w=600&q=80',
 						farmerId: uid,
@@ -36,7 +36,7 @@ export async function GET({ locals }) {
 						name: 'Winter Wheat',
 						location: 'North Plateau',
 						plantedDate: '2025-10-05',
-						harvestDuration: 'Seasonal',
+						harvestDuration: '180 Days',
 						acres: 120,
 						imageUrl: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=600&q=80',
 						farmerId: uid,
@@ -44,9 +44,9 @@ export async function GET({ locals }) {
 					},
 					{
 						name: 'Organic Soybeans',
-						location: 'Valley Section 3',
+						location: 'Valley Sector 3',
 						plantedDate: '2026-05-20',
-						harvestDuration: 'Seasonal',
+						harvestDuration: '120 Days',
 						acres: 75,
 						imageUrl: 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?auto=format&fit=crop&w=600&q=80',
 						farmerId: uid,
@@ -78,26 +78,41 @@ export async function GET({ locals }) {
 			if (inventory.length === 0) {
 				const seedInventory = [
 					{
-						itemName: 'Premium Wheat Seeds',
-						quantity: 1200,
-						unit: 'kg',
+						name: 'Premium Wheat Seeds',
+						total: 1200,
+						soldUsed: 0,
+						unit: 'Kg',
 						category: 'Seeds',
+						icon: 'grass',
+						progress: 100,
+						status: 'Optimal',
+						statusColor: 'bg-emerald-50 text-dark-green border-emerald-100/50',
 						farmerId: uid,
 						createdAt: new Date().toISOString()
 					},
 					{
-						itemName: 'NPK Nitrogen Fertilizer',
-						quantity: 850,
-						unit: 'kg',
-						category: 'Fertilizer',
+						name: 'NPK Nitrogen Fertilizer',
+						total: 850,
+						soldUsed: 0,
+						unit: 'Kg',
+						category: 'Fertilizers',
+						icon: 'compost',
+						progress: 100,
+						status: 'Optimal',
+						statusColor: 'bg-emerald-50 text-dark-green border-emerald-100/50',
 						farmerId: uid,
 						createdAt: new Date().toISOString()
 					},
 					{
-						itemName: 'Organic Pesticide Spray',
-						quantity: 400,
-						unit: 'liters',
+						name: 'Organic Pesticide Spray',
+						total: 400,
+						soldUsed: 0,
+						unit: 'Liters',
 						category: 'Chemicals',
+						icon: 'science',
+						progress: 100,
+						status: 'Optimal',
+						statusColor: 'bg-emerald-50 text-dark-green border-emerald-100/50',
 						farmerId: uid,
 						createdAt: new Date().toISOString()
 					}
@@ -173,6 +188,29 @@ export async function GET({ locals }) {
 				produceSnapshot = await adminDb.collection('products').get();
 			}
 
+			// Gather all farmerIds to fetch profiles in parallel/batch
+			const farmerIds = new Set();
+			produceSnapshot.docs.forEach(doc => {
+				const id = doc.data().farmerId;
+				if (id) farmerIds.add(id);
+			});
+
+			const farmerProfiles = {};
+			if (farmerIds.size > 0) {
+				const idsArray = Array.from(farmerIds);
+				// Fetch profiles in chunks of 10 to avoid Firestore limits
+				const chunkSize = 10;
+				for (let i = 0; i < idsArray.length; i += chunkSize) {
+					const chunk = idsArray.slice(i, i + chunkSize);
+					const snapshot = await adminDb.collection('users')
+						.where('__name__', 'in', chunk)
+						.get();
+					snapshot.docs.forEach(doc => {
+						farmerProfiles[doc.id] = doc.data();
+					});
+				}
+			}
+
 			const produce = [];
 			for (const doc of produceSnapshot.docs) {
 				const prodData = doc.data();
@@ -180,28 +218,13 @@ export async function GET({ locals }) {
 				// Only show available listings to customers
 				if (prodData.status !== 'Available') continue;
 
-				let farmerName = prodData.farmerName || 'Verified Farmer';
-				let farmerPhone = '+919876543210';
-				let farmerEmail = 'farmer@agriconnect.com';
-				let farmName = 'Local Family Farm';
-				let location = prodData.location || 'Local Fields';
+				const fData = prodData.farmerId ? farmerProfiles[prodData.farmerId] : null;
 
-				// Fetch farmer profile details from 'users' collection
-				if (prodData.farmerId) {
-					try {
-						const farmerDoc = await adminDb.collection('users').doc(prodData.farmerId).get();
-						if (farmerDoc.exists) {
-							const fData = farmerDoc.data();
-							farmerName = fData.fullName || farmerName;
-							farmerPhone = fData.phone || farmerPhone;
-							farmerEmail = fData.email || farmerEmail;
-							farmName = fData.farmName || farmName;
-							location = fData.address || location;
-						}
-					} catch (e) {
-						console.error(`Error fetching farmer profile for product ${doc.id}:`, e);
-					}
-				}
+				let farmerName = prodData.farmerName || (fData ? fData.fullName : 'Verified Farmer');
+				let farmerPhone = fData ? fData.phone : '+919876543210';
+				let farmerEmail = fData ? fData.email : 'farmer@agriconnect.com';
+				let farmName = fData ? fData.farmName : 'Local Family Farm';
+				let location = fData ? fData.address : (prodData.location || 'Local Fields');
 
 				produce.push({
 					id: doc.id,

@@ -1,4 +1,4 @@
-﻿<script>
+<script>
 	import { fade, slide } from 'svelte/transition';
 	import { onMount } from 'svelte';
 
@@ -459,7 +459,7 @@
 			name.includes('orange') || name.includes('lemon') || name.includes('citrus') ||
 			name.includes('fruit') || name.includes('mango') || name.includes('banana') || name.includes('melon') || name.includes('watermelon')
 		) {
-			return 'ðŸŽ';
+			return '🍎';
 		}
 
 		// Vegies / Vegetables
@@ -471,7 +471,7 @@
 			name.includes('chili') || name.includes('pepper') ||
 			name.includes('vegie') || name.includes('vegetable') || name.includes('onion') || name.includes('garlic') || name.includes('broccoli')
 		) {
-			return 'ðŸ¥•';
+			return '🥕';
 		}
 
 		// Crops / Grains
@@ -480,21 +480,21 @@
 			name.includes('corn') || name.includes('maize') || name.includes('crop') || name.includes('field') ||
 			name.includes('barley') || name.includes('oat') || name.includes('rye')
 		) {
-			return 'ðŸŒ¾';
+			return '🌾';
 		}
 
-		return 'ðŸŒ±'; // Default fallback
+		return '🌱'; // Default fallback
 	}
 
 	function getCropColorClasses(zoneName) {
 		const emoji = getCropEmoji(zoneName);
-		if (emoji === 'ðŸŽ') {
+		if (emoji === '🍎') {
 			return 'bg-red-50 text-red-950 border-red-100';
 		}
-		if (emoji === 'ðŸ¥•') {
+		if (emoji === '🥕') {
 			return 'bg-orange-50 text-orange-950 border-orange-100';
 		}
-		if (emoji === 'ðŸŒ¾') {
+		if (emoji === '🌾') {
 			return 'bg-amber-50/70 text-amber-950 border-amber-100';
 		}
 		return 'bg-emerald-50 text-emerald-950 border-emerald-100';
@@ -513,7 +513,7 @@
 	<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
 		<div>
 			<h1 class="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-				<span class="text-primary-green">ðŸ’§</span> Irrigation Control
+				<span class="text-primary-green">💧</span> Irrigation Control
 			</h1>
 			<p class="text-sm text-slate-500 mt-1">Monitor and schedule water distribution zones.</p>
 		</div>
@@ -750,59 +750,6 @@
 				</div>
 				
 				<!-- Calendar Grid -->
-				<div class="grid grid-cols-7 bg-slate-50/50">
-					<!-- Day Headers -->
-					{#each ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as day}
-						<div class="p-3 text-center text-[10px] font-black text-slate-400 border-r border-b border-slate-100">{day}</div>
-					{/each}
-
-					<!-- Empty Cells for previous month alignment -->
-					{#each Array.from({ length: firstDayIndex }) as _}
-						<div class="min-h-[110px] border-r border-b border-slate-100 bg-slate-50/10"></div>
-					{/each}
-
-					<!-- Days of current month -->
-					{#each Array.from({ length: totalDaysInMonth }) as _, index}
-						{@const dateNumber = index + 1}
-						{@const dateKey = `${currentYear}-${pad(currentMonth + 1)}-${pad(dateNumber)}`}
-						{@const override = weatherOverrides[dateKey]}
-						{@const rainChance = override ? override.rainProbability : (dailyPrecipitation[dateKey] || 0)}
-						{@const didItRain = override ? override.didRain : false}
-						{@const cellRuns = scheduleRuns.filter(r => 
-							r.date === dateNumber && 
-							Number(r.month ?? 9) === currentMonth && 
-							Number(r.year ?? 2023) === currentYear
-						)}
-						
-						<div 
-							role="gridcell"
-							tabindex="-1"
-							onclick={() => openAddModalForDate(dateNumber)}
-							onmouseenter={() => hoveredCell = dateNumber}
-							onmouseleave={() => hoveredCell = null}
-							class={['min-h-[110px] p-3 border-r border-b border-slate-100 flex flex-col justify-between transition-colors relative cursor-pointer group hover:bg-slate-50/50',
-								hoveredCell === dateNumber ? 'bg-slate-50' : 'bg-white',
-								(dateNumber === todayDate && currentMonth === todayMonth && currentYear === todayYear) ? 'bg-emerald-50/45 border-primary-green/30 font-black ring-1 ring-inset ring-primary-green/20' : ''
-							].filter(Boolean).join(' ')}
-						>
-							<div class="flex justify-between items-center w-full">
-								<span class={['text-[11px] font-bold', 
-									(dateNumber === todayDate && currentMonth === todayMonth && currentYear === todayYear) ? 'text-primary-green font-black underline decoration-2 underline-offset-2' : 'text-slate-400'
-								].filter(Boolean).join(' ')}>
-									{dateNumber}
-								</span>
-								<div class="flex items-center gap-1">
-									{#if rainChance > 0 || didItRain}
-										<span 
-											class={['text-[8px] font-black flex items-center gap-0.5', 
-												didItRain ? 'text-sky-700 bg-sky-100/50 px-1.5 py-0.5 rounded-md border border-sky-200/30' : 'text-sky-650 bg-sky-50 px-1 py-0.5 rounded border border-sky-100'
-											].filter(Boolean).join(' ')} 
-											title={didItRain ? `Manual override: Rained (${rainChance}%)` : `Rain probability: ${rainChance}%`}
-										>
-											<span class="material-symbols-outlined text-[10px] text-sky-550 fill-1">
-												{didItRain ? 'umbrella' : 'rainy'}
-					
-					<!-- Calendar Grid -->
 					<div class="grid grid-cols-7 bg-slate-50/50">
 						<!-- Day Headers -->
 						{#each ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as day}
@@ -852,10 +799,8 @@
 												<span class="material-symbols-outlined text-[10px] text-sky-500 fill-1">
 													{didItRain ? 'umbrella' : 'rainy'}
 												</span>
-												{didItRain ? 'Rained' : `${rainChance}%`}
+												{didItRain ? 'Rained' : rainChance + '%'}
 											</span>
-											{didItRain ? 'Rained' : `${rainChance}%`}
-										</span>
 									{/if}
 									<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 text-slate-400 hover:text-primary-green transition-opacity">add</span>
 								</div>
@@ -891,7 +836,7 @@
 															<span class="truncate">{run.zone}</span>
 														</span>
 														{#if run.extensionDays > 0}
-															<span class="text-[8px] flex items-center cursor-help shrink-0" title="Shifted +{run.extensionDays}d due to {run.rainProbability}% rain forecast.">â˜”</span>
+															<span class="text-[8px] flex items-center cursor-help shrink-0" title="Shifted +{run.extensionDays}d due to {run.rainProbability}% rain forecast.">☔</span>
 														{/if}
 													</div>
 													{#if run.extensionDays > 0}
@@ -995,7 +940,7 @@
 								{activeRainToday > 40 ? 'cloudy_snowing' : 'sunny'}
 							</span>
 							<p class="text-3xl font-light">
-								{weatherTempToday}Â°<span class="text-sm font-semibold">F</span>
+								{weatherTempToday}°<span class="text-sm font-semibold">F</span>
 							</p>
 						</div>
 						<p class="text-xs font-bold text-white/90">Precipitation: {activeRainToday}% today</p>

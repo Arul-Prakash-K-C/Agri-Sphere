@@ -36,7 +36,7 @@ export async function POST({ request, locals }) {
 
 	try {
 		const body = await request.json();
-		const { category, description, amount, status, date } = body;
+		const { category, description, amount, status, date, itemDetails } = body;
 
 		// Manual Validation
 		if (!category || typeof category !== 'string' || category.trim().length === 0) {
@@ -67,6 +67,28 @@ export async function POST({ request, locals }) {
 			farmerId: locals.user.uid,
 			createdAt: new Date().toISOString()
 		};
+
+		// Check if details are needed
+		if (['Seed', 'Fertilizer', 'Chemicals'].includes(category) && itemDetails) {
+			if (!itemDetails.itemName || typeof itemDetails.itemName !== 'string' || itemDetails.itemName.trim().length === 0) {
+				return json({ error: 'Item Name is required for this category' }, { status: 400 });
+			}
+			if (itemDetails.quantity === undefined || isNaN(Number(itemDetails.quantity)) || Number(itemDetails.quantity) <= 0) {
+				return json({ error: 'Quantity must be a positive number' }, { status: 400 });
+			}
+			if (!itemDetails.unit || typeof itemDetails.unit !== 'string' || itemDetails.unit.trim().length === 0) {
+				return json({ error: 'Unit is required' }, { status: 400 });
+			}
+
+			newExpense.itemDetails = {
+				itemName: itemDetails.itemName.trim(),
+				brand: itemDetails.brand ? itemDetails.brand.trim() : '',
+				quantity: Number(itemDetails.quantity),
+				unit: itemDetails.unit.trim(),
+				costPerUnit: itemDetails.costPerUnit ? Number(itemDetails.costPerUnit) : null,
+				notes: itemDetails.notes ? itemDetails.notes.trim() : ''
+			};
+		}
 
 		const docRef = await adminDb.collection('expenses').add(newExpense);
 		return json({ id: docRef.id, ...newExpense }, { status: 201 });
