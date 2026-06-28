@@ -235,3 +235,37 @@ Format the response as a single, clean JSON block:
 		return json({ error: 'Internal Server Error' }, { status: 500 });
 	}
 }
+
+/** @type {import('./$types').RequestHandler} */
+export async function DELETE({ url, locals }) {
+	if (!locals.user) {
+		return json({ error: 'Unauthorized' }, { status: 401 });
+	}
+
+	if (locals.profile?.role !== 'farmer') {
+		return json({ error: 'Forbidden' }, { status: 403 });
+	}
+
+	try {
+		const id = url.searchParams.get('id');
+		if (!id) {
+			return json({ error: 'Missing scan ID' }, { status: 400 });
+		}
+
+		const docRef = adminDb.collection('disease_scans').doc(id);
+		const docSnap = await docRef.get();
+		if (!docSnap.exists) {
+			return json({ error: 'Scan not found' }, { status: 404 });
+		}
+
+		if (docSnap.data().farmerId !== locals.user.uid) {
+			return json({ error: 'Forbidden' }, { status: 403 });
+		}
+
+		await docRef.delete();
+		return json({ success: true });
+	} catch (error) {
+		console.error('Error deleting scan:', error);
+		return json({ error: 'Internal Server Error' }, { status: 500 });
+	}
+}

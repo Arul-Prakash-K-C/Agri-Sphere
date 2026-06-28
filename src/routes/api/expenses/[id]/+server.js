@@ -24,7 +24,7 @@ export async function PATCH({ params, request, locals }) {
 		}
 
 		const body = await request.json();
-		const { category, description, amount, status, date } = body;
+		const { category, description, amount, status, date, itemDetails } = body;
 
 		// Manual Validation
 		if (category !== undefined && (typeof category !== 'string' || category.trim().length === 0)) {
@@ -54,6 +54,36 @@ export async function PATCH({ params, request, locals }) {
 		if (date !== undefined) {
 			updatePayload.date = new Date(date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 			updatePayload.rawDate = new Date(date).toISOString();
+		}
+
+		// Handle item details
+		const targetCategory = category !== undefined ? category : expenseDoc.data().category;
+		if (['Seed', 'Fertilizer', 'Chemicals'].includes(targetCategory)) {
+			if (itemDetails) {
+				if (!itemDetails.itemName || typeof itemDetails.itemName !== 'string' || itemDetails.itemName.trim().length === 0) {
+					return json({ error: 'Item Name is required for this category' }, { status: 400 });
+				}
+				if (itemDetails.quantity === undefined || isNaN(Number(itemDetails.quantity)) || Number(itemDetails.quantity) <= 0) {
+					return json({ error: 'Quantity must be a positive number' }, { status: 400 });
+				}
+				if (!itemDetails.unit || typeof itemDetails.unit !== 'string' || itemDetails.unit.trim().length === 0) {
+					return json({ error: 'Unit is required' }, { status: 400 });
+				}
+
+				updatePayload.itemDetails = {
+					itemName: itemDetails.itemName.trim(),
+					brand: itemDetails.brand ? itemDetails.brand.trim() : '',
+					quantity: Number(itemDetails.quantity),
+					unit: itemDetails.unit.trim(),
+					costPerUnit: itemDetails.costPerUnit ? Number(itemDetails.costPerUnit) : null,
+					notes: itemDetails.notes ? itemDetails.notes.trim() : ''
+				};
+			}
+		} else {
+			// If not in conditional categories, remove itemDetails field by setting to delete
+			// In Firestore Admin SDK we can use FieldValue.delete() to remove the property
+			const { FieldValue } = await import('firebase-admin/firestore');
+			updatePayload.itemDetails = FieldValue.delete();
 		}
 
 		await docRef.update(updatePayload);

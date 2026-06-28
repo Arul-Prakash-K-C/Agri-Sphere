@@ -1,5 +1,6 @@
 <script>
 	import { fade, slide } from 'svelte/transition';
+	import { invalidateAll } from '$app/navigation';
 
 	let { data } = $props();
 
@@ -11,6 +12,11 @@
 	let customImage = $state('');
 	let customImageName = $state('');
 	let specimenType = $state('Leaf');
+
+	// Custom confirmation dialog state
+	let showDeleteModal = $state(false);
+	let scanToDelete = $state(null);
+	let deleteLoading = $state(false);
 	
 	let selectedLeaf = $derived({
 		id: 'custom',
@@ -139,6 +145,63 @@
 		customImageName = '';
 		specimenType = 'Leaf';
 		currentDiagnosis = null;
+	}
+
+	function previewScan(scan) {
+		customImage = scan.image;
+		customImageName = scan.crop;
+		imageLoaded = true;
+		scanCompleted = true;
+		scanning = false;
+		
+		currentDiagnosis = {
+			id: scan.id,
+			name: scan.crop,
+			image: scan.image,
+			pathogen: scan.pathogen,
+			confidence: scan.confidence || 90,
+			severity: scan.severity || 'Moderate',
+			treatment: scan.treatment || '',
+			whyItHappens: scan.whyItHappens || '',
+			steps: scan.steps || [],
+			field: scan.crop,
+			severityTextColor: scan.statusColor || 'text-amber-800 bg-amber-50 border-amber-100/50',
+			severityColor: scan.severity === 'High' ? 'bg-red-500' : (scan.severity === 'None' ? 'bg-primary-green' : 'bg-amber-500')
+		};
+	}
+
+	function confirmDeleteScan(scan) {
+		scanToDelete = scan;
+		showDeleteModal = true;
+	}
+
+	function closeDeleteModal() {
+		showDeleteModal = false;
+		scanToDelete = null;
+	}
+
+	async function deleteScan() {
+		if (!scanToDelete) return;
+		deleteLoading = true;
+		try {
+			const res = await fetch(`/api/disease-detection?id=${scanToDelete.id}`, {
+				method: 'DELETE'
+			});
+			if (!res.ok) {
+				const err = await res.json();
+				throw new Error(err.error || 'Failed to delete scan');
+			}
+			recentScans = recentScans.filter(s => s.id !== scanToDelete.id);
+			if (currentDiagnosis && currentDiagnosis.id === scanToDelete.id) {
+				handleReset();
+			}
+			closeDeleteModal();
+			await invalidateAll();
+		} catch (err) {
+			alert(err.message);
+		} finally {
+			deleteLoading = false;
+		}
 	}
 </script>
 
@@ -396,19 +459,35 @@
 				
 				<div class="divide-y divide-slate-100">
 					{#each recentScans as scan (scan.id)}
-						<div class="flex justify-between items-center py-2.5 first:pt-0 last:pb-0">
-							<div class="flex items-center gap-3">
+						<div class="flex justify-between items-center py-3 first:pt-0 last:pb-0 gap-4">
+							<div class="flex items-center gap-3 min-w-0 flex-1">
 								<div class="w-10 h-10 rounded-lg overflow-hidden border border-slate-100 flex-shrink-0 bg-slate-100">
 									<img src={scan.image} alt={scan.crop} class="w-full h-full object-cover" />
 								</div>
-								<div>
-									<p class="text-xs font-bold text-slate-800">{scan.crop}</p>
-									<span class={['inline-block px-1.5 py-0.5 rounded text-[9px] font-bold border mt-0.5', scan.statusColor].filter(Boolean).join(' ')}>
+								<div class="min-w-0 flex-1">
+									<p class="text-xs font-bold text-slate-800 truncate">{scan.crop}</p>
+									<span class={['inline-block px-1.5 py-0.5 rounded text-[9px] font-bold border mt-0.5 truncate max-w-full', scan.statusColor].filter(Boolean).join(' ')}>
 										{scan.pathogen}
 									</span>
 								</div>
 							</div>
-							<span class="text-[10px] text-slate-400 font-semibold">{scan.time}</span>
+							<div class="flex items-center gap-2 flex-shrink-0">
+								<span class="text-[9px] text-slate-400 font-semibold mr-1">{scan.time}</span>
+								<button 
+									onclick={() => previewScan(scan)}
+									title="Preview Scan Report"
+									class="p-1 text-slate-400 hover:text-primary-green hover:bg-emerald-50 rounded-lg transition-colors flex items-center justify-center cursor-pointer"
+								>
+									<span class="material-symbols-outlined text-[16px]">visibility</span>
+								</button>
+								<button 
+									onclick={() => confirmDeleteScan(scan)}
+									title="Delete Scan Report"
+									class="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center justify-center cursor-pointer"
+								>
+									<span class="material-symbols-outlined text-[16px]">delete</span>
+								</button>
+							</div>
 						</div>
 					{/each}
 				</div>
@@ -416,6 +495,59 @@
 		</div>
 
 	</div>
+	<!-- Custom Delete Confirmation Dialog Modal -->
+	{#if showDeleteModal}
+		<div
+			transition:fade={{ duration: 150 }}
+			class="fixed inset-0 bg-slate-950/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+			role="alertdialog"
+			aria-modal="true"
+			aria-label="Confirm scan deletion"
+		>
+			<div
+				transition:slide={{ duration: 200 }}
+				class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-sm p-6 space-y-4"
+			>
+				<div class="flex items-start gap-4">
+					<div class="size-11 rounded-2xl bg-red-50 flex items-center justify-center shrink-0">
+						<span class="material-symbols-outlined text-red-600 text-xl">delete_forever</span>
+					</div>
+					<div>
+						<h3 class="font-extrabold text-slate-800 text-sm">Delete Scan Report?</h3>
+						<p class="text-xs text-slate-500 mt-1 leading-relaxed font-semibold">
+							This will permanently delete the AI diagnostic scan report for
+							<strong class="text-slate-700">{scanToDelete?.crop}</strong>
+							({scanToDelete?.pathogen}).
+						</p>
+					</div>
+				</div>
+				<div class="flex gap-3">
+					<button
+						type="button"
+						onclick={closeDeleteModal}
+						class="btn-secondary flex-1 py-2.5 text-xs font-bold"
+						disabled={deleteLoading}
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						onclick={deleteScan}
+						disabled={deleteLoading}
+						class="flex-1 py-2.5 text-xs font-bold rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+					>
+						{#if deleteLoading}
+							<span class="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+							Deleting…
+						{:else}
+							<span class="material-symbols-outlined text-[15px]">delete</span>
+							Delete Scan
+						{/if}
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
 </section>
 
 <style>

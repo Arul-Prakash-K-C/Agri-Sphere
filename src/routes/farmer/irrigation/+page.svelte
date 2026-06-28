@@ -634,7 +634,7 @@
 
 						{#if error}
 							<div class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
-								⚠️ {error}
+								âš ï¸ {error}
 							</div>
 						{/if}
 
@@ -704,7 +704,7 @@
 
 						{#if error}
 							<div class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
-								⚠️ {error}
+								âš ï¸ {error}
 							</div>
 						{/if}
 
@@ -748,8 +748,9 @@
 						</button>
 					</div>
 				</div>
+				
 				<!-- Calendar Grid -->
-				<div class="grid grid-cols-7 bg-slate-50/50">
+					<div class="grid grid-cols-7 bg-slate-50/50">
 						<!-- Day Headers -->
 						{#each ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as day}
 							<div class="p-3 text-center text-[10px] font-black text-slate-400 border-r border-b border-slate-100">{day}</div>
@@ -793,14 +794,14 @@
 										{#if rainChance > 0 || didItRain}
 											<span 
 												class={['text-[8px] font-black flex items-center gap-0.5', didItRain ? 'text-sky-700 bg-sky-100/50 px-1.5 py-0.5 rounded-md border border-sky-200/30' : 'text-sky-600'].filter(Boolean).join(' ')} 
-												title={didItRain ? `Manual override: Rained (${rainChance}%)` : `Rain probability: ${rainChance}%`}
+												title={didItRain ? 'Manual override: Rained (' + rainChance + '%)' : 'Rain probability: ' + rainChance + '%'}
 											>
 												<span class="material-symbols-outlined text-[10px] text-sky-500 fill-1">
 													{didItRain ? 'umbrella' : 'rainy'}
 												</span>
-												{didItRain ? 'Rained' : `${rainChance}%`}
+												{didItRain ? 'Rained' : rainChance + '%'}
 											</span>
-										{/if}
+									{/if}
 									<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 text-slate-400 hover:text-primary-green transition-opacity">add</span>
 								</div>
 							</div>
@@ -989,3 +990,4 @@
 
 	</div>
 </section>
+
