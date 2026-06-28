@@ -126,6 +126,14 @@ export async function POST({ request, locals }) {
 		};
 
 		const docRef = await adminDb.collection('products').add(newProduct);
+
+		// Seed initial price history record
+		adminDb.collection('priceHistory').add({
+			productId: docRef.id,
+			price: newProduct.price,
+			updatedAt: new Date().toISOString()
+		}).catch(err => console.error('Error seeding initial price history:', err));
+
 		return json({ id: docRef.id, ...newProduct }, { status: 201 });
 	} catch (error) {
 		console.error('Error creating product:', error);

@@ -54,8 +54,8 @@ export async function PATCH({ params, request, locals }) {
 		if (price !== undefined && (typeof price !== 'string' || price.trim().length === 0)) {
 			return json({ error: 'Price must be a non-empty string' }, { status: 400 });
 		}
-		if (quantity !== undefined && (isNaN(Number(quantity)) || Number(quantity) <= 0)) {
-			return json({ error: 'Quantity must be a valid number greater than 0' }, { status: 400 });
+		if (quantity !== undefined && (isNaN(Number(quantity)) || Number(quantity) < 0)) {
+			return json({ error: 'Quantity must be a valid number >= 0' }, { status: 400 });
 		}
 		if (unit !== undefined && (typeof unit !== 'string' || unit.trim().length === 0)) {
 			return json({ error: 'Unit must be a non-empty string' }, { status: 400 });
@@ -63,6 +63,11 @@ export async function PATCH({ params, request, locals }) {
 		if (status !== undefined && !['Available', 'Sold'].includes(status)) {
 			return json({ error: 'Status must be Available or Sold' }, { status: 400 });
 		}
+
+		// Capture old values before update for hook comparisons
+		const oldData = productDoc.data();
+		const oldPrice = oldData.price;
+		const oldQuantity = Number(oldData.quantity || 0);
 
 		const updatePayload = {};
 		if (name !== undefined) updatePayload.name = name;
@@ -79,11 +84,61 @@ export async function PATCH({ params, request, locals }) {
 		await docRef.update(updatePayload);
 		const updatedDoc = await docRef.get();
 
+		// --- Hook: Record price history if price changed ---
+		if (price !== undefined && price !== oldPrice) {
+			adminDb.collection('priceHistory').add({
+				productId: params.id,
+				price: price,
+				updatedAt: new Date().toISOString()
+			}).catch(err => console.error('Error recording price history:', err));
+		}
+
+		// --- Hook: Notify availability subscribers if quantity 0 → >0 ---
+		const newQuantity = updatePayload.quantity !== undefined ? updatePayload.quantity : oldQuantity;
+		if (oldQuantity === 0 && newQuantity > 0) {
+			notifyAvailabilitySubscribers(params.id, updatedDoc.data())
+				.catch(err => console.error('Error notifying availability subscribers:', err));
+		}
+
 		return json({ id: updatedDoc.id, ...updatedDoc.data() });
 	} catch (error) {
 		console.error('Error updating product listing:', error);
 		return json({ error: 'Internal Server Error' }, { status: 500 });
 	}
+}
+
+/**
+ * Notify all buyers subscribed to a product's availability, then clean up subscriptions.
+ */
+async function notifyAvailabilitySubscribers(productId, productData) {
+	const subsSnapshot = await adminDb.collection('availabilitySubscriptions')
+		.where('productId', '==', productId)
+		.get();
+
+	if (subsSnapshot.empty) return;
+
+	const batch = adminDb.batch();
+
+	for (const subDoc of subsSnapshot.docs) {
+		const sub = subDoc.data();
+
+		// Create notification for the buyer
+		const notifRef = adminDb.collection('notifications').doc();
+		batch.set(notifRef, {
+			userId: sub.buyerId,
+			title: `${productData.name || 'Product'} is back in stock!`,
+			message: `Good news! "${productData.name}" listed by ${productData.farmerName || 'a farmer'} is now available with ${productData.quantity} ${productData.unit || 'units'} in stock.`,
+			read: false,
+			type: 'availability',
+			productId: productId,
+			createdAt: new Date().toISOString()
+		});
+
+		// Delete the processed subscription
+		batch.delete(subDoc.ref);
+	}
+
+	await batch.commit();
 }
 
 /** @type {import('./$types').RequestHandler} */

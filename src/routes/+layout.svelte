@@ -28,8 +28,7 @@
 		if (role === 'admin') {
 			return [
 				{ href: '/admin/dashboard', label: 'Dashboard', icon: 'dashboard' },
-				{ href: '/admin/tasks', label: 'Task Management', icon: 'assignment' },
-				{ href: '/admin/files', label: 'Files Archive', icon: 'folder' }
+				{ href: '/admin/verification', label: 'Verification', icon: 'verified_user' }
 			];
 		}
 

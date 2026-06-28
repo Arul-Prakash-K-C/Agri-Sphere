@@ -13,27 +13,50 @@ export async function POST({ request, locals }) {
 
 	try {
 		const body = await request.json();
-		const { farmerUid } = body;
+		const { userId, status, rejectionReason } = body;
 
-		if (!farmerUid || typeof farmerUid !== 'string') {
-			return json({ error: 'Farmer UID is required' }, { status: 400 });
+		if (!userId || typeof userId !== 'string') {
+			return json({ error: 'User ID is required' }, { status: 400 });
 		}
 
-		const userRef = adminDb.collection('users').doc(farmerUid);
+		if (!status || !['Verified', 'Rejected', 'Pending'].includes(status)) {
+			return json({ error: 'Valid status (Verified, Rejected, Pending) is required' }, { status: 400 });
+		}
+
+		const userRef = adminDb.collection('users').doc(userId);
 		const userDoc = await userRef.get();
 
 		if (!userDoc.exists) {
-			return json({ error: 'Farmer profile not found' }, { status: 404 });
+			return json({ error: 'User profile not found' }, { status: 404 });
 		}
 
-		if (userDoc.data().role !== 'farmer') {
-			return json({ error: 'Selected user is not a farmer' }, { status: 400 });
-		}
+		const userData = userDoc.data();
+		const role = userData.role || 'farmer';
 
-		await userRef.update({ verified: true });
-		return json({ success: true, message: 'Farmer profile verified successfully' });
+		const updatePayload = {
+			verificationStatus: status,
+			verified: status === 'Verified',
+			verifiedAt: status === 'Verified' ? new Date().toISOString() : null,
+			verifiedBy: status === 'Verified' ? locals.user.uid : null,
+			rejectionReason: status === 'Rejected' ? (rejectionReason || 'No reason provided') : null,
+			rejectedAt: status === 'Rejected' ? new Date().toISOString() : null,
+			rejectedBy: status === 'Rejected' ? locals.user.uid : null
+		};
+
+		await userRef.update(updatePayload);
+
+		// Record admin action to system logs
+		await adminDb.collection('system_logs').add({
+			title: `Profile ${status}: ${userData.fullName || 'User'}`,
+			userName: locals.profile.fullName || 'Admin',
+			userEmail: locals.profile.email || 'admin@agriconnect.com',
+			status: status.toLowerCase(),
+			createdAt: new Date().toISOString()
+		});
+
+		return json({ success: true, message: `User profile status updated to ${status} successfully` });
 	} catch (error) {
-		console.error('Error verifying farmer profile:', error);
+		console.error('Error verifying user profile:', error);
 		return json({ error: 'Internal Server Error' }, { status: 500 });
 	}
 }

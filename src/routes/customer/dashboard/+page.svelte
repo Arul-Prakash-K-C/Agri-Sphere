@@ -1,6 +1,7 @@
 <script>
 	import { fade, scale, slide } from 'svelte/transition';
 	import { browser } from '$app/environment';
+	import { onMount, tick } from 'svelte';
 
 	let { data } = $props();
 
@@ -10,12 +11,27 @@
 	let wishlistIds = $state([]);
 	let favoriteFarmerIds = $state([]);
 
+	// --- Availability Alerts State ---
+	let subscribedProductIds = $state([]);
+	let subscribingProductId = $state(null);
+	let unsubscribingProductId = $state(null);
+
+	// --- Price Trend State ---
+	let priceHistory = $state([]);
+	let priceHistoryLoading = $state(false);
+	let priceTrendFilter = $state('all');
+	let priceChartCanvas = $state(null);
+	let priceChartInstance = $state(null);
+
 	// Sync datasets dynamically
 	$effect(() => {
 		produce = data.produce || [];
 		orders = data.orders || [];
 		wishlistIds = data.settings?.wishlist || [];
 		favoriteFarmerIds = data.settings?.favoriteFarmers || [];
+		// Sync subscriptions
+		const subs = data.subscriptions || [];
+		subscribedProductIds = subs.map(s => s.productId);
 	});
 
 	// Sub-tabs: 'marketplace' | 'wishlist' | 'favorites' | 'compare'
@@ -257,6 +273,8 @@
 		showProductModal = true;
 		// Record item view
 		addRecentlyViewed(product);
+		// Fetch price history for the product
+		fetchPriceHistory(product.id);
 	}
 
 	function resetFilters() {
@@ -321,6 +339,173 @@
 		searchQuery = farmerName;
 		activeTab = 'marketplace';
 	}
+
+	// --- Availability Alert Functions ---
+	async function subscribeAvailability(productId) {
+		subscribingProductId = productId;
+		try {
+			const res = await fetch('/api/availability-subscriptions', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ productId })
+			});
+			if (res.ok || res.status === 409) {
+				subscribedProductIds = [...subscribedProductIds, productId];
+			}
+		} catch (err) {
+			console.error('Error subscribing to availability:', err);
+		} finally {
+			subscribingProductId = null;
+		}
+	}
+
+	async function unsubscribeAvailability(productId) {
+		unsubscribingProductId = productId;
+		try {
+			const res = await fetch(`/api/availability-subscriptions?productId=${productId}`, {
+				method: 'DELETE'
+			});
+			if (res.ok) {
+				subscribedProductIds = subscribedProductIds.filter(id => id !== productId);
+			}
+		} catch (err) {
+			console.error('Error unsubscribing from availability:', err);
+		} finally {
+			unsubscribingProductId = null;
+		}
+	}
+
+	function isOutOfStock(product) {
+		const qty = Number(product.quantity || 0);
+		return qty === 0;
+	}
+
+	// --- Price Trend Functions ---
+	async function fetchPriceHistory(productId) {
+		priceHistoryLoading = true;
+		priceHistory = [];
+		priceTrendFilter = 'all';
+		try {
+			const res = await fetch(`/api/price-history?productId=${productId}`);
+			if (res.ok) {
+				priceHistory = await res.json();
+			}
+		} catch (err) {
+			console.error('Error fetching price history:', err);
+		} finally {
+			priceHistoryLoading = false;
+		}
+	}
+
+	let filteredPriceHistory = $derived.by(() => {
+		if (priceTrendFilter === 'all' || priceHistory.length === 0) return priceHistory;
+		const now = Date.now();
+		const daysMap = { '7d': 7, '30d': 30, '90d': 90 };
+		const days = daysMap[priceTrendFilter] || 9999;
+		const cutoff = now - days * 24 * 60 * 60 * 1000;
+		return priceHistory.filter(p => new Date(p.updatedAt).getTime() >= cutoff);
+	});
+
+	let priceStats = $derived.by(() => {
+		const hist = filteredPriceHistory;
+		if (hist.length === 0) return null;
+
+		const parsePrice = (p) => Number(String(p).replace(/[^0-9.]/g, '')) || 0;
+		const prices = hist.map(h => parsePrice(h.price));
+
+		const current = prices[prices.length - 1];
+		const highest = Math.max(...prices);
+		const lowest = Math.min(...prices);
+		const average = prices.reduce((sum, p) => sum + p, 0) / prices.length;
+		const first = prices[0];
+		const changePercent = first > 0 ? ((current - first) / first * 100) : 0;
+		const lastUpdated = hist[hist.length - 1]?.updatedAt;
+
+		return {
+			current,
+			highest,
+			lowest,
+			average: Math.round(average * 100) / 100,
+			changePercent: Math.round(changePercent * 100) / 100,
+			lastUpdated: lastUpdated ? new Date(lastUpdated).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'
+		};
+	});
+
+	function renderPriceChart() {
+		if (!browser || !priceChartCanvas || typeof Chart === 'undefined') return;
+
+		if (priceChartInstance) {
+			priceChartInstance.destroy();
+			priceChartInstance = null;
+		}
+
+		const hist = filteredPriceHistory;
+		if (hist.length < 2) return;
+
+		const parsePrice = (p) => Number(String(p).replace(/[^0-9.]/g, '')) || 0;
+		const labels = hist.map(h => new Date(h.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }));
+		const dataPoints = hist.map(h => parsePrice(h.price));
+
+		priceChartInstance = new Chart(priceChartCanvas, {
+			type: 'line',
+			data: {
+				labels,
+				datasets: [{
+					label: 'Price (₹)',
+					data: dataPoints,
+					borderColor: '#16a34a',
+					backgroundColor: 'rgba(22, 163, 74, 0.08)',
+					fill: true,
+					tension: 0.35,
+					pointRadius: 4,
+					pointBackgroundColor: '#16a34a',
+					pointBorderColor: '#fff',
+					pointBorderWidth: 2,
+					borderWidth: 2.5
+				}]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: false },
+					tooltip: {
+						backgroundColor: '#1e293b',
+						titleFont: { size: 11, weight: 'bold' },
+						bodyFont: { size: 11 },
+						cornerRadius: 8,
+						padding: 10,
+						callbacks: {
+							label: (ctx) => `₹${ctx.parsed.y.toLocaleString('en-IN')}`
+						}
+					}
+				},
+				scales: {
+					x: {
+						grid: { display: false },
+						ticks: { font: { size: 10, weight: '600' }, color: '#94a3b8' }
+					},
+					y: {
+						grid: { color: 'rgba(0,0,0,0.04)' },
+						ticks: {
+							font: { size: 10, weight: '600' },
+							color: '#94a3b8',
+							callback: (val) => '₹' + val.toLocaleString('en-IN')
+						}
+					}
+				}
+			}
+		});
+	}
+
+	// Re-render chart when filtered data or canvas changes
+	$effect(() => {
+		const _ = [filteredPriceHistory, priceChartCanvas];
+		if (browser && priceChartCanvas && filteredPriceHistory.length >= 2) {
+			// Use tick to ensure DOM is updated before rendering
+			tick().then(() => renderPriceChart());
+		}
+	});
 </script>
 
 <svelte:head>
@@ -600,6 +785,12 @@
 									<span class="material-symbols-outlined text-[11px] text-emerald-400 filled">verified</span>
 								</p>
 							</div>
+							{#if isOutOfStock(crop)}
+								<div class="absolute top-3 left-3 bg-red-500 text-white text-[9px] font-bold px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1">
+									<span class="material-symbols-outlined text-[12px]">block</span>
+									Out of Stock
+								</div>
+							{/if}
 						</div>
 
 						<div class="p-3.5 flex-grow flex flex-col justify-between gap-3.5">
@@ -616,7 +807,7 @@
 							<div class="space-y-1 bg-slate-50 p-2 rounded-xl border border-slate-100/50 text-[10px] font-semibold text-slate-500">
 								<div class="flex justify-between">
 									<span>Available Stock</span>
-									<strong class="text-slate-700">{crop.quantity || '30'} {crop.unit || 'KG'}</strong>
+									<strong class={isOutOfStock(crop) ? 'text-red-500' : 'text-slate-700'}>{isOutOfStock(crop) ? 'Out of Stock' : `${crop.quantity || '30'} ${crop.unit || 'KG'}`}</strong>
 								</div>
 								<div class="flex justify-between">
 									<span>Harvest Date</span>
@@ -632,6 +823,18 @@
 										<span class="text-[9px] text-slate-400 font-normal">/ {crop.unit || 'KG'}</span>
 									</p>
 								</div>
+								{#if isOutOfStock(crop)}
+									{@const isSubscribed = subscribedProductIds.includes(crop.id)}
+									<button
+										onclick={(e) => { e.stopPropagation(); isSubscribed ? unsubscribeAvailability(crop.id) : subscribeAvailability(crop.id); }}
+										disabled={subscribingProductId === crop.id || unsubscribingProductId === crop.id}
+										class={['text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1 cursor-pointer disabled:opacity-60',
+											isSubscribed ? 'bg-emerald-50 text-dark-green border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'].join(' ')}
+									>
+										<span class="material-symbols-outlined text-[13px]">{isSubscribed ? 'notifications_active' : 'notification_add'}</span>
+										{isSubscribed ? 'Subscribed' : 'Notify Me'}
+									</button>
+								{/if}
 							</div>
 						</div>
 					</div>
@@ -995,6 +1198,104 @@
 							<p class="text-slate-650 leading-relaxed font-medium font-normal text-xs">{selectedProduct.description || 'No additional description provided.'}</p>
 						</div>
 
+						<!-- Availability Alert inside Details -->
+						{#if isOutOfStock(selectedProduct)}
+							{@const isSubbed = subscribedProductIds.includes(selectedProduct.id)}
+							<div class="bg-red-50/50 border border-red-100 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+								<div class="flex items-center gap-3">
+									<div class="size-10 rounded-xl bg-red-100 flex items-center justify-center">
+										<span class="material-symbols-outlined text-red-600 text-[20px]">inventory</span>
+									</div>
+									<div>
+										<p class="text-xs font-bold text-red-700">Currently Out of Stock</p>
+										<p class="text-[10px] text-red-500 mt-0.5 font-medium">{isSubbed ? 'We\'ll notify you when it\'s back.' : 'Get notified when this product is restocked.'}</p>
+									</div>
+								</div>
+								<button
+									onclick={() => isSubbed ? unsubscribeAvailability(selectedProduct.id) : subscribeAvailability(selectedProduct.id)}
+									disabled={subscribingProductId === selectedProduct.id || unsubscribingProductId === selectedProduct.id}
+									class={['text-xs font-bold px-4 py-2 rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60 shadow-sm',
+										isSubbed ? 'bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-600' : 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600'].join(' ')}
+								>
+									{#if subscribingProductId === selectedProduct.id || unsubscribingProductId === selectedProduct.id}
+										<span class="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+										Processing…
+									{:else}
+										<span class="material-symbols-outlined text-[15px]">{isSubbed ? 'notifications_active' : 'notification_add'}</span>
+										{isSubbed ? 'Subscribed ✓' : 'Notify Me'}
+									{/if}
+								</button>
+							</div>
+						{/if}
+
+						<!-- Price Trend Section -->
+						<div class="space-y-3 border-b border-slate-100 pb-5">
+							<div class="flex items-center justify-between">
+								<h4 class="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+									<span class="material-symbols-outlined text-[14px] text-primary-green">trending_up</span>
+									Price Trend
+								</h4>
+								<div class="flex items-center gap-1">
+									{#each [{ key: '7d', label: '7D' }, { key: '30d', label: '30D' }, { key: '90d', label: '90D' }, { key: 'all', label: 'All' }] as f}
+										<button
+											onclick={() => { priceTrendFilter = f.key; }}
+											class={['px-2.5 py-1 text-[9px] font-bold rounded-lg border transition-all cursor-pointer',
+												priceTrendFilter === f.key ? 'bg-primary-green text-white border-primary-green shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'].join(' ')}
+										>
+											{f.label}
+										</button>
+									{/each}
+								</div>
+							</div>
+
+							{#if priceHistoryLoading}
+								<div class="flex items-center justify-center py-8">
+									<span class="material-symbols-outlined text-2xl text-primary-green animate-spin">progress_activity</span>
+								</div>
+							{:else if priceStats && filteredPriceHistory.length >= 2}
+								<!-- Stats Cards -->
+								<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+									<div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
+										<p class="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Current</p>
+										<p class="text-sm font-black text-primary-green mt-0.5">₹{priceStats.current.toLocaleString('en-IN')}</p>
+									</div>
+									<div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
+										<p class="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Highest</p>
+										<p class="text-sm font-black text-red-500 mt-0.5">₹{priceStats.highest.toLocaleString('en-IN')}</p>
+									</div>
+									<div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
+										<p class="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Lowest</p>
+										<p class="text-sm font-black text-emerald-600 mt-0.5">₹{priceStats.lowest.toLocaleString('en-IN')}</p>
+									</div>
+									<div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
+										<p class="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Average</p>
+										<p class="text-sm font-black text-slate-700 mt-0.5">₹{priceStats.average.toLocaleString('en-IN')}</p>
+									</div>
+									<div class="bg-slate-50 rounded-xl p-2.5 border border-slate-100 text-center">
+										<p class="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Change</p>
+										<p class={['text-sm font-black mt-0.5 flex items-center justify-center gap-0.5',
+											priceStats.changePercent >= 0 ? 'text-red-500' : 'text-emerald-600'].join(' ')}>
+											<span class="material-symbols-outlined text-[14px]">{priceStats.changePercent >= 0 ? 'arrow_upward' : 'arrow_downward'}</span>
+											{Math.abs(priceStats.changePercent)}%
+										</p>
+									</div>
+								</div>
+
+								<p class="text-[9px] text-slate-400 font-semibold">Last Updated: {priceStats.lastUpdated}</p>
+
+								<!-- Chart -->
+								<div class="bg-white border border-slate-100 rounded-xl p-3" style="height: 200px;">
+									<canvas bind:this={priceChartCanvas}></canvas>
+								</div>
+							{:else}
+								<div class="bg-slate-50 border border-slate-100 rounded-xl p-6 text-center">
+									<span class="material-symbols-outlined text-2xl text-slate-300 block mb-1">show_chart</span>
+									<p class="text-xs font-bold text-slate-400">Not enough price history available.</p>
+									<p class="text-[10px] text-slate-350 mt-0.5">Price trend data will appear after multiple price updates.</p>
+								</div>
+							{/if}
+						</div>
+
 						<!-- Farmer Card inside Details -->
 						<div class="bg-[#F8FAF5] border border-emerald-100/50 rounded-2xl p-5 mt-4 space-y-3">
 							<div class="flex items-center justify-between">
@@ -1034,18 +1335,31 @@
 								</div>
 
 								<div class="flex items-center gap-2">
-									<a 
-										href="tel:{selectedProduct.farmerPhone || '+919876543210'}" 
-										class="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-1 shadow-sm transition-all cursor-pointer"
-									>
-										📞 Call
-									</a>
-									<a 
-										href="mailto:{selectedProduct.farmerEmail || 'farmer@agriconnect.com'}?subject=Marketplace Inquiry - {selectedProduct.name}" 
-										class="bg-primary-green hover:bg-dark-green text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-1 shadow-md shadow-primary-green/15 transition-all cursor-pointer"
-									>
-										✉ Send Email
-									</a>
+									{#if !isOutOfStock(selectedProduct)}
+										<a 
+											href="tel:{selectedProduct.farmerPhone || '+919876543210'}" 
+											class="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-1 shadow-sm transition-all cursor-pointer"
+										>
+											📞 Call
+										</a>
+										<a 
+											href="mailto:{selectedProduct.farmerEmail || 'farmer@agriconnect.com'}?subject=Marketplace Inquiry - {selectedProduct.name}" 
+											class="bg-primary-green hover:bg-dark-green text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-1 shadow-md shadow-primary-green/15 transition-all cursor-pointer"
+										>
+											✉ Send Email
+										</a>
+									{:else}
+										{@const isSubbed = subscribedProductIds.includes(selectedProduct.id)}
+										<button
+											onclick={() => isSubbed ? unsubscribeAvailability(selectedProduct.id) : subscribeAvailability(selectedProduct.id)}
+											disabled={subscribingProductId === selectedProduct.id || unsubscribingProductId === selectedProduct.id}
+											class={['text-xs font-bold px-4 py-2.5 rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60 shadow-sm',
+												isSubbed ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600'].join(' ')}
+										>
+											<span class="material-symbols-outlined text-[15px]">{isSubbed ? 'notifications_active' : 'notification_add'}</span>
+											{isSubbed ? 'Subscribed ✓' : 'Notify Me When Available'}
+										</button>
+									{/if}
 								</div>
 							</div>
 						</div>
