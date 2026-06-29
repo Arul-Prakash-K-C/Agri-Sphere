@@ -362,268 +362,63 @@
 		onSubmit={formMode === 'add' ? handleAddHarvest : handleUpdateHarvest}
 	>
 		<div class="space-y-4 text-xs font-semibold text-slate-700">
-			<!-- ── Crop Selection ────────────────────────────────── -->
-			<div>
-				<label for="harvest-crop" class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
-					Crop <span class="text-red-500">*</span>
-				</label>
-				<select
-					id="harvest-crop"
-					bind:value={selectedCropId}
-					onchange={onCropChange}
-					required={!showNewCropForm}
-					class="input-field w-full text-xs bg-white py-[9.5px]"
-				>
-					<option value="" disabled>— Select a crop —</option>
-					{#each crops as crop (crop.id)}
-						<option value={crop.id}>{crop.name}</option>
-					{/each}
-					<option value="__new__">➕ Add new crop…</option>
-				</select>
-			</div>
-					<!-- ── Crop Selection ────────────────────────────────── -->
+			<!-- Row 1: Crop Name Autocomplete & Lifespan -->
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+				<div class="relative">
+					<label for="harvest-crop" class="block mb-1.5 font-bold text-slate-700">
+						Crop <span class="text-red-500">*</span>
+					</label>
 					<div class="relative">
-						<label for="harvest-crop" class="block mb-1.5 font-bold text-slate-700">
-							Crop <span class="text-red-500">*</span>
-						</label>
-						<div class="relative">
-							<input
-								id="harvest-crop"
-								type="text"
-								bind:value={cropNameInput}
-								oninput={onCropNameChange}
-								onfocus={() => showDropdown = true}
-								onblur={() => setTimeout(() => showDropdown = false, 200)}
-								placeholder="Select or type a crop..."
-								required
-								class="input-field w-full text-xs bg-white pr-8 font-semibold"
-								autocomplete="off"
-							/>
-							<button
-								type="button"
-								onclick={() => showDropdown = !showDropdown}
-								class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-							>
-								<span class="material-symbols-outlined text-[20px] leading-none">arrow_drop_down</span>
-							</button>
-
-							{#if showDropdown}
-								<div class="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg py-1">
-									{#each crops as crop (crop.id)}
-										<button
-											type="button"
-											onclick={() => selectCrop(crop)}
-											class="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-emerald-50 hover:text-dark-green transition-colors font-bold"
-										>
-											{crop.name}
-										</button>
-									{:else}
-										<div class="px-4 py-2 text-xs text-slate-400 font-medium">No crops registered yet</div>
-									{/each}
-								</div>
-							{/if}
-						</div>
-					</div>
-
-					<!-- ── Lifespan (MANDATORY — Product shelf life / expiry) ──── -->
-					<div>
-						<label for="harvest-lifespan" class="block mb-1.5 font-bold text-slate-700">
-							Lifespan <span class="text-red-500">*</span>
-						</label>
 						<input
-							id="harvest-lifespan"
+							id="harvest-crop"
 							type="text"
-							bind:value={lifespan}
+							bind:value={cropNameInput}
+							oninput={onCropNameChange}
+							onfocus={() => showDropdown = true}
+							onblur={() => setTimeout(() => showDropdown = false, 200)}
+							placeholder="Select or type a crop..."
 							required
-							placeholder="e.g. 90 Days or 42 Days"
-							class="input-field w-full text-xs"
+							class="input-field w-full text-xs bg-white pr-8 font-semibold"
+							autocomplete="off"
 						/>
-					</div>
-
-			<!-- ── Inline New Crop Form ───────────────────────────── -->
-			{#if showNewCropForm}
-				<div
-					transition:slide={{ duration: 150 }}
-					class="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 space-y-3"
-				>
-					<p class="text-[11px] font-bold text-emerald-800 flex items-center gap-1.5">
-						<span class="material-symbols-outlined text-[14px]">eco</span>
-						Register new crop
-					</p>
-					<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-						<label class="block col-span-2 md:col-span-1">
-							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Crop Name <span class="text-red-500">*</span></span>
-							<input
-								type="text"
-								bind:value={newCropName}
-								placeholder="e.g. Dragon Fruit"
-								class="input-field w-full text-xs"
-							/>
-						</label>
-						<label class="block col-span-2 md:col-span-1">
-							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Lifespan <span class="text-red-500">*</span></span>
-							<input
-								type="text"
-								bind:value={newCropLifespan}
-								placeholder="e.g. 90 Days or Seasonal (Jun, Jul)"
-								class="input-field w-full text-xs"
-								oninput={() => lifespan = newCropLifespan}
-							/>
-						</label>
-						<span class="text-[10px] text-slate-400 mt-1 block col-span-2">Will be saved to Crops module automatically.</span>
-						</div>
-						<div>
-							<label for="harvest-grade" class="block mb-1.5 font-bold text-slate-700">Quality Grade</label>
-							<select
-								id="harvest-grade"
-								bind:value={qualityGrade}
-								class="input-field w-full text-xs bg-white py-[9.5px]"
-							>
-								<option value="Grade A+">Grade A+</option>
-								<option value="Grade A">Grade A</option>
-								<option value="Grade B">Grade B</option>
-								<option value="Grade C">Grade C</option>
-								<option value="Mixed">Mixed</option>
-							</select>
-						</div>
-					</div>
-
-					<!-- ── Category ────────────────────────────────────── -->
-					<div>
-						<label for="harvest-category" class="block mb-1.5 font-bold text-slate-700">Category <span class="text-red-500">*</span></label>
-						<select
-							id="harvest-category"
-							bind:value={category}
-							required
-							class="input-field w-full text-xs bg-white py-[9.5px]"
+						<button
+							type="button"
+							onclick={() => showDropdown = !showDropdown}
+							class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 transition-colors"
 						>
-							<option value="Vegetables">Vegetables</option>
-							<option value="Fruits">Fruits</option>
-							<option value="Seeds">Seeds</option>
-							<option value="Fertilizers">Fertilizers</option>
-							<option value="Chemicals">Chemicals</option>
-							<option value="Grains">Grains</option>
-							<option value="Others">Others</option>
-						</select>
-					</div>
+							<span class="material-symbols-outlined text-[20px] leading-none">arrow_drop_down</span>
+						</button>
 
-					<!-- ── Storage Location ────────────────────────────── -->
-					<div>
-						<label for="harvest-storage" class="block mb-1.5 font-bold text-slate-700">
-							Storage Location <span class="text-red-500">*</span>
-						</label>
-						<select
-							id="harvest-storage"
-							bind:value={storageId}
-							required
-							class="input-field w-full text-xs bg-white py-[9.5px] disabled:opacity-60 disabled:cursor-not-allowed"
-							disabled={!category}
-						>
-							<option value="" disabled>— Select storage location —</option>
-							{#each availableStorages as storage (storage.id)}
-								<option value={storage.id}>{storage.name} ({storage.capacity} {storage.unit} Capacity)</option>
-							{:else}
-								<option value="" disabled>No storages configured for {category}</option>
-							{/each}
-						</select>
-						{#if availableStorages.length === 0 && category}
-							<p class="text-[10px] text-amber-600 mt-1 font-bold">
-								⚠️ Configure a storage for "{category}" in the Inventory module first.
-							</p>
+						{#if showDropdown}
+							<div class="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg py-1">
+								{#each crops as crop (crop.id)}
+									<button
+										type="button"
+										onclick={() => selectCrop(crop)}
+										class="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-emerald-50 hover:text-dark-green transition-colors font-bold"
+									>
+										{crop.name}
+									</button>
+								{:else}
+									<div class="px-4 py-2 text-xs text-slate-400 font-medium">No crops registered yet</div>
+								{/each}
+							</div>
 						{/if}
 					</div>
-
-					<!-- ── Notes ─────────────────────────────────────────── -->
-					<div>
-						<label for="harvest-notes" class="block mb-1.5 font-bold text-slate-700">Notes</label>
-						<textarea
-							id="harvest-notes"
-							bind:value={notes}
-							rows="3"
-							placeholder="Any additional details about this harvest…"
-							class="input-field w-full text-xs resize-none"
-						></textarea>
-					</div>
 				</div>
-			{/if}
 
-			<!-- ── Lifespan (always editable — auto-filled as a starting point) ──── -->
-			<div>
-				<label for="harvest-lifespan" class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
-					Lifespan
-					{#if selectedCropId && selectedCropId !== '__new__'}
-						<span class="ml-1 text-[9px] font-normal text-slate-405 lowercase">(auto-filled · editable)</span>
-					{/if}
-				</label>
-				<input
-					id="harvest-lifespan"
-					type="text"
-					bind:value={lifespan}
-					placeholder="e.g. 90 Days or Seasonal (Jun, Jul)"
-					class="input-field w-full text-xs"
-				/>
-			</div>
-
-			<!-- ── Quantity + Unit ───────────────────────────────── -->
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 				<div>
-					<label for="harvest-qty" class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
-						Quantity <span class="text-red-500">*</span>
+					<label for="harvest-lifespan" class="block mb-1.5 font-bold text-slate-700">
+						Lifespan <span class="text-red-500">*</span>
 					</label>
 					<input
-						id="harvest-qty"
-						type="number"
-						bind:value={quantity}
-						min="0.01"
-						step="any"
+						id="harvest-lifespan"
+						type="text"
+						bind:value={lifespan}
 						required
-						placeholder="e.g. 120"
+						placeholder="e.g. 90 Days or 42 Days"
 						class="input-field w-full text-xs"
 					/>
-				</div>
-				<div>
-					<label for="harvest-unit" class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Unit</label>
-					<select
-						id="harvest-unit"
-						bind:value={unit}
-						class="input-field w-full text-xs bg-white py-[9.5px]"
-					>
-						<option value="Liters">Liters</option>
-						<option value="Tons">Tons</option>
-						<option value="kg">kg</option>
-						<option value="Bags">Bags</option>
-						<option value="Units">Units</option>
-					</select>
-				</div>
-			</div>
-
-			<!-- ── Harvest Date + Quality Grade ─────────────────── -->
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-				<div>
-					<label for="harvest-date" class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
-						Harvest Date <span class="text-red-500">*</span>
-					</label>
-					<input
-						id="harvest-date"
-						type="date"
-						bind:value={harvestDate}
-						required
-						class="input-field w-full text-xs bg-white py-[7.5px]"
-					/>
-				</div>
-				<div>
-					<label for="harvest-grade" class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Quality Grade</label>
-					<select
-						id="harvest-grade"
-						bind:value={qualityGrade}
-						class="input-field w-full text-xs bg-white py-[9.5px]"
-					>
-						<option value="Grade A+">Grade A+</option>
-						<option value="Grade A">Grade A</option>
-						<option value="Grade B">Grade B</option>
-						<option value="Grade C">Grade C</option>
-						<option value="Mixed">Mixed</option>
-					</select>
 				</div>
 			</div>
 

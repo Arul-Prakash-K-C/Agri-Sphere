@@ -340,7 +340,7 @@
 	</div>	<!-- Add Expense Modal -->
 	<Modal bind:show={showAddModal} size="md" title="Log New Expense" onSubmit={handleAddExpense}>
 		<div class="space-y-4 text-xs font-semibold text-slate-700">
-			<div class="grid grid-cols-2 gap-4">
+			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 				<label class="block">
 					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Category</span>
 					<select bind:value={newCategory} class="input-field w-full text-xs bg-white py-[9.5px]">
@@ -361,7 +361,7 @@
 				</label>
 			</div>
 
-			<div class="grid grid-cols-2 gap-4">
+			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 				<label class="block">
 					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Amount (₹)</span>
 					<input type="number" step="0.01" bind:value={newAmount} required placeholder="0.00" class="input-field w-full text-xs" />
@@ -384,8 +384,8 @@
 						<span class="material-symbols-outlined text-[16px] text-primary-green">inventory</span>
 						Item Details ({newCategory})
 					</h4>
-					<div class="grid grid-cols-2 gap-3">
-						<label class="block col-span-2">
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+						<label class="block sm:col-span-2">
 							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Item Name <span class="text-red-500">*</span></span>
 							<input type="text" bind:value={newItemName} required placeholder="e.g. Potassium Nitrate" class="input-field w-full text-xs" />
 						</label>
@@ -411,7 +411,7 @@
 							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Cost per Unit</span>
 							<input type="number" step="0.01" bind:value={newItemCostPerUnit} placeholder="Optional" class="input-field w-full text-xs" />
 						</label>
-						<label class="block col-span-2">
+						<label class="block sm:col-span-2">
 							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Notes</span>
 							<input type="text" bind:value={newItemNotes} placeholder="Optional item notes" class="input-field w-full text-xs" />
 						</label>
@@ -447,7 +447,7 @@
 	<!-- Edit Expense Modal -->
 	<Modal bind:show={showEditModal} size="md" title="Edit Expense" onSubmit={handleEditExpense}>
 		<div class="space-y-4 text-xs font-semibold text-slate-700">
-			<div class="grid grid-cols-2 gap-4">
+			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 				<label class="block">
 					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Category</span>
 					<select bind:value={editCategory} class="input-field w-full text-xs bg-white py-[9.5px]">
@@ -468,7 +468,7 @@
 				</label>
 			</div>
 
-			<div class="grid grid-cols-2 gap-4">
+			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 				<label class="block">
 					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Amount (₹)</span>
 					<input type="number" step="0.01" bind:value={editAmount} required placeholder="0.00" class="input-field w-full text-xs" />
@@ -491,8 +491,8 @@
 						<span class="material-symbols-outlined text-[16px] text-primary-green">inventory</span>
 						Item Details ({editCategory})
 					</h4>
-					<div class="grid grid-cols-2 gap-3">
-						<label class="block col-span-2">
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+						<label class="block sm:col-span-2">
 							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Item Name <span class="text-red-500">*</span></span>
 							<input type="text" bind:value={editItemName} required placeholder="e.g. Potassium Nitrate" class="input-field w-full text-xs" />
 						</label>
@@ -518,7 +518,7 @@
 							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Cost per Unit</span>
 							<input type="number" step="0.01" bind:value={editItemCostPerUnit} placeholder="Optional" class="input-field w-full text-xs" />
 						</label>
-						<label class="block col-span-2">
+						<label class="block sm:col-span-2">
 							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Notes</span>
 							<input type="text" bind:value={editItemNotes} placeholder="Optional item notes" class="input-field w-full text-xs" />
 						</label>
