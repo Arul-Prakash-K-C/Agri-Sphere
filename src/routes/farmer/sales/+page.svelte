@@ -80,44 +80,81 @@
 	}
 
 	// ── Computed stats ──────────────────────────────────────────────
-	let totalRevenue = $derived.by(() => sales.reduce((s, x) => s + (x.totalAmount || 0), 0));
-
-	let thisMonthRevenue = $derived.by(() => {
-		const now = new Date();
-		return sales
-			.filter(s => {
-				const d = new Date(s.saleDate || s.createdAt);
-				return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-			})
-			.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
-	});
-
-	let topItem = $derived.by(() => {
-		const map = {};
-		for (const s of sales) {
-			map[s.itemName] = (map[s.itemName] || 0) + (s.quantity || 0);
-		}
-		const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]);
-		return sorted[0] ? sorted[0][0] : '—';
-	});
+	let totalRevenue = $derived.by(() => sales.filter(x => !x.type || x.type === 'Sale').reduce((s, x) => s + (x.totalAmount || 0), 0));
+	let totalSold = $derived.by(() => sales.filter(x => !x.type || x.type === 'Sale').reduce((s, x) => s + (x.quantity || 0), 0));
+	let totalSelfUse = $derived.by(() => sales.filter(x => x.type === 'Self Use').reduce((s, x) => s + (x.quantity || 0), 0));
+	let totalWastage = $derived.by(() => sales.filter(x => x.type === 'Wastage').reduce((s, x) => s + (x.quantity || 0), 0));
 
 	// ── Modal state ──────────────────────────────────────────────────
 	let showModal = $state(false);
 	let selectedInventoryId = $state('');
+	let selectedCategoryFilter = $state('');
+	let allocationType = $state('Sale');
 	let quantity = $state('');
 	let pricePerUnit = $state('');
 	let buyerName = $state('');
 	let notes = $state('');
 	let saleDate = $state(new Date().toISOString().split('T')[0]);
 
-	let selectedItem = $derived.by(() => inventory.find(i => i.id === selectedInventoryId) || null);
-	let availableQty = $derived.by(() => {
-		if (!selectedItem) return 0;
-		const cleanName = selectedItem.name.replace(/\s+Harvest$/i, '').trim().toLowerCase();
-		return inventory
-			.filter(i => i.name.replace(/\s+Harvest$/i, '').trim().toLowerCase() === cleanName)
-			.reduce((sum, i) => sum + Math.max(0, (i.total || 0) - (i.soldUsed || 0)), 0);
+	let activeCategories = $derived.by(() => {
+		const cats = new Set(inventory.filter(i => (i.total || 0) - (i.soldUsed || 0) > 0.001).map(i => i.category).filter(Boolean));
+		return Array.from(cats);
 	});
+
+	let dropdownOptions = $derived.by(() => {
+		const filteredInv = inventory.filter(i => ((i.total || 0) - (i.soldUsed || 0) > 0.001) && (!selectedCategoryFilter || i.category === selectedCategoryFilter));
+		
+		const groups = {};
+		for (const item of filteredInv) {
+			const cleanName = item.name.replace(/\s+Harvest$/i, '').trim().toLowerCase();
+			if (!groups[cleanName]) {
+				groups[cleanName] = [];
+			}
+			groups[cleanName].push(item);
+		}
+
+		const result = [];
+		for (const [cleanName, items] of Object.entries(groups)) {
+			if (items.length > 1) {
+				const totalAvail = items.reduce((sum, i) => sum + Math.max(0, (i.total || 0) - (i.soldUsed || 0)), 0);
+				const first = items[0];
+				
+				result.push({
+					isAggregate: true,
+					id: `aggregate:${first.name}`,
+					name: first.name,
+					cleanName,
+					unit: first.unit || 'Kg',
+					category: first.category || '',
+					price: first.price || '',
+					displayName: `${first.name} — ${totalAvail} ${first.unit || 'Kg'}`,
+					availableQty: totalAvail
+				});
+			}
+			
+			for (const item of items) {
+				const daysLeft = calculateRemainingLifespan(item);
+				const lifespanDisplay = daysLeft !== null ? (daysLeft <= 0 ? 'Expired' : `${daysLeft}d left`) : '—';
+				const avail = Math.max(0, (item.total || 0) - (item.soldUsed || 0));
+				
+				result.push({
+					isAggregate: false,
+					id: item.id,
+					name: item.name,
+					cleanName,
+					unit: item.unit || 'Kg',
+					category: item.category || '',
+					price: item.price || '',
+					displayName: `${item.name} — ${avail} ${item.unit || 'Kg'} (lifespan: ${lifespanDisplay})`,
+					availableQty: avail
+				});
+			}
+		}
+		return result;
+	});
+
+	let selectedItem = $derived.by(() => dropdownOptions.find(opt => opt.id === selectedInventoryId) || null);
+	let availableQty = $derived.by(() => selectedItem ? selectedItem.availableQty : 0);
 
 	// Auto-fill price per unit when an inventory item is selected
 	$effect(() => {
@@ -134,6 +171,8 @@
 	function openModal() {
 		showModal = true;
 		selectedInventoryId = '';
+		selectedCategoryFilter = '';
+		allocationType = 'Sale';
 		quantity = '';
 		pricePerUnit = '';
 		buyerName = '';
@@ -144,6 +183,8 @@
 
 	function closeModal() {
 		showModal = false;
+		selectedCategoryFilter = '';
+		allocationType = 'Sale';
 		error = '';
 	}
 
@@ -170,10 +211,11 @@
 					category: selectedItem.category || '',
 					quantity: qty,
 					unit: selectedItem.unit || 'Kg',
-					pricePerUnit: Number(pricePerUnit),
-					buyerName,
+					pricePerUnit: allocationType === 'Sale' ? Number(pricePerUnit) : 0,
+					buyerName: allocationType === 'Sale' ? buyerName : '',
 					notes,
-					saleDate
+					saleDate,
+					type: allocationType
 				})
 			});
 
@@ -190,7 +232,7 @@
 	}
 
 	async function handleDelete(sale) {
-		if (!confirm(`Delete sale of ${sale.quantity} ${sale.unit} of "${sale.itemName}"? This will restore the stock.`)) return;
+		if (!confirm(`Delete allocation of ${sale.quantity} ${sale.unit} of "${sale.itemName}"? This will restore the stock.`)) return;
 
 		loading = true;
 		try {
@@ -209,15 +251,22 @@
 
 	// ── Filtering ────────────────────────────────────────────────────
 	let searchQuery = $state('');
+	let activeFilter = $state('All');
 	let filteredSales = $derived(
 		sales.filter(s => {
 			const q = searchQuery.trim().toLowerCase();
-			if (!q) return true;
-			return (
+			const queryMatch = !q || (
 				s.itemName?.toLowerCase().includes(q) ||
 				s.buyerName?.toLowerCase().includes(q) ||
 				s.category?.toLowerCase().includes(q)
 			);
+			
+			const typeMatch = activeFilter === 'All' || 
+				(activeFilter === 'Sales' && (!s.type || s.type === 'Sale')) ||
+				(activeFilter === 'Self Use' && s.type === 'Self Use') ||
+				(activeFilter === 'Wastage' && s.type === 'Wastage');
+
+			return queryMatch && typeMatch;
 		})
 	);
 
@@ -256,9 +305,9 @@
 	<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
 		{#each [
 			{ label: 'Total Revenue', value: formatCurrency(totalRevenue), icon: 'currency_rupee', color: 'bg-emerald-50 text-dark-green' },
-			{ label: 'This Month', value: formatCurrency(thisMonthRevenue), icon: 'calendar_month', color: 'bg-blue-50 text-blue-700' },
-			{ label: 'Total Transactions', value: sales.length.toString(), icon: 'receipt_long', color: 'bg-violet-50 text-violet-700' },
-			{ label: 'Top Selling Item', value: topItem, icon: 'trending_up', color: 'bg-amber-50 text-amber-700' }
+			{ label: 'Total Sold (kg)', value: `${totalSold} kg`, icon: 'shopping_basket', color: 'bg-blue-50 text-blue-700' },
+			{ label: 'Total Self Use (kg)', value: `${totalSelfUse} kg`, icon: 'home', color: 'bg-violet-50 text-violet-700' },
+			{ label: 'Total Wastage (kg)', value: `${totalWastage} kg`, icon: 'delete_outline', color: 'bg-amber-50 text-amber-700' }
 		] as stat}
 			<div class="bg-white rounded-2xl border border-slate-100 p-5 flex items-start gap-4 shadow-sm">
 				<div class={['size-10 rounded-xl flex items-center justify-center shrink-0', stat.color].join(' ')}>
@@ -275,8 +324,21 @@
 	<!-- Sales table card -->
 	<div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
 		<!-- Toolbar -->
-		<div class="p-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-			<h2 class="font-extrabold text-slate-800 text-sm">Transaction History</h2>
+		<div class="p-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+			<div class="space-y-1.5">
+				<h2 class="font-extrabold text-slate-800 text-sm">Inventory Allocation Log</h2>
+				<div class="flex flex-wrap gap-1.5">
+					{#each ['All', 'Sales', 'Self Use', 'Wastage'] as filterName}
+						<button
+							type="button"
+							onclick={() => activeFilter = filterName}
+							class="px-2.5 py-1 text-[10px] font-extrabold rounded-full border transition-all cursor-pointer {activeFilter === filterName ? 'bg-primary-green text-white border-primary-green' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}"
+						>
+							{filterName}
+						</button>
+					{/each}
+				</div>
+			</div>
 			<div class="relative w-full sm:w-64">
 				<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[16px]">search</span>
 				<input
@@ -293,13 +355,14 @@
 			<table class="w-full text-left text-xs border-collapse table-fixed min-w-[700px]">
 				<thead>
 					<tr class="bg-slate-50/50 font-bold uppercase tracking-wider text-[9px] text-slate-400 border-b border-slate-100">
-						<th class="p-4 pl-6 w-[20%]">Item</th>
+						<th class="p-4 pl-6 w-[10%]">Type</th>
+						<th class="p-4 w-[18%]">Item</th>
 						<th class="p-4 w-[12%]">Category</th>
-						<th class="p-4 text-center w-[10%]">Qty</th>
+						<th class="p-4 text-center w-[8%]">Qty</th>
 						<th class="p-4 text-center w-[10%]">Price / Unit</th>
-						<th class="p-4 text-center w-[13%]">Total</th>
-						<th class="p-4 w-[15%]">Buyer</th>
-						<th class="p-4 text-center w-[12%]">Date</th>
+						<th class="p-4 text-center w-[12%]">Total</th>
+						<th class="p-4 w-[12%]">Buyer</th>
+						<th class="p-4 text-center w-[10%]">Date</th>
 						<th class="p-4 pr-6 text-center w-[8%]">Action</th>
 					</tr>
 				</thead>
@@ -307,29 +370,54 @@
 					{#each filteredSales as sale (sale.id)}
 						<tr class="hover:bg-slate-50/40 transition-colors" transition:slide={{ duration: 150 }}>
 							<td class="p-4 pl-6">
+								{#if !sale.type || sale.type === 'Sale'}
+									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-dark-green border border-emerald-250/50">
+										🟢 Sale
+									</span>
+								{:else if sale.type === 'Self Use'}
+									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-250/50">
+										🔵 Self Use
+									</span>
+								{:else}
+									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-250/50">
+										🟠 Wastage
+									</span>
+								{/if}
+							</td>
+							<td class="p-4">
 								<span class="font-bold text-slate-800 line-clamp-1">{sale.itemName}</span>
 							</td>
 							<td class="p-4">
 								<span class="text-slate-400 capitalize">{sale.category || '—'}</span>
 							</td>
 							<td class="p-4 text-center font-bold text-slate-700">{sale.quantity} {sale.unit}</td>
-							<td class="p-4 text-center">{formatCurrency(sale.pricePerUnit)}</td>
 							<td class="p-4 text-center">
-								<span class="font-extrabold text-dark-green">{formatCurrency(sale.totalAmount)}</span>
+								{#if !sale.type || sale.type === 'Sale'}
+									{formatCurrency(sale.pricePerUnit)}
+								{:else}
+									<span class="text-slate-350">—</span>
+								{/if}
+							</td>
+							<td class="p-4 text-center">
+								{#if !sale.type || sale.type === 'Sale'}
+									<span class="font-extrabold text-dark-green">{formatCurrency(sale.totalAmount)}</span>
+								{:else}
+									<span class="text-slate-350">—</span>
+								{/if}
 							</td>
 							<td class="p-4 truncate">
-				{#if sale.buyerName}
-					{sale.buyerName}
-				{:else}
-					<span class="text-slate-300 italic">—</span>
-				{/if}
-			</td>
+								{#if (!sale.type || sale.type === 'Sale') && sale.buyerName}
+									{sale.buyerName}
+								{:else}
+									<span class="text-slate-350 italic">—</span>
+								{/if}
+							</td>
 							<td class="p-4 text-center text-slate-500">{formatDate(sale.saleDate)}</td>
 							<td class="p-4 pr-6 text-center">
 								<button
 									onclick={() => handleDelete(sale)}
 									class="text-slate-300 hover:text-red-500 transition-colors p-1"
-									title="Delete sale (restores stock)"
+									title="Delete log (restores stock)"
 								>
 									<span class="material-symbols-outlined text-[16px]">delete</span>
 								</button>
@@ -375,7 +463,7 @@
 		>
 			<!-- Header -->
 			<div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-				<h3 class="font-extrabold text-slate-800 text-base">Record Sale</h3>
+				<h3 class="font-extrabold text-slate-800 text-base">Record Inventory Allocation</h3>
 				<button
 					onclick={closeModal}
 					class="text-slate-400 hover:text-slate-600 transition-colors size-8 rounded-full hover:bg-slate-100 flex items-center justify-center"
@@ -392,6 +480,37 @@
 					</div>
 				{/if}
 
+				<!-- Allocation Type select -->
+				<div>
+					<label for="allocationType" class="block text-xs font-bold text-slate-600 mb-1.5">Allocation Type <span class="text-red-400">*</span></label>
+					<select
+						id="allocationType"
+						bind:value={allocationType}
+						required
+						class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green bg-white"
+					>
+						<option value="Sale">🟢 Sale</option>
+						<option value="Self Use">🔵 Self Use</option>
+						<option value="Wastage">🟠 Wastage</option>
+					</select>
+				</div>
+
+				<!-- Category Filter -->
+				<div>
+					<label for="categoryFilter" class="block text-xs font-bold text-slate-600 mb-1.5">Filter by Category</label>
+					<select
+						id="categoryFilter"
+						bind:value={selectedCategoryFilter}
+						onchange={() => { selectedInventoryId = ''; }}
+						class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green bg-white"
+					>
+						<option value="">All Categories</option>
+						{#each activeCategories as cat}
+							<option value={cat}>{cat}</option>
+						{/each}
+					</select>
+				</div>
+
 				<!-- Inventory item select -->
 				<div>
 					<label for="inventory" class="block text-xs font-bold text-slate-600 mb-1.5">Inventory Item <span class="text-red-400">*</span></label>
@@ -402,11 +521,9 @@
 						class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green bg-white"
 					>
 						<option value="" disabled>Select inventory item…</option>
-						{#each inventory.filter(i => (i.total || 0) - (i.soldUsed || 0) > 0) as item}
-							{@const daysLeft = calculateRemainingLifespan(item)}
-							{@const lifespanDisplay = daysLeft !== null ? (daysLeft <= 0 ? 'Expired' : `${daysLeft}d left`) : '—'}
+						{#each dropdownOptions as item}
 							<option value={item.id}>
-								{item.name} — {(item.total || 0) - (item.soldUsed || 0)} {item.unit || 'Kg'} available (lifespan: {lifespanDisplay})
+								{item.displayName}
 							</option>
 						{/each}
 					</select>
@@ -417,7 +534,7 @@
 					{/if}
 				</div>
 
-				<div class="grid grid-cols-2 gap-3">
+				<div class="grid gap-3 {allocationType === 'Sale' ? 'grid-cols-2' : 'grid-cols-1'}">
 					<!-- Quantity -->
 					<div>
 						<label for="quantity" class="block text-xs font-bold text-slate-600 mb-1.5">
@@ -436,44 +553,48 @@
 						/>
 					</div>
 					<!-- Price per unit -->
-					<div>
-						<label for="price" class="block text-xs font-bold text-slate-600 mb-1.5">Price per {selectedItem?.unit || 'Unit'} (₹) <span class="text-red-400">*</span></label>
-						<input
-							id="price"
-							type="number"
-							min="0"
-							step="any"
-							bind:value={pricePerUnit}
-							required
-							placeholder="0.00"
-							class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green"
-						/>
-					</div>
+					{#if allocationType === 'Sale'}
+						<div>
+							<label for="price" class="block text-xs font-bold text-slate-600 mb-1.5">Price per {selectedItem?.unit || 'Unit'} (₹) <span class="text-red-400">*</span></label>
+							<input
+								id="price"
+								type="number"
+								min="0"
+								step="any"
+								bind:value={pricePerUnit}
+								required
+								placeholder="0.00"
+								class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green"
+							/>
+						</div>
+					{/if}
 				</div>
 
 				<!-- Computed total -->
-				{#if computedTotal > 0}
+				{#if allocationType === 'Sale' && computedTotal > 0}
 					<div class="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-2.5 flex justify-between items-center">
 						<span class="text-xs font-bold text-slate-600">Total Sale Value</span>
 						<span class="font-extrabold text-dark-green text-base">{formatCurrency(computedTotal)}</span>
 					</div>
 				{/if}
 
-				<div class="grid grid-cols-2 gap-3">
+				<div class="grid gap-3 {allocationType === 'Sale' ? 'grid-cols-2' : 'grid-cols-1'}">
 					<!-- Buyer name -->
-					<div>
-						<label for="buyer" class="block text-xs font-bold text-slate-600 mb-1.5">Buyer Name</label>
-						<input
-							id="buyer"
-							type="text"
-							bind:value={buyerName}
-							placeholder="e.g. Ravi Traders"
-							class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green"
-						/>
-					</div>
+					{#if allocationType === 'Sale'}
+						<div>
+							<label for="buyer" class="block text-xs font-bold text-slate-600 mb-1.5">Buyer Name</label>
+							<input
+								id="buyer"
+								type="text"
+								bind:value={buyerName}
+								placeholder="e.g. Ravi Traders"
+								class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green"
+							/>
+						</div>
+					{/if}
 					<!-- Sale date -->
 					<div>
-						<label for="sale-date" class="block text-xs font-bold text-slate-600 mb-1.5">Sale Date <span class="text-red-400">*</span></label>
+						<label for="sale-date" class="block text-xs font-bold text-slate-600 mb-1.5">Allocation Date <span class="text-red-400">*</span></label>
 						<input
 							id="sale-date"
 							type="date"
@@ -508,7 +629,7 @@
 						disabled={loading || !selectedInventoryId}
 						class="btn-primary flex-1 py-3 text-xs"
 					>
-						{loading ? 'Saving…' : 'Record Sale'}
+						{loading ? 'Saving…' : 'Record Allocation'}
 					</button>
 				</div>
 			</form>

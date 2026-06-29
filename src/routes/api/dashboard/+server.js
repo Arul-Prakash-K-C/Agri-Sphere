@@ -12,17 +12,19 @@ export async function GET({ locals }) {
 
 	try {
 		if (role === 'farmer') {
-			// Query Farmer Crops, Expenses, Inventory, and Settings concurrently
-			const [cropsSnapshot, expensesSnapshot, inventorySnapshot, settingsDoc] = await Promise.all([
+			// Query Farmer Crops, Expenses, Inventory, Settings, and Sales concurrently
+			const [cropsSnapshot, expensesSnapshot, inventorySnapshot, settingsDoc, salesSnapshot] = await Promise.all([
 				adminDb.collection('crops').where('farmerId', '==', uid).get(),
 				adminDb.collection('expenses').where('farmerId', '==', uid).get(),
 				adminDb.collection('inventory').where('farmerId', '==', uid).get(),
-				adminDb.collection('inventory_settings').doc(uid).get()
+				adminDb.collection('inventory_settings').doc(uid).get(),
+				adminDb.collection('sales').where('farmerId', '==', uid).get()
 			]);
 
 			let crops = cropsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 			let expenses = expensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 			let inventory = inventorySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+			let sales = salesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
 			let settings = { silo1: 0, silo2: 0, coldStorage: 0 };
 			if (settingsDoc.exists) {
@@ -35,6 +37,7 @@ export async function GET({ locals }) {
 				crops,
 				expenses,
 				inventory,
+				sales,
 				settings,
 				weather: {
 					temp: 32,

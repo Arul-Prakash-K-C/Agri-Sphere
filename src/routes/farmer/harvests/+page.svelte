@@ -132,7 +132,7 @@
 		editingHarvest   = harvest;
 		selectedCropId   = harvest.cropId || '';
 		cropNameInput    = harvest.cropName || '';
-		lifespan         = harvest.lifespan || '';
+		lifespan         = harvest.lifespan ? (harvest.lifespan.match(/(\d+)/)?.[1] || '') : '';
 		quantity         = String(harvest.quantity);
 		unit             = harvest.unit || 'Liters';
 		harvestDate      = harvest.harvestDate || new Date().toISOString().split('T')[0];
@@ -201,7 +201,7 @@
 		try {
 			let cropId  = selectedCropId;
 			let cropName = cropNameInput.trim();
-			let finalLifespan = lifespan;
+			let finalLifespan = lifespan ? (lifespan + " Days") : '';
 
 			if (!cropName) { error = 'Please enter a crop.'; loading = false; return; }
 			if (!storageId) { error = 'Please select a storage location.'; loading = false; return; }
@@ -273,7 +273,7 @@
 		try {
 			let cropId   = selectedCropId;
 			let cropName = cropNameInput.trim();
-			let finalLifespan = lifespan;
+			let finalLifespan = lifespan ? (lifespan + " Days") : '';
 
 			if (!cropName) { error = 'Please enter a crop.'; loading = false; return; }
 			if (!storageId) { error = 'Please select a storage location.'; loading = false; return; }
@@ -526,14 +526,16 @@
 					<!-- ── Lifespan (MANDATORY — Product shelf life / expiry) ──── -->
 					<div>
 						<label for="harvest-lifespan" class="block mb-1.5 font-bold text-slate-700">
-							Lifespan <span class="text-red-500">*</span>
+							Lifespan (Days) <span class="text-red-500">*</span>
 						</label>
 						<input
 							id="harvest-lifespan"
-							type="text"
+							type="number"
+							min="1"
+							step="1"
 							bind:value={lifespan}
 							required
-							placeholder="e.g. 90 Days or 42 Days"
+							placeholder="e.g. 12"
 							class="input-field w-full text-xs"
 						/>
 					</div>

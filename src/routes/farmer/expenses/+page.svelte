@@ -6,8 +6,12 @@
 	let { data } = $props();
 
 	let expenses = $state([]);
+	let storages = $state([]);
+	let inventory = $state([]);
 	$effect(() => {
 		expenses = data.expenses || [];
+		storages = data.storages || [];
+		inventory = data.inventory || [];
 	});
 
 	// Category totals calculated reactively
@@ -17,6 +21,66 @@
 	let laborTotal = $derived(expenses.filter(e => e.category === 'Labor').reduce((sum, e) => sum + Number(e.amount || 0), 0));
 	let waterTotal = $derived(expenses.filter(e => e.category === 'Water').reduce((sum, e) => sum + Number(e.amount || 0), 0));
 	let electricityTotal = $derived(expenses.filter(e => e.category === 'Electricity').reduce((sum, e) => sum + Number(e.amount || 0), 0));
+	// Storage selection states
+	let newStorageId = $state('');
+	let editStorageId = $state('');
+
+	function convertToUnit(amount, fromUnit, toUnit) {
+		if (!amount || isNaN(amount)) return 0;
+		const from = (fromUnit || '').trim().toLowerCase();
+		const to = (toUnit || '').trim().toLowerCase();
+		if (from === to) return amount;
+		
+		if (from === 'kg' && to === 'tons') return amount / 1000;
+		if (from === 'tons' && to === 'kg') return amount * 1000;
+		if (from === 'g' && to === 'kg') return amount / 1000;
+		if (from === 'kg' && to === 'g') return amount * 1000;
+		if (from === 'ml' && to === 'liters') return amount / 1000;
+		if (from === 'liters' && to === 'ml') return amount * 1000;
+
+		return amount;
+	}
+
+	function getStorageAvailableSpace(storage) {
+		const occupied = inventory
+			.filter(item => item.storageId === storage.id)
+			.reduce((sum, item) => sum + convertToUnit(((item.total || 0) - (item.soldUsed || 0)), item.unit, storage.unit), 0);
+		
+		return Math.max(0, storage.capacity - occupied);
+	}
+
+	function getNormalizedCategory(cat) {
+		const c = (cat || '').trim().toLowerCase();
+		if (c === 'seed') return 'seeds';
+		if (c === 'fertilizer') return 'fertilizers';
+		return c;
+	}
+
+	let newAvailableStorages = $derived(
+		storages.filter(s =>
+			s.categories &&
+			s.categories.map(c => c.toLowerCase()).includes(getNormalizedCategory(newCategory))
+		).map(s => {
+			const avail = getStorageAvailableSpace(s);
+			return {
+				...s,
+				availableSpace: Math.round(avail * 1000) / 1000
+			};
+		})
+	);
+
+	let editAvailableStorages = $derived(
+		storages.filter(s =>
+			s.categories &&
+			s.categories.map(c => c.toLowerCase()).includes(getNormalizedCategory(editCategory))
+		).map(s => {
+			const avail = getStorageAvailableSpace(s);
+			return {
+				...s,
+				availableSpace: Math.round(avail * 1000) / 1000
+			};
+		})
+	);
 
 	// Add expense modal state
 	let showAddModal = $state(false);
@@ -158,13 +222,30 @@
 		};
 
 		if (isConditionalCategory(newCategory)) {
+			if (!newStorageId) {
+				error = 'Please select a storage location.';
+				loading = false;
+				return;
+			}
+			const storage = storages.find(s => s.id === newStorageId);
+			if (storage) {
+				const avail = getStorageAvailableSpace(storage);
+				const quantityInStorageUnit = convertToUnit(Number(newItemQuantity), newItemUnit, storage.unit);
+				if (quantityInStorageUnit > avail) {
+					error = `Not enough storage space. Available space: ${Math.round(avail * 100) / 100} ${storage.unit}. Required: ${Math.round(quantityInStorageUnit * 100) / 100} ${storage.unit}.`;
+					loading = false;
+					return;
+				}
+			}
+
 			payload.itemDetails = {
 				itemName: newItemName,
 				brand: newItemBrand,
 				quantity: Number(newItemQuantity),
 				unit: newItemUnit,
 				costPerUnit: newItemCostPerUnit ? Number(newItemCostPerUnit) : null,
-				notes: newItemNotes
+				notes: newItemNotes,
+				storageId: newStorageId
 			};
 		}
 
@@ -200,6 +281,7 @@
 			newItemUnit = 'Kg';
 			newItemCostPerUnit = '';
 			newItemNotes = '';
+			newStorageId = '';
 
 			showAddModal = false;
 		} catch (err) {
@@ -250,6 +332,7 @@
 			editItemUnit = expense.itemDetails.unit || 'Kg';
 			editItemCostPerUnit = expense.itemDetails.costPerUnit || '';
 			editItemNotes = expense.itemDetails.notes || '';
+			editStorageId = expense.itemDetails.storageId || '';
 		} else {
 			editItemName = '';
 			editItemBrand = '';
@@ -257,6 +340,7 @@
 			editItemUnit = 'Kg';
 			editItemCostPerUnit = '';
 			editItemNotes = '';
+			editStorageId = '';
 		}
 		
 		showEditModal = true;
@@ -276,13 +360,30 @@
 		};
 
 		if (isConditionalCategory(editCategory)) {
+			if (!editStorageId) {
+				error = 'Please select a storage location.';
+				loading = false;
+				return;
+			}
+			const storage = storages.find(s => s.id === editStorageId);
+			if (storage) {
+				const avail = getStorageAvailableSpace(storage);
+				const quantityInStorageUnit = convertToUnit(Number(editItemQuantity), editItemUnit, storage.unit);
+				if (quantityInStorageUnit > avail) {
+					error = `Not enough storage space. Available space: ${Math.round(avail * 100) / 100} ${storage.unit}. Required: ${Math.round(quantityInStorageUnit * 100) / 100} ${storage.unit}.`;
+					loading = false;
+					return;
+				}
+			}
+
 			payload.itemDetails = {
 				itemName: editItemName,
 				brand: editItemBrand,
 				quantity: Number(editItemQuantity),
 				unit: editItemUnit,
 				costPerUnit: editItemCostPerUnit ? Number(editItemCostPerUnit) : null,
-				notes: editItemNotes
+				notes: editItemNotes,
+				storageId: editStorageId
 			};
 		}
 
@@ -415,6 +516,29 @@
 							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Notes</span>
 							<input type="text" bind:value={newItemNotes} placeholder="Optional item notes" class="input-field w-full text-xs" />
 						</label>
+						<!-- Storage Location selector -->
+						<label class="block sm:col-span-2">
+							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
+								Storage Location <span class="text-red-500">*</span>
+							</span>
+							<select
+								bind:value={newStorageId}
+								required
+								class="input-field w-full text-xs bg-white py-[9.5px] disabled:opacity-60 disabled:cursor-not-allowed"
+							>
+								<option value="" disabled>— Select storage location —</option>
+								{#each newAvailableStorages as storage (storage.id)}
+									<option value={storage.id}>{storage.name} (Available: {storage.availableSpace} {storage.unit} / Capacity: {storage.capacity} {storage.unit})</option>
+								{:else}
+									<option value="" disabled>No storages configured for {newCategory}</option>
+								{/each}
+							</select>
+							{#if newAvailableStorages.length === 0}
+								<p class="text-[10px] text-amber-600 mt-1 font-bold">
+									⚠️ Configure a storage for "{newCategory}" in the Inventory module first.
+								</p>
+							{/if}
+						</label>
 					</div>
 				</div>
 			{/if}
@@ -521,6 +645,29 @@
 						<label class="block sm:col-span-2">
 							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Notes</span>
 							<input type="text" bind:value={editItemNotes} placeholder="Optional item notes" class="input-field w-full text-xs" />
+						</label>
+						<!-- Storage Location selector -->
+						<label class="block sm:col-span-2">
+							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
+								Storage Location <span class="text-red-500">*</span>
+							</span>
+							<select
+								bind:value={editStorageId}
+								required
+								class="input-field w-full text-xs bg-white py-[9.5px] disabled:opacity-60 disabled:cursor-not-allowed"
+							>
+								<option value="" disabled>— Select storage location —</option>
+								{#each editAvailableStorages as storage (storage.id)}
+									<option value={storage.id}>{storage.name} (Available: {storage.availableSpace} {storage.unit} / Capacity: {storage.capacity} {storage.unit})</option>
+								{:else}
+									<option value="" disabled>No storages configured for {editCategory}</option>
+								{/each}
+							</select>
+							{#if editAvailableStorages.length === 0}
+								<p class="text-[10px] text-amber-600 mt-1 font-bold">
+									⚠️ Configure a storage for "{editCategory}" in the Inventory module first.
+								</p>
+							{/if}
 						</label>
 					</div>
 				</div>

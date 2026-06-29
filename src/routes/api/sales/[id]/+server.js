@@ -40,6 +40,26 @@ export async function DELETE({ params, locals }) {
 							status: newStatus
 						});
 					}
+				} else if (ded.expenseId) {
+					const eRef = adminDb.collection('expenses').doc(ded.expenseId);
+					const eSnap = await eRef.get();
+					if (eSnap.exists) {
+						const eData = eSnap.data();
+						const details = eData.itemDetails || {};
+						const currentQty = Number(details.quantity || 0);
+						const currentSoldUsed = Number(details.soldUsed || 0);
+						const dedQty = Number(ded.quantitySold || ded.quantity || 0);
+
+						const newQty = currentQty + dedQty;
+						const newSoldUsed = Math.max(0, currentSoldUsed - dedQty);
+						const newStatus = newQty > 0 ? 'Good' : 'Sold';
+
+						batch.update(eRef, {
+							'itemDetails.quantity': newQty,
+							'itemDetails.soldUsed': newSoldUsed,
+							'itemDetails.status': newStatus
+						});
+					}
 				} else if (ded.inventoryId) {
 					// Fallback for older legacy schema deductions
 					const invRef = adminDb.collection('inventory').doc(ded.inventoryId);

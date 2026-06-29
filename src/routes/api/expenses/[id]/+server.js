@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { adminDb } from '$lib/server/firebase-admin';
+import { adminDb, syncInventoryForFarmer } from '$lib/server/firebase-admin';
 
 /** @type {import('./$types').RequestHandler} */
 export async function PATCH({ params, request, locals }) {
@@ -76,7 +76,10 @@ export async function PATCH({ params, request, locals }) {
 					quantity: Number(itemDetails.quantity),
 					unit: itemDetails.unit.trim(),
 					costPerUnit: itemDetails.costPerUnit ? Number(itemDetails.costPerUnit) : null,
-					notes: itemDetails.notes ? itemDetails.notes.trim() : ''
+					notes: itemDetails.notes ? itemDetails.notes.trim() : '',
+					storageId: itemDetails.storageId ? itemDetails.storageId.trim() : '',
+					soldUsed: expenseDoc.data().itemDetails?.soldUsed || 0,
+					status: expenseDoc.data().itemDetails?.status || 'Good'
 				};
 			}
 		} else {
@@ -88,6 +91,10 @@ export async function PATCH({ params, request, locals }) {
 
 		await docRef.update(updatePayload);
 		const updatedDoc = await docRef.get();
+
+		if (['Seed', 'Fertilizer', 'Chemicals'].includes(targetCategory)) {
+			await syncInventoryForFarmer(locals.user.uid);
+		}
 
 		return json({ id: updatedDoc.id, ...updatedDoc.data() });
 	} catch (error) {
@@ -118,7 +125,23 @@ export async function DELETE({ params, locals }) {
 			return json({ error: 'Forbidden' }, { status: 403 });
 		}
 
+		// Check if this expense is linked to any sales
+		const salesSnapshot = await adminDb.collection('sales')
+			.where('farmerId', '==', locals.user.uid)
+			.get();
+		const sales = salesSnapshot.docs.map(doc => doc.data());
+		
+		const isLinkedToSales = sales.some(sale => {
+			const allocations = sale.saleAllocations || sale.deductions || [];
+			return allocations.some(alloc => alloc.expenseId === params.id);
+		});
+
+		if (isLinkedToSales) {
+			return json({ error: 'This expense is linked to sales and cannot be deleted.' }, { status: 400 });
+		}
+
 		await docRef.delete();
+		await syncInventoryForFarmer(locals.user.uid);
 		return json({ success: true, message: 'Expense deleted successfully' });
 	} catch (error) {
 		console.error('Error deleting expense:', error);

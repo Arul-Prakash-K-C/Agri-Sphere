@@ -396,9 +396,17 @@ export async function syncInventoryForFarmer(farmerId) {
 
 	const now = new Date().toISOString();
 
+	// Fetch active operational expenses
+	const expensesSnapshot = await adminDb.collection('expenses')
+		.where('farmerId', '==', farmerId)
+		.get();
+	const expenses = expensesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+		.filter(e => ['Seed', 'Fertilizer', 'Chemicals'].includes(e.category) && e.itemDetails);
+
 	// 3. Sequentially build aggregated inventory batches
 	const inventoryBatches = [];
 
+	// Build from Harvests
 	for (const h of harvests) {
 		if (h.status === 'sold' || h.status === 'Sold') continue;
 
@@ -466,8 +474,91 @@ export async function syncInventoryForFarmer(farmerId) {
 				total: Number(h.quantity || 0) + Number(h.soldUsed || 0),
 				soldUsed: Number(h.soldUsed || 0),
 				harvestIds: [h.id],
+				expenseIds: [],
+				sourceType: 'harvest',
 				farmerId,
 				createdAt: h.createdAt || now
+			});
+		}
+	}
+
+	// Build from operational Expenses
+	for (const e of expenses) {
+		const details = e.itemDetails;
+		if (details.status?.toLowerCase() === 'sold') continue;
+		const qty = Number(details.quantity || 0);
+		if (qty <= 0 && Number(details.soldUsed || 0) === 0) continue;
+
+		const itemName = (details.itemName || '').trim();
+		// Map category to unified plural names
+		let category = e.category || 'Seeds';
+		if (category === 'Seed') category = 'Seeds';
+		if (category === 'Fertilizer') category = 'Fertilizers';
+
+		const grade = 'N/A';
+		const remainingLife = null;
+		const storageId = (details.storageId || '').trim();
+		const unit = details.unit || 'Kg';
+
+		// Match existing built batches
+		const matched = inventoryBatches.find(inv => {
+			const nameMatch = cleanProductName(inv.cropName) === cleanProductName(itemName);
+			const catMatch = (inv.category || '').trim().toLowerCase() === category.toLowerCase();
+			const gradeMatch = (inv.grade || '').trim().toLowerCase() === grade.toLowerCase();
+			const lifeMatch = inv.remainingLife === remainingLife;
+			const storageMatch = (inv.storageId || '') === storageId;
+			const statusMatch = inv.status !== 'sold' && ((inv.total || 0) - (inv.soldUsed || 0) > 0.001);
+
+			return nameMatch && catMatch && gradeMatch && lifeMatch && storageMatch && statusMatch;
+		});
+
+		if (matched) {
+			const qtyInInvUnit = convertToUnit(qty, unit, matched.unit);
+			const soldInInvUnit = convertToUnit(Number(details.soldUsed || 0), unit, matched.unit);
+			matched.total += qtyInInvUnit + soldInInvUnit;
+			matched.soldUsed += soldInInvUnit;
+			if (e.id && !matched.expenseIds.includes(e.id)) {
+				matched.expenseIds.push(e.id);
+			}
+			if (e.createdAt && e.createdAt < matched.createdAt) {
+				matched.createdAt = e.createdAt;
+			}
+		} else {
+			// Find if there's an existing unused inventory item to reuse its ID
+			const matchedExisting = inventoryItems.find(item => {
+				const isUnused = !inventoryBatches.some(b => b.id === item.id);
+				if (!isUnused) return false;
+				
+				const nameMatch = cleanProductName(item.cropName) === cleanProductName(itemName) || cleanProductName(item.name) === cleanProductName(itemName);
+				const catMatch = (item.category || '').trim().toLowerCase() === category.toLowerCase();
+				const gradeMatch = (item.grade || '').trim().toLowerCase() === grade.toLowerCase();
+				const lifeMatch = item.remainingLife === remainingLife;
+				const storageMatch = (item.storageId || '') === storageId;
+				const statusMatch = item.status !== 'sold' && ((item.total || 0) - (item.soldUsed || 0) > 0.001);
+
+				return nameMatch && catMatch && gradeMatch && lifeMatch && storageMatch && statusMatch;
+			});
+
+			const docId = matchedExisting ? matchedExisting.id : adminDb.collection('inventory').doc().id;
+
+			inventoryBatches.push({
+				id: docId,
+				isNew: !matchedExisting,
+				name: itemName + ' (' + category + ')',
+				cropName: itemName,
+				category: category,
+				grade: grade,
+				lifespan: 'N/A',
+				remainingLife: remainingLife,
+				storageId: storageId,
+				unit: unit,
+				total: qty + Number(details.soldUsed || 0),
+				soldUsed: Number(details.soldUsed || 0),
+				harvestIds: [],
+				expenseIds: [e.id],
+				sourceType: 'expense',
+				farmerId,
+				createdAt: e.createdAt || now
 			});
 		}
 	}
@@ -491,7 +582,9 @@ export async function syncInventoryForFarmer(farmerId) {
 			grade: inv.grade,
 			lifespan: inv.lifespan,
 			remainingLife: inv.remainingLife,
-			harvestIds: inv.harvestIds,
+			harvestIds: inv.harvestIds || [],
+			expenseIds: inv.expenseIds || [],
+			sourceType: inv.sourceType || 'harvest',
 			farmerId: inv.farmerId,
 			storageId: inv.storageId,
 			status: isSold ? 'sold' : 'Available',
@@ -510,9 +603,16 @@ export async function syncInventoryForFarmer(farmerId) {
 			batch.update(invRef, invData);
 		}
 
+		// Update linked harvests status
 		for (const hId of inv.harvestIds) {
 			const hRef = adminDb.collection('harvests').doc(hId);
 			batch.update(hRef, { status: isSold ? 'sold' : '' });
+		}
+
+		// Update linked expenses status
+		for (const eId of inv.expenseIds) {
+			const eRef = adminDb.collection('expenses').doc(eId);
+			batch.update(eRef, { 'itemDetails.status': isSold ? 'Sold' : 'Good' });
 		}
 	}
 
@@ -520,7 +620,8 @@ export async function syncInventoryForFarmer(farmerId) {
 	for (const item of inventoryItems) {
 		const isUnused = !usedInvIds.has(item.id);
 		const isHarvestSource = item.sourceType === 'harvest' || (item.harvestIds && item.harvestIds.length > 0) || !item.sourceType;
-		if (isUnused && isHarvestSource) {
+		const isExpenseSource = item.sourceType === 'expense' || (item.expenseIds && item.expenseIds.length > 0);
+		if (isUnused && (isHarvestSource || isExpenseSource)) {
 			batch.delete(adminDb.collection('inventory').doc(item.id));
 		}
 	}

@@ -37,41 +37,6 @@ export async function GET({ locals }) {
 		// Sort client-side to avoid index requirement
 		harvests.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
-		// Seed initial harvest logs if empty
-		if (harvests.length === 0) {
-			const seedHarvests = [
-				{
-					cropName: 'Basmati Rice',
-					cropId: '',
-					lifespan: '120 Days',
-					quantity: 90,
-					unit: 'Liters',
-					harvestDate: '2026-06-24',
-					qualityGrade: 'Grade A',
-					notes: 'Premium yield from North Valley fields.',
-					farmerId: locals.user.uid,
-					createdAt: new Date().toISOString()
-				},
-				{
-					cropName: 'Sweet Corn',
-					cropId: '',
-					lifespan: 'Seasonal (Jun, Jul, Aug)',
-					quantity: 45,
-					unit: 'Liters',
-					harvestDate: '2026-06-18',
-					qualityGrade: 'Grade A+',
-					notes: 'Excellent moisture content and grain quality.',
-					farmerId: locals.user.uid,
-					createdAt: new Date().toISOString()
-				}
-			];
-
-			for (const item of seedHarvests) {
-				const docRef = await adminDb.collection('harvests').add(item);
-				harvests.push({ id: docRef.id, ...item });
-			}
-		}
-
 		return json(harvests);
 	} catch (error) {
 		console.error('Error fetching harvests:', error);

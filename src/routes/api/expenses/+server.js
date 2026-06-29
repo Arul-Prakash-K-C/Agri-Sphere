@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { adminDb } from '$lib/server/firebase-admin';
+import { adminDb, syncInventoryForFarmer } from '$lib/server/firebase-admin';
 
 /** @type {import('./$types').RequestHandler} */
 export async function GET({ locals }) {
@@ -86,11 +86,19 @@ export async function POST({ request, locals }) {
 				quantity: Number(itemDetails.quantity),
 				unit: itemDetails.unit.trim(),
 				costPerUnit: itemDetails.costPerUnit ? Number(itemDetails.costPerUnit) : null,
-				notes: itemDetails.notes ? itemDetails.notes.trim() : ''
+				notes: itemDetails.notes ? itemDetails.notes.trim() : '',
+				storageId: itemDetails.storageId ? itemDetails.storageId.trim() : '',
+				soldUsed: 0,
+				status: 'Good'
 			};
 		}
 
 		const docRef = await adminDb.collection('expenses').add(newExpense);
+
+		if (['Seed', 'Fertilizer', 'Chemicals'].includes(category)) {
+			await syncInventoryForFarmer(locals.user.uid);
+		}
+
 		return json({ id: docRef.id, ...newExpense }, { status: 201 });
 	} catch (error) {
 		console.error('Error creating expense:', error);
