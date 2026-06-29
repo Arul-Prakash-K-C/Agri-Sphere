@@ -69,6 +69,7 @@ export async function POST({ request, locals }) {
 
 		let remainingQty = qty;
 		const deductions = [];
+		const saleAllocations = [];
 		const batch = adminDb.batch();
 
 		for (const h of harvests) {
@@ -82,7 +83,8 @@ export async function POST({ request, locals }) {
 			if (deduct >= avail - 0.001) {
 				// Fully sold
 				batch.update(hRef, {
-					status: 'sold',
+					quantity: 0,
+					status: 'Sold',
 					soldUsed: newSoldUsed
 				});
 			} else {
@@ -96,7 +98,13 @@ export async function POST({ request, locals }) {
 
 			deductions.push({
 				harvestId: h.id,
+				quantitySold: deduct,
 				quantity: deduct
+			});
+
+			saleAllocations.push({
+				harvestId: h.id,
+				quantitySold: deduct
 			});
 
 			remainingQty -= deduct;
@@ -116,7 +124,8 @@ export async function POST({ request, locals }) {
 			notes: notes ? notes.trim() : '',
 			saleDate: saleDate ? new Date(saleDate).toISOString() : new Date().toISOString(),
 			createdAt: new Date().toISOString(),
-			deductions
+			deductions,
+			saleAllocations
 		};
 
 		const saleDocRef = adminDb.collection('sales').doc();

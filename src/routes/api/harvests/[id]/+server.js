@@ -136,6 +136,21 @@ export async function DELETE({ params, locals }) {
 			return json({ error: 'Forbidden' }, { status: 403 });
 		}
 
+		// Check if this harvest is linked to any sales
+		const salesSnapshot = await adminDb.collection('sales')
+			.where('farmerId', '==', locals.user.uid)
+			.get();
+		const sales = salesSnapshot.docs.map(doc => doc.data());
+		
+		const isLinkedToSales = sales.some(sale => {
+			const allocations = sale.saleAllocations || sale.deductions || [];
+			return allocations.some(alloc => alloc.harvestId === params.id);
+		});
+
+		if (isLinkedToSales) {
+			return json({ error: 'This harvest is linked to sales and cannot be deleted.' }, { status: 400 });
+		}
+
 		await docRef.delete();
 		await syncInventoryForFarmer(locals.user.uid);
 

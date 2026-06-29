@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { adminDb } from '$lib/server/firebase-admin';
+import { adminDb, syncInventoryForFarmer } from '$lib/server/firebase-admin';
 
 /** @type {import('./$types').RequestHandler} */
 export async function DELETE({ params, locals }) {
@@ -15,26 +15,39 @@ export async function DELETE({ params, locals }) {
 		const sale = saleSnap.data();
 		if (sale.farmerId !== locals.user.uid) return json({ error: 'Forbidden.' }, { status: 403 });
 
-		// Reverse the inventory deduction
-		if (sale.deductions && Array.isArray(sale.deductions)) {
-			const batch = adminDb.batch();
-			for (const ded of sale.deductions) {
-				const invRef = adminDb.collection('inventory').doc(ded.inventoryId);
-				const invSnap = await invRef.get();
-				if (invSnap.exists) {
-					const currentSoldUsed = Number(invSnap.data().soldUsed || 0);
-					const newSoldUsed = Math.max(0, currentSoldUsed - Number(ded.quantity || 0));
-					batch.update(invRef, { soldUsed: newSoldUsed });
+		const allocations = sale.saleAllocations || sale.deductions || [];
 
-					// Revert harvest status if it was sold
-					const invData = invSnap.data();
-					const harvestIds = invData.harvestIds || (invData.sourceId ? [invData.sourceId] : []);
-					if (newSoldUsed < Number(invData.total || 0)) {
-						for (const hid of harvestIds) {
-							batch.update(adminDb.collection('harvests').doc(hid), {
-								status: ''
-							});
-						}
+		// Reverse the inventory deduction
+		if (allocations && Array.isArray(allocations)) {
+			const batch = adminDb.batch();
+			for (const ded of allocations) {
+				if (ded.harvestId) {
+					const hRef = adminDb.collection('harvests').doc(ded.harvestId);
+					const hSnap = await hRef.get();
+					if (hSnap.exists) {
+						const hData = hSnap.data();
+						const currentQty = Number(hData.quantity || 0);
+						const currentSoldUsed = Number(hData.soldUsed || 0);
+						const dedQty = Number(ded.quantitySold || ded.quantity || 0);
+
+						const newQty = currentQty + dedQty;
+						const newSoldUsed = Math.max(0, currentSoldUsed - dedQty);
+						const newStatus = newQty > 0 ? 'Good' : 'Sold';
+
+						batch.update(hRef, {
+							quantity: newQty,
+							soldUsed: newSoldUsed,
+							status: newStatus
+						});
+					}
+				} else if (ded.inventoryId) {
+					// Fallback for older legacy schema deductions
+					const invRef = adminDb.collection('inventory').doc(ded.inventoryId);
+					const invSnap = await invRef.get();
+					if (invSnap.exists) {
+						const currentSoldUsed = Number(invSnap.data().soldUsed || 0);
+						const newSoldUsed = Math.max(0, currentSoldUsed - Number(ded.quantity || 0));
+						batch.update(invRef, { soldUsed: newSoldUsed });
 					}
 				}
 			}
@@ -62,6 +75,10 @@ export async function DELETE({ params, locals }) {
 		} else {
 			await saleRef.delete();
 		}
+
+		// Re-sync inventory immediately to update batch statuses and totals
+		await syncInventoryForFarmer(locals.user.uid);
+
 		return json({ success: true });
 	} catch (error) {
 		console.error('Error deleting sale:', error);
