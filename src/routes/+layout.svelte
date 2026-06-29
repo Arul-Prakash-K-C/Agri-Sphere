@@ -7,6 +7,8 @@
 	import { authState, startAuthListener } from '$lib/auth.svelte.js';
 	import favicon from '$lib/assets/favicon.svg';
 	import { logout } from '$lib/firebase-data';
+	import Modal from '$lib/components/Modal.svelte';
+	import { modalState } from '$lib/modal.svelte.js';
 
 	let { children, data } = $props();
 
@@ -777,4 +779,16 @@
 			</main>
 		</div>
 	{/if}
+
+	<Modal
+		bind:show={modalState.show}
+		type={modalState.type}
+		title={modalState.title}
+		confirmText={modalState.confirmText}
+		cancelText={modalState.cancelText}
+		onConfirm={modalState.onConfirm}
+		onCancel={modalState.onCancel}
+	>
+		<p class="text-xs font-semibold text-slate-550 leading-relaxed">{modalState.message}</p>
+	</Modal>
 </div>
