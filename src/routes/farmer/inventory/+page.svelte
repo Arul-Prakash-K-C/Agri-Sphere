@@ -9,23 +9,42 @@
 	let crops = $state([]);
 	let harvests = $state([]);
 
-	// Utilization
-	let silo1Full = $state(0);
-	let silo2Full = $state(0);
-	let coldStorageFull = $state(0);
+	// Storages & Modal State
+	let storages = $state([]);
+	let showStorageModal = $state(false);
+	let storageFormMode = $state('add'); // 'add' | 'edit'
+	let editingStorage = $state(null);
+
+	// Storage Details Modal
+	let showStorageDetailsModal = $state(false);
+	let selectedStorageForDetails = $state(null);
+	let itemsInSelectedStorage = $derived(
+		selectedStorageForDetails ? stockItems.filter(item => item.storageId === selectedStorageForDetails.id) : []
+	);
+
+	function openStorageDetails(storage) {
+		selectedStorageForDetails = storage;
+		showStorageDetailsModal = true;
+	}
+	function closeStorageDetails() {
+		showStorageDetailsModal = false;
+		selectedStorageForDetails = null;
+	}
+
+	// Storage Form Fields
+	let storageName = $state('');
+	let storageCapacity = $state('');
+	let storageUnit = $state('kg');
+	let storageCategories = $state([]);
 
 	$effect(() => {
 		stockItems = data.inventory || [];
 		crops = data.crops || [];
 		harvests = data.harvests || [];
-		silo1Full = data.settings?.silo1 || 0;
-		silo2Full = data.settings?.silo2 || 0;
-		coldStorageFull = data.settings?.coldStorage || 0;
+		storages = data.storages || [];
 	});
 
 	let filterCategory = $state('All'); // 'All' | 'Fruits' | 'Vegetables' | 'Seeds' | 'Chemicals' | 'Fertilizers' | 'Grains' | 'Others'
-	let editStorageMode = $state(false);
-
 	let loading = $state(false);
 	let error = $state('');
 
@@ -75,19 +94,7 @@
 		return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 	}
 
-	// Determine status string
-	function determineStatus(item) {
-		const available = (item.total || 0) - (item.soldUsed || 0);
-		if (available <= 0) return { label: 'Out of Stock', color: 'bg-red-50 text-red-700 border-red-100' };
-
-		const days = calculateRemainingLifespan(item.name);
-		if (days !== null) {
-			if (days <= 0) return { label: 'Expired', color: 'bg-red-100 text-red-800 border-red-300' };
-			if (days <= 2) return { label: 'Near Expiry', color: 'bg-amber-50 text-amber-800 border-amber-200 animate-pulse' };
-		}
-
-		return { label: 'Fresh', color: 'bg-emerald-50 text-dark-green border-emerald-100' };
-	}
+	// Status calculation logic removed
 
 	// Dynamic categorisation filter match
 	let filteredItems = $derived.by(() => {
@@ -102,27 +109,104 @@
 		});
 	});
 
-	// Save Storage Utilization levels
-	async function saveStorageSettings() {
+	function convertToUnit(amount, fromUnit, toUnit) {
+		if (!amount || isNaN(amount)) return 0;
+		const from = (fromUnit || '').trim().toLowerCase();
+		const to = (toUnit || '').trim().toLowerCase();
+		if (from === to) return amount;
+		
+		if (from === 'kg' && to === 'tons') return amount / 1000;
+		if (from === 'tons' && to === 'kg') return amount * 1000;
+		if (from === 'g' && to === 'kg') return amount / 1000;
+		if (from === 'kg' && to === 'g') return amount * 1000;
+		if (from === 'ml' && to === 'liters') return amount / 1000;
+		if (from === 'liters' && to === 'ml') return amount * 1000;
+
+		return amount;
+	}
+
+	function openAddStorage() {
+		storageFormMode = 'add';
+		editingStorage = null;
+		storageName = '';
+		storageCapacity = '';
+		storageUnit = 'kg';
+		storageCategories = [];
+		showStorageModal = true;
+		error = '';
+	}
+
+	function openEditStorage(storage) {
+		storageFormMode = 'edit';
+		editingStorage = storage;
+		storageName = storage.name || '';
+		storageCapacity = String(storage.capacity || '');
+		storageUnit = storage.unit || 'kg';
+		storageCategories = [...(storage.categories || [])];
+		showStorageModal = true;
+		error = '';
+	}
+
+	function closeStorageModal() {
+		showStorageModal = false;
+		editingStorage = null;
+	}
+
+	function toggleCategory(cat) {
+		if (storageCategories.includes(cat)) {
+			storageCategories = storageCategories.filter(c => c !== cat);
+		} else {
+			storageCategories = [...storageCategories, cat];
+		}
+	}
+
+	async function handleSaveStorage(event) {
+		event.preventDefault();
 		loading = true;
 		error = '';
+
 		try {
-			const res = await fetch('/api/inventory', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					action: 'update_settings',
-					silo1: silo1Full,
-					silo2: silo2Full,
-					coldStorage: coldStorageFull
-				})
-			});
-			if (!res.ok) {
-				const d = await res.json();
-				throw new Error(d.error || 'Failed to update storage levels');
+			if (storageFormMode === 'add') {
+				const res = await fetch('/api/storages', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						name: storageName,
+						capacity: Number(storageCapacity),
+						unit: storageUnit,
+						categories: storageCategories
+					})
+				});
+
+				if (!res.ok) {
+					const d = await res.json();
+					throw new Error(d.error || 'Failed to add storage');
+				}
+
+				const added = await res.json();
+				storages = [...storages, added];
+				closeStorageModal();
+			} else {
+				const res = await fetch(`/api/storages/${editingStorage.id}`, {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						name: storageName,
+						capacity: Number(storageCapacity),
+						unit: storageUnit,
+						categories: storageCategories
+					})
+				});
+
+				if (!res.ok) {
+					const d = await res.json();
+					throw new Error(d.error || 'Failed to update storage');
+				}
+
+				const updated = await res.json();
+				storages = storages.map(s => s.id === updated.id ? updated : s);
+				closeStorageModal();
 			}
-			editStorageMode = false;
-			await invalidateAll();
 		} catch (err) {
 			error = err.message;
 		} finally {
@@ -130,59 +214,30 @@
 		}
 	}
 
-	// Change Unit dynamically on table select
-	async function changeUnit(itemId, unit) {
+	async function handleDeleteStorage(id) {
+		if (!confirm('Are you sure you want to delete this storage? Linked inventory items will no longer be tracked under this storage.')) return;
+		loading = true;
+		error = '';
+
 		try {
-			const res = await fetch('/api/inventory', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					action: 'update_unit',
-					itemId,
-					unit
-				})
+			const res = await fetch(`/api/storages/${id}`, {
+				method: 'DELETE'
 			});
+
 			if (!res.ok) {
 				const d = await res.json();
-				throw new Error(d.error || 'Failed to update unit');
+				throw new Error(d.error || 'Failed to delete storage');
 			}
-			stockItems = stockItems.map(item => item.id === itemId ? { ...item, unit } : item);
+
+			storages = storages.filter(s => s.id !== id);
 		} catch (err) {
 			alert(err.message);
+		} finally {
+			loading = false;
 		}
 	}
 
-	// Change Stock levels inline dynamically
-	async function changeStockLevel(itemId, total, soldUsed) {
-		try {
-			const res = await fetch('/api/inventory', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					action: 'update_stock',
-					itemId,
-					total: total !== undefined ? Number(total) : undefined,
-					soldUsed: soldUsed !== undefined ? Number(soldUsed) : undefined
-				})
-			});
-			if (!res.ok) {
-				const d = await res.json();
-				throw new Error(d.error || 'Failed to update stock');
-			}
-			stockItems = stockItems.map(item => {
-				if (item.id === itemId) {
-					const updated = { ...item };
-					if (total !== undefined) updated.total = Number(total);
-					if (soldUsed !== undefined) updated.soldUsed = Number(soldUsed);
-					return updated;
-				}
-				return item;
-			});
-			await invalidateAll();
-		} catch (err) {
-			console.error(err.message);
-		}
-	}
+	// Inline table write operations removed
 </script>
 
 <svelte:head>
@@ -210,73 +265,69 @@
 							<span class="material-symbols-outlined text-primary-green">warehouse</span>
 							Storage Utilization
 						</h3>
-						{#if !editStorageMode}
-							<button 
-								onclick={() => editStorageMode = true} 
-								class="text-xs font-bold text-primary-green hover:underline flex items-center gap-1"
-							>
-								<span class="material-symbols-outlined text-sm">edit</span> Edit
-							</button>
-						{/if}
+						<button 
+							onclick={openAddStorage} 
+							class="text-xs font-bold text-primary-green hover:underline flex items-center gap-1"
+						>
+							<span class="material-symbols-outlined text-sm">add</span> Add Storage
+						</button>
 					</div>
 
-					{#if editStorageMode}
-						<form onsubmit={(e) => { e.preventDefault(); saveStorageSettings(); }} class="space-y-4 text-xs font-bold text-slate-700">
-							<label class="block">
-								<span class="block mb-1">Silo 1 (Grain) %</span>
-								<input type="number" min="0" max="100" bind:value={silo1Full} class="input-field w-full text-xs" />
-							</label>
-							<label class="block">
-								<span class="block mb-1">Silo 2 (Seed) %</span>
-								<input type="number" min="0" max="100" bind:value={silo2Full} class="input-field w-full text-xs" />
-							</label>
-							<label class="block">
-								<span class="block mb-1">Cold Storage %</span>
-								<input type="number" min="0" max="100" bind:value={coldStorageFull} class="input-field w-full text-xs" />
-							</label>
-							
-							{#if error}
-								<div class="text-red-500 text-xs">{error}</div>
-							{/if}
-
-							<div class="flex gap-2 pt-2">
-								<button type="button" onclick={() => editStorageMode = false} class="btn-secondary flex-1 py-2 text-xs">Cancel</button>
-								<button type="submit" disabled={loading} class="btn-primary flex-1 py-2 text-xs">
-									{loading ? 'Saving...' : 'Save'}
-								</button>
-							</div>
-						</form>
-					{:else}
-						<div class="space-y-5">
-							<div>
-								<div class="flex justify-between text-xs font-semibold mb-1.5">
-									<span class="text-slate-700">Silo 1 (Grain)</span>
-									<span class="text-slate-400 font-bold">{silo1Full}% Full</span>
+					<div class="space-y-3">
+						{#each storages as storage (storage.id)}
+							{@const occupied = stockItems.filter(item => item.storageId === storage.id).reduce((sum, item) => sum + convertToUnit(((item.total || 0) - (item.soldUsed || 0)), item.unit, storage.unit), 0)}
+							{@const occupiedDisplay = Math.round(occupied * 1000) / 1000}
+							{@const pct = storage.capacity > 0 ? Math.min(100, (occupied / storage.capacity) * 100) : 0}
+							{@const pctDisplay = Math.round(pct * 10) / 10}
+							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<!-- svelte-ignore a11y_no_static_element_interactions -->
+							<div 
+								class="group/storage border border-slate-100 rounded-xl p-4 bg-white hover:border-primary-green/30 hover:shadow-sm hover:shadow-primary-green/5 cursor-pointer transition-all"
+								onclick={() => openStorageDetails(storage)}
+							>
+								<div class="flex justify-between items-start mb-2 gap-2">
+									<div class="flex-grow min-w-0">
+										<div class="font-bold text-sm text-slate-800 flex items-center gap-1.5 flex-wrap">
+											<span class="truncate transition-colors group-hover/storage:text-primary-green">{storage.name}</span>
+											<span class="text-[9px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full capitalize">
+												{storage.categories.join(', ')}
+											</span>
+										</div>
+										<p class="text-[10px] text-slate-400 mt-1 font-semibold">
+											{occupiedDisplay} / {storage.capacity} {storage.unit} occupied
+										</p>
+									</div>
+									<div class="flex items-center gap-1.5 shrink-0">
+										<span class="text-xs font-black {pct > 90 ? 'text-red-500' : pct > 75 ? 'text-amber-500' : 'text-slate-600'}">{pctDisplay}% Full</span>
+										<button
+											onclick={(e) => { e.stopPropagation(); openEditStorage(storage); }}
+											class="text-slate-300 hover:text-primary-green transition-colors p-1"
+											title="Edit storage"
+										>
+											<span class="material-symbols-outlined text-[16px]">edit</span>
+										</button>
+										<button
+											onclick={(e) => { e.stopPropagation(); handleDeleteStorage(storage.id); }}
+											class="text-slate-300 hover:text-red-500 transition-colors p-1"
+											title="Delete storage"
+										>
+											<span class="material-symbols-outlined text-[16px]">delete</span>
+										</button>
+									</div>
 								</div>
-								<div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-									<div class="bg-primary-green h-full rounded-full transition-all duration-300" style="width: {silo1Full}%"></div>
-								</div>
-							</div>
-							<div>
-								<div class="flex justify-between text-xs font-semibold mb-1.5">
-									<span class="text-slate-700">Silo 2 (Seed)</span>
-									<span class="text-slate-400 font-bold">{silo2Full}% Full</span>
-								</div>
-								<div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-									<div class="bg-emerald-400 h-full rounded-full transition-all duration-300" style="width: {silo2Full}%"></div>
-								</div>
-							</div>
-							<div>
-								<div class="flex justify-between text-xs font-semibold mb-1.5">
-									<span class="text-slate-700">Cold Storage</span>
-									<span class="text-slate-400 font-bold">{coldStorageFull}% Full</span>
-								</div>
-								<div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-									<div class="bg-amber-400 h-full rounded-full transition-all duration-300" style="width: {coldStorageFull}%"></div>
+								<div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden mt-1">
+									<div 
+										class={['h-full rounded-full transition-all duration-300', 
+											pct > 90 ? 'bg-red-500' : pct > 75 ? 'bg-amber-400' : 'bg-primary-green'
+										].join(' ')} 
+										style="width: {pct}%"
+									></div>
 								</div>
 							</div>
-						</div>
-					{/if}
+						{:else}
+							<div class="text-xs text-slate-400 text-center py-6 font-semibold">No storage locations configured.</div>
+						{/each}
+					</div>
 				</div>
 			</div>
 		</div>
@@ -311,19 +362,17 @@
 					<table class="w-full text-left border-collapse text-xs table-fixed min-w-[760px]">
 						<thead>
 							<tr class="bg-slate-50/50 font-bold uppercase tracking-wider text-[9px] text-slate-400 border-b border-slate-100">
-								<th class="p-4 pl-6 w-[18%]">Product Name</th>
+								<th class="p-4 pl-6 w-[20%]">Product Name</th>
 								<th class="p-4 w-[12%]">Category</th>
 								<th class="p-4 text-center w-[12%]">Stock Level</th>
 								<th class="p-4 text-center w-[12%]">Sold/Used</th>
-								<th class="p-4 text-center w-[13%]">Available Stock</th>
-								<th class="p-4 text-center w-[11%]">Unit</th>
-								<th class="p-4 text-center w-[12%]">Remaining Lifespan</th>
-								<th class="p-4 pr-6 text-center w-[10%]">Status</th>
+								<th class="p-4 text-center w-[15%]">Available Stock</th>
+								<th class="p-4 text-center w-[12%]">Unit</th>
+								<th class="p-4 pr-6 text-center w-[17%]">Remaining Lifespan</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-slate-50 font-medium text-slate-600">
 							{#each filteredItems as item (item.id)}
-								{@const statusInfo = determineStatus(item)}
 								{@const daysLeft = calculateRemainingLifespan(item.name)}
 								<tr class="hover:bg-slate-50/30 transition-colors">
 									<td class="p-4 pl-6">
@@ -331,22 +380,10 @@
 									</td>
 									<td class="p-4 text-slate-400 capitalize">{item.category}</td>
 									<td class="p-4 text-center">
-										<input 
-											type="number" 
-											min="0"
-											value={item.total || 0}
-											onchange={(e) => changeStockLevel(item.id, e.target.value, undefined)}
-											class="w-16 border border-slate-200 rounded px-1 py-0.5 text-center font-bold text-xs focus:outline-none focus:border-primary-green focus:bg-white"
-										/>
+										<span class="font-bold text-slate-600">{item.total || 0}</span>
 									</td>
 									<td class="p-4 text-center">
-										<input 
-											type="number" 
-											min="0"
-											value={item.soldUsed || 0}
-											onchange={(e) => changeStockLevel(item.id, undefined, e.target.value)}
-											class="w-16 border border-slate-200 rounded px-1 py-0.5 text-center font-bold text-xs focus:outline-none focus:border-primary-green focus:bg-white"
-										/>
+										<span class="font-bold text-slate-600">{item.soldUsed || 0}</span>
 									</td>
 									<td class="p-4 text-center">
 										<span class="font-black text-slate-800">
@@ -354,17 +391,9 @@
 										</span>
 									</td>
 									<td class="p-4 text-center">
-										<select 
-											value={item.unit || 'Kg'} 
-											onchange={(e) => changeUnit(item.id, e.target.value)}
-											class="border border-slate-200 rounded px-1.5 py-0.5 bg-white text-[10px] font-bold text-slate-650 cursor-pointer focus:outline-none focus:border-primary-green"
-										>
-											<option value="Kg">Kg</option>
-											<option value="Tons">Tons</option>
-											<option value="Liters">Liters</option>
-										</select>
+										<span class="font-bold text-slate-600">{item.unit || 'Kg'}</span>
 									</td>
-									<td class="p-4 text-center">
+									<td class="p-4 pr-6 text-center">
 										{#if daysLeft !== null}
 											<span class={['font-bold flex items-center justify-center gap-1', daysLeft <= 2 ? 'text-red-500 font-extrabold' : 'text-slate-500'].join(' ')}>
 												<span class="material-symbols-outlined text-[13px]">schedule</span>
@@ -374,15 +403,10 @@
 											<span class="text-slate-300">—</span>
 										{/if}
 									</td>
-									<td class="p-4 pr-6 text-center">
-										<span class={['px-2.5 py-0.5 rounded-full text-[10px] font-bold border', statusInfo.color].join(' ')}>
-											{statusInfo.label}
-										</span>
-									</td>
 								</tr>
 							{:else}
 								<tr>
-									<td colspan="8" class="p-12 text-center text-slate-400">
+									<td colspan="7" class="p-12 text-center text-slate-400">
 										<div class="flex flex-col items-center justify-center gap-2">
 											<span class="material-symbols-outlined text-3xl text-slate-350">inventory</span>
 											<p class="font-bold text-slate-500">No matching stock items found.</p>
@@ -402,4 +426,174 @@
 		</div>
 
 	</div>
+
+	{#if showStorageModal}
+		<div
+			transition:fade={{ duration: 150 }}
+			class="fixed inset-0 bg-slate-950/35 backdrop-blur-xs flex items-center justify-center z-50 p-4"
+		>
+			<div
+				transition:slide={{ duration: 200 }}
+				class="bg-white rounded-3xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden"
+			>
+				<div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+					<h3 class="font-extrabold text-slate-800 text-sm">
+						{storageFormMode === 'add' ? 'Add Storage Location' : 'Edit Storage Location'}
+					</h3>
+					<button
+						onclick={closeStorageModal}
+						class="text-slate-400 hover:text-slate-600 transition-colors size-8 rounded-full hover:bg-slate-100 flex items-center justify-center"
+					>
+						<span class="material-symbols-outlined text-lg">close</span>
+					</button>
+				</div>
+
+				<form onsubmit={handleSaveStorage} class="p-6 space-y-4 text-xs font-semibold text-slate-700">
+					<div>
+						<label for="storage-name" class="block mb-1.5 font-bold">Storage Name <span class="text-red-500">*</span></label>
+						<input
+							id="storage-name"
+							type="text"
+							bind:value={storageName}
+							required
+							placeholder="e.g. Silo 3 (Grains), Cold Storage Room A"
+							class="input-field w-full text-xs"
+						/>
+					</div>
+
+					<div class="grid grid-cols-2 gap-4">
+						<div>
+							<label for="storage-capacity" class="block mb-1.5 font-bold">Capacity <span class="text-red-500">*</span></label>
+							<input
+								id="storage-capacity"
+								type="number"
+								min="1"
+								bind:value={storageCapacity}
+								required
+								placeholder="e.g. 1000"
+								class="input-field w-full text-xs"
+							/>
+						</div>
+						<div>
+							<label for="storage-unit" class="block mb-1.5 font-bold">Unit <span class="text-red-500">*</span></label>
+							<select
+								id="storage-unit"
+								bind:value={storageUnit}
+								required
+								class="input-field w-full text-xs bg-white py-[9.5px]"
+							>
+								<option value="kg">kg</option>
+								<option value="Tons">Tons</option>
+								<option value="Liters">Liters</option>
+								<option value="Bags">Bags</option>
+								<option value="Units">Units</option>
+							</select>
+						</div>
+					</div>
+
+					<div>
+						<span class="block mb-2 font-bold text-slate-700">Allowed Categories <span class="text-red-500">*</span></span>
+						<div class="grid grid-cols-2 gap-2 border border-slate-200 rounded-2xl p-4 bg-slate-50/50">
+							{#each ['Vegetables', 'Fruits', 'Seeds', 'Fertilizers', 'Chemicals', 'Grains', 'Others'] as cat}
+								<label class="flex items-center gap-2 cursor-pointer font-bold text-slate-600">
+									<input
+										type="checkbox"
+										checked={storageCategories.includes(cat)}
+										onchange={() => toggleCategory(cat)}
+										class="rounded text-primary-green focus:ring-primary-green"
+									/>
+									{cat}
+								</label>
+							{/each}
+						</div>
+						{#if storageCategories.length === 0}
+							<p class="text-[10px] text-red-500 mt-1">⚠️ At least one category must be selected.</p>
+						{/if}
+					</div>
+
+					{#if error}
+						<div class="text-red-500 text-xs">{error}</div>
+					{/if}
+
+					<div class="flex gap-3 pt-3 border-t border-slate-100">
+						<button
+							type="button"
+							onclick={closeStorageModal}
+							class="btn-secondary flex-1 py-3 text-xs"
+						>
+							Cancel
+						</button>
+						<button
+							type="submit"
+							disabled={loading || storageCategories.length === 0}
+							class="btn-primary flex-1 py-3 text-xs"
+						>
+							{loading ? 'Saving...' : 'Save Storage'}
+						</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	{/if}
+
+	{#if showStorageDetailsModal}
+		<div
+			transition:fade={{ duration: 150 }}
+			class="fixed inset-0 bg-slate-950/35 backdrop-blur-xs flex items-center justify-center z-50 p-4"
+		>
+			<div
+				transition:slide={{ duration: 200 }}
+				class="bg-white rounded-3xl shadow-xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]"
+			>
+				<div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
+					<div>
+						<h3 class="font-extrabold text-slate-800 text-base">
+							{selectedStorageForDetails?.name} Contents
+						</h3>
+						<p class="text-[10px] text-slate-500 font-semibold mt-0.5">
+							{selectedStorageForDetails?.capacity} {selectedStorageForDetails?.unit} Capacity • {selectedStorageForDetails?.categories.join(', ')}
+						</p>
+					</div>
+					<button
+						onclick={closeStorageDetails}
+						class="text-slate-400 hover:text-slate-600 transition-colors size-8 rounded-full hover:bg-slate-100 flex items-center justify-center"
+					>
+						<span class="material-symbols-outlined text-lg">close</span>
+					</button>
+				</div>
+				
+				<div class="p-6 overflow-y-auto">
+					{#if itemsInSelectedStorage.length > 0}
+						<div class="border border-slate-100 rounded-xl overflow-hidden">
+							<table class="w-full text-left border-collapse text-xs table-fixed">
+								<thead>
+									<tr class="bg-slate-50/50 font-bold uppercase tracking-wider text-[9px] text-slate-400 border-b border-slate-100">
+										<th class="p-3 pl-4 w-[40%]">Item Name</th>
+										<th class="p-3 w-[20%]">Category</th>
+										<th class="p-3 text-center w-[20%]">Available</th>
+										<th class="p-3 text-center w-[20%]">Unit</th>
+									</tr>
+								</thead>
+								<tbody class="divide-y divide-slate-50 font-medium text-slate-600">
+									{#each itemsInSelectedStorage as item (item.id)}
+										<tr class="hover:bg-slate-50/30">
+											<td class="p-3 pl-4 font-bold text-slate-800 truncate">{item.name}</td>
+											<td class="p-3 text-slate-400 capitalize truncate">{item.category}</td>
+											<td class="p-3 text-center font-black text-slate-800">{((item.total || 0) - (item.soldUsed || 0)).toLocaleString()}</td>
+											<td class="p-3 text-center font-bold text-slate-600">{item.unit || 'Kg'}</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					{:else}
+						<div class="flex flex-col items-center justify-center py-10 gap-2">
+							<span class="material-symbols-outlined text-3xl text-slate-300">inventory_2</span>
+							<p class="font-bold text-slate-500 text-sm">Storage is currently empty.</p>
+						</div>
+					{/if}
+				</div>
+			</div>
+		</div>
+	{/if}
 </section>

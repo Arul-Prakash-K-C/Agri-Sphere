@@ -7,13 +7,13 @@ export async function load({ fetch }) {
 			fetch('/api/harvests')
 		]);
 
-		const invData = invRes.ok ? await invRes.json() : { inventory: [], settings: { silo1: 0, silo2: 0, coldStorage: 0 } };
+		const invData = invRes.ok ? await invRes.json() : { inventory: [], storages: [] };
 		const crops = cropsRes.ok ? await cropsRes.json() : [];
 		const harvests = harvestsRes.ok ? await harvestsRes.json() : [];
 
 		return {
 			inventory: invData.inventory || [],
-			settings: invData.settings || { silo1: 0, silo2: 0, coldStorage: 0 },
+			storages: invData.storages || [],
 			crops,
 			harvests
 		};
@@ -22,7 +22,7 @@ export async function load({ fetch }) {
 	}
 	return {
 		inventory: [],
-		settings: { silo1: 0, silo2: 0, coldStorage: 0 },
+		storages: [],
 		crops: [],
 		harvests: []
 	};

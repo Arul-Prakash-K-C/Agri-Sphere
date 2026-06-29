@@ -75,7 +75,7 @@ export async function POST({ request, locals }) {
 
 	try {
 		const body = await request.json();
-		const { cropName, cropId, lifespan, quantity, unit, harvestDate, qualityGrade, notes } = body;
+		const { cropName, cropId, lifespan, quantity, unit, harvestDate, qualityGrade, notes, category, storageId } = body;
 
 		// Validation
 		if (!cropName || typeof cropName !== 'string' || cropName.trim().length === 0) {
@@ -98,6 +98,8 @@ export async function POST({ request, locals }) {
 			harvestDate,
 			qualityGrade: qualityGrade || 'Grade A',
 			notes: notes || '',
+			category: category || 'Vegetables',
+			storageId: storageId || '',
 			farmerId: locals.user.uid,
 			createdAt: now
 		};
@@ -116,7 +118,7 @@ export async function POST({ request, locals }) {
 		if (existingInv.empty) {
 			await adminDb.collection('inventory').add({
 				name: cropName.trim() + ' Harvest',
-				category: 'Harvest',
+				category: category || 'Vegetables',
 				icon: 'inventory_2',
 				total: Number(quantity),
 				soldUsed: 0,
@@ -126,6 +128,7 @@ export async function POST({ request, locals }) {
 				statusColor: 'bg-emerald-50 text-dark-green border-emerald-100/50',
 				sourceType: 'harvest',
 				sourceId: harvestId,
+				storageId: storageId || '',
 				farmerId: locals.user.uid,
 				createdAt: now
 			});

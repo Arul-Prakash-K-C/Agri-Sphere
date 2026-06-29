@@ -7,39 +7,45 @@
 	// ─── State ────────────────────────────────────────────────────────────────
 	let harvests = $state([]);
 	let crops    = $state([]);
+	let storages = $state([]);
 
 	$effect(() => {
 		harvests = data.harvests || [];
 		crops    = data.crops    || [];
+		storages = data.storages || [];
 	});
 
 	// Modal visibility
 	let showFormModal    = $state(false);
 	let showDeleteDialog = $state(false);
+	let showDropdown     = $state(false);
 
 	// Form mode: 'add' | 'edit'
 	let formMode = $state('add');
 
-	// The harvest being edited (null in add mode)
+	// The harvest being edited
 	let editingHarvest = $state(null);
 
 	// The harvest pending deletion
 	let harvestToDelete = $state(null);
-
 	// ─── Form fields ──────────────────────────────────────────────────────────
-	let selectedCropId   = $state('');   // '' = new crop; '__new__' = add new crop sentinel
-	let newCropName      = $state('');
-	let newCropLifespan  = $state('');   // only used when adding a new crop
-	let lifespan         = $state('');   // auto-filled from existing crop, editable for new
+	let cropNameInput    = $state('');
+	let selectedCropId   = $state('');
+	let lifespan         = $state('');   // MANDATORY: Expiry/shelf life of the harvested product, not crop harvest duration
 	let quantity         = $state('');
 	let unit             = $state('Liters');
 	let harvestDate      = $state(new Date().toISOString().split('T')[0]);
 	let qualityGrade     = $state('Grade A');
 	let notes            = $state('');
+	let category         = $state('Vegetables');
+	let storageId        = $state('');
 
-	// Inline new-crop mini-form toggle
-	let showNewCropForm = $derived(selectedCropId === '__new__');
-
+	let availableStorages = $derived(
+		storages.filter(s =>
+			s.categories &&
+			s.categories.map(c => c.toLowerCase()).includes(category.toLowerCase())
+		)
+	);
 	// Loading / error
 	let loading     = $state(false);
 	let error       = $state('');
@@ -71,14 +77,15 @@
 		formMode         = 'edit';
 		editingHarvest   = harvest;
 		selectedCropId   = harvest.cropId || '';
-		newCropName      = '';
-		newCropLifespan  = '';
+		cropNameInput    = harvest.cropName || '';
 		lifespan         = harvest.lifespan || '';
 		quantity         = String(harvest.quantity);
 		unit             = harvest.unit || 'Liters';
 		harvestDate      = harvest.harvestDate || new Date().toISOString().split('T')[0];
 		qualityGrade     = harvest.qualityGrade || 'Grade A';
 		notes            = harvest.notes || '';
+		category         = harvest.category || 'Vegetables';
+		storageId        = harvest.storageId || '';
 		showFormModal    = true;
 		error            = '';
 	}
@@ -100,61 +107,35 @@
 	}
 
 	function resetForm() {
+		cropNameInput   = '';
 		selectedCropId  = '';
-		newCropName     = '';
-		newCropLifespan = '';
 		lifespan        = '';
 		quantity        = '';
 		unit            = 'Liters';
 		harvestDate     = new Date().toISOString().split('T')[0];
 		qualityGrade    = 'Grade A';
 		notes           = '';
+		category        = 'Vegetables';
+		storageId       = '';
 		error           = '';
+		showDropdown    = false;
 	}
 
-	// ─── Auto-fill lifespan from selected crop ───────────────────────────────
-	function onCropChange() {
-		if (selectedCropId && selectedCropId !== '__new__') {
-			const crop = crops.find(c => c.id === selectedCropId);
-			lifespan = crop?.harvestDuration || '';
-		} else if (selectedCropId === '__new__') {
-			lifespan = newCropLifespan;
+	// ─── Crop input change handler (DO NOT auto-fill lifespan) ─────────────────
+	function onCropNameChange() {
+		const match = crops.find(c => c.name.toLowerCase() === cropNameInput.trim().toLowerCase());
+		if (match) {
+			selectedCropId = match.id;
 		} else {
-			lifespan = '';
+			selectedCropId = '';
 		}
 	}
 
-	// ─── Resolve crop name for submission ─────────────────────────────────────
-	function resolvedCropName() {
-		if (selectedCropId === '__new__') return newCropName.trim();
-		const crop = crops.find(c => c.id === selectedCropId);
-		return crop?.name || '';
-	}
-
-	// ─── Add new crop inline, then re-select it ───────────────────────────────
-	async function createNewCrop() {
-		if (!newCropName.trim() || !newCropLifespan.trim()) {
-			error = 'New crop requires a name and lifespan.';
-			return null;
-		}
-		const res = await fetch('/api/crops', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				name: newCropName.trim(),
-				location: 'Unspecified',
-				plantedDate: new Date().toISOString().split('T')[0],
-				harvestDuration: newCropLifespan.trim(),
-				acres: 1
-			})
-		});
-		if (!res.ok) {
-			const d = await res.json();
-			throw new Error(d.error || 'Failed to create crop');
-		}
-		const created = await res.json();
-		crops = [...crops, created];
-		return created;
+	// ─── Dropdown option click handler ─────────────────────────────────────────
+	function selectCrop(crop) {
+		cropNameInput = crop.name;
+		selectedCropId = crop.id;
+		showDropdown = false;
 	}
 
 	// ─── Submit: Add harvest ──────────────────────────────────────────────────
@@ -164,23 +145,21 @@
 		error   = '';
 
 		try {
-			let cropId  = selectedCropId === '__new__' ? '' : selectedCropId;
-			let cropName = resolvedCropName();
+			let cropId  = selectedCropId;
+			let cropName = cropNameInput.trim();
 			let finalLifespan = lifespan;
 
-			// Create new crop first if needed
-			if (selectedCropId === '__new__') {
-				const created = await createNewCrop();
-				if (!created) { loading = false; return; }
-				cropId       = created.id;
-				cropName     = created.name;
-				finalLifespan = created.harvestDuration;
-				// Update dropdown to point to newly created crop
-				selectedCropId = created.id;
-				lifespan       = created.harvestDuration;
-			}
+			if (!cropName) { error = 'Please enter a crop.'; loading = false; return; }
+			if (!storageId) { error = 'Please select a storage location.'; loading = false; return; }
 
-			if (!cropName) { error = 'Please select or enter a crop.'; loading = false; return; }
+			// Resolve cropId if it matches an existing crop by name (without adding new crops)
+			if (!cropId) {
+				const match = crops.find(c => c.name.toLowerCase() === cropName.toLowerCase());
+				if (match) {
+					cropId = match.id;
+					cropName = match.name;
+				}
+			}
 
 			const res = await fetch('/api/harvests', {
 				method: 'POST',
@@ -193,7 +172,9 @@
 					unit,
 					harvestDate,
 					qualityGrade,
-					notes
+					notes,
+					category,
+					storageId
 				})
 			});
 
@@ -219,21 +200,21 @@
 		error   = '';
 
 		try {
-			let cropId   = selectedCropId === '__new__' ? '' : selectedCropId;
-			let cropName = resolvedCropName();
+			let cropId   = selectedCropId;
+			let cropName = cropNameInput.trim();
 			let finalLifespan = lifespan;
 
-			if (selectedCropId === '__new__') {
-				const created = await createNewCrop();
-				if (!created) { loading = false; return; }
-				cropId        = created.id;
-				cropName      = created.name;
-				finalLifespan = created.harvestDuration;
-				selectedCropId = created.id;
-				lifespan       = created.harvestDuration;
-			}
+			if (!cropName) { error = 'Please enter a crop.'; loading = false; return; }
+			if (!storageId) { error = 'Please select a storage location.'; loading = false; return; }
 
-			if (!cropName) { error = 'Please select or enter a crop.'; loading = false; return; }
+			// Resolve cropId if it matches an existing crop by name (without adding new crops)
+			if (!cropId) {
+				const match = crops.find(c => c.name.toLowerCase() === cropName.toLowerCase());
+				if (match) {
+					cropId = match.id;
+					cropName = match.name;
+				}
+			}
 
 			const res = await fetch('/api/harvests/' + editingHarvest.id, {
 				method: 'PATCH',
@@ -246,7 +227,9 @@
 					unit,
 					harvestDate,
 					qualityGrade,
-					notes
+					notes,
+					category,
+					storageId
 				})
 			});
 
@@ -398,6 +381,64 @@
 					<option value="__new__">➕ Add new crop…</option>
 				</select>
 			</div>
+					<!-- ── Crop Selection ────────────────────────────────── -->
+					<div class="relative">
+						<label for="harvest-crop" class="block mb-1.5 font-bold text-slate-700">
+							Crop <span class="text-red-500">*</span>
+						</label>
+						<div class="relative">
+							<input
+								id="harvest-crop"
+								type="text"
+								bind:value={cropNameInput}
+								oninput={onCropNameChange}
+								onfocus={() => showDropdown = true}
+								onblur={() => setTimeout(() => showDropdown = false, 200)}
+								placeholder="Select or type a crop..."
+								required
+								class="input-field w-full text-xs bg-white pr-8 font-semibold"
+								autocomplete="off"
+							/>
+							<button
+								type="button"
+								onclick={() => showDropdown = !showDropdown}
+								class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+							>
+								<span class="material-symbols-outlined text-[20px] leading-none">arrow_drop_down</span>
+							</button>
+
+							{#if showDropdown}
+								<div class="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg py-1">
+									{#each crops as crop (crop.id)}
+										<button
+											type="button"
+											onclick={() => selectCrop(crop)}
+											class="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-emerald-50 hover:text-dark-green transition-colors font-bold"
+										>
+											{crop.name}
+										</button>
+									{:else}
+										<div class="px-4 py-2 text-xs text-slate-400 font-medium">No crops registered yet</div>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					</div>
+
+					<!-- ── Lifespan (MANDATORY — Product shelf life / expiry) ──── -->
+					<div>
+						<label for="harvest-lifespan" class="block mb-1.5 font-bold text-slate-700">
+							Lifespan <span class="text-red-500">*</span>
+						</label>
+						<input
+							id="harvest-lifespan"
+							type="text"
+							bind:value={lifespan}
+							required
+							placeholder="e.g. 90 Days or 42 Days"
+							class="input-field w-full text-xs"
+						/>
+					</div>
 
 			<!-- ── Inline New Crop Form ───────────────────────────── -->
 			{#if showNewCropForm}
@@ -430,6 +471,78 @@
 							/>
 						</label>
 						<span class="text-[10px] text-slate-400 mt-1 block col-span-2">Will be saved to Crops module automatically.</span>
+						</div>
+						<div>
+							<label for="harvest-grade" class="block mb-1.5 font-bold text-slate-700">Quality Grade</label>
+							<select
+								id="harvest-grade"
+								bind:value={qualityGrade}
+								class="input-field w-full text-xs bg-white py-[9.5px]"
+							>
+								<option value="Grade A+">Grade A+</option>
+								<option value="Grade A">Grade A</option>
+								<option value="Grade B">Grade B</option>
+								<option value="Grade C">Grade C</option>
+								<option value="Mixed">Mixed</option>
+							</select>
+						</div>
+					</div>
+
+					<!-- ── Category ────────────────────────────────────── -->
+					<div>
+						<label for="harvest-category" class="block mb-1.5 font-bold text-slate-700">Category <span class="text-red-500">*</span></label>
+						<select
+							id="harvest-category"
+							bind:value={category}
+							required
+							class="input-field w-full text-xs bg-white py-[9.5px]"
+						>
+							<option value="Vegetables">Vegetables</option>
+							<option value="Fruits">Fruits</option>
+							<option value="Seeds">Seeds</option>
+							<option value="Fertilizers">Fertilizers</option>
+							<option value="Chemicals">Chemicals</option>
+							<option value="Grains">Grains</option>
+							<option value="Others">Others</option>
+						</select>
+					</div>
+
+					<!-- ── Storage Location ────────────────────────────── -->
+					<div>
+						<label for="harvest-storage" class="block mb-1.5 font-bold text-slate-700">
+							Storage Location <span class="text-red-500">*</span>
+						</label>
+						<select
+							id="harvest-storage"
+							bind:value={storageId}
+							required
+							class="input-field w-full text-xs bg-white py-[9.5px] disabled:opacity-60 disabled:cursor-not-allowed"
+							disabled={!category}
+						>
+							<option value="" disabled>— Select storage location —</option>
+							{#each availableStorages as storage (storage.id)}
+								<option value={storage.id}>{storage.name} ({storage.capacity} {storage.unit} Capacity)</option>
+							{:else}
+								<option value="" disabled>No storages configured for {category}</option>
+							{/each}
+						</select>
+						{#if availableStorages.length === 0 && category}
+							<p class="text-[10px] text-amber-600 mt-1 font-bold">
+								⚠️ Configure a storage for "{category}" in the Inventory module first.
+							</p>
+						{/if}
+					</div>
+
+					<!-- ── Notes ─────────────────────────────────────────── -->
+					<div>
+						<label for="harvest-notes" class="block mb-1.5 font-bold text-slate-700">Notes</label>
+						<textarea
+							id="harvest-notes"
+							bind:value={notes}
+							rows="3"
+							placeholder="Any additional details about this harvest…"
+							class="input-field w-full text-xs resize-none"
+						></textarea>
 					</div>
 				</div>
 			{/if}
@@ -602,6 +715,7 @@
 						<th class="p-4">Quantity</th>
 						<th class="p-4">Grade</th>
 						<th class="p-4">Notes</th>
+						<th class="p-4">Status</th>
 						<th class="p-4 pr-6 text-right">Actions</th>
 					</tr>
 				</thead>
@@ -647,43 +761,46 @@
 								<span class="line-clamp-1">{harvest.notes || '—'}</span>
 							</td>
 
-							<!-- Actions: status badge + edit/delete -->
+							<!-- Status -->
+							<td class="p-4">
+								{#if status}
+									<span
+										class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border {status.classes}"
+										title="Next harvest in {status.daysRemaining} day{status.daysRemaining === 1 ? '' : 's'}"
+									>
+										<span class="material-symbols-outlined text-[11px]">{status.icon}</span>
+										{status.label}
+									</span>
+								{:else}
+									<span class="text-slate-300">—</span>
+								{/if}
+							</td>
+
+							<!-- Actions: edit/delete (always visible) -->
 							<td class="p-4 pr-6">
-								<div class="flex items-center justify-end gap-2">
-									{#if status}
-										<span
-											class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border {status.classes}"
-											title="Next harvest in {status.daysRemaining} day{status.daysRemaining === 1 ? '' : 's'}"
-										>
-											<span class="material-symbols-outlined text-[11px]">{status.icon}</span>
-											{status.label}
-										</span>
-									{/if}
-									<!-- Edit / Delete (appear on row hover) -->
-									<div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-										<button
-											onclick={() => openEditModal(harvest)}
-											class="p-1.5 rounded-lg text-slate-400 hover:text-primary-green hover:bg-emerald-50 transition-colors"
-											title="Edit harvest log"
-											aria-label="Edit harvest log for {harvest.cropName}"
-										>
-											<span class="material-symbols-outlined text-[16px]">edit</span>
-										</button>
-										<button
-											onclick={() => confirmDelete(harvest)}
-											class="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-											title="Delete harvest log"
-											aria-label="Delete harvest log for {harvest.cropName}"
-										>
-											<span class="material-symbols-outlined text-[16px]">delete</span>
-										</button>
-									</div>
+								<div class="flex items-center justify-end gap-1">
+									<button
+										onclick={() => openEditModal(harvest)}
+										class="p-1.5 rounded-lg text-slate-400 hover:text-primary-green hover:bg-emerald-50 transition-colors"
+										title="Edit harvest log"
+										aria-label="Edit harvest log for {harvest.cropName}"
+									>
+										<span class="material-symbols-outlined text-[16px]">edit</span>
+									</button>
+									<button
+										onclick={() => confirmDelete(harvest)}
+										class="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+										title="Delete harvest log"
+										aria-label="Delete harvest log for {harvest.cropName}"
+									>
+										<span class="material-symbols-outlined text-[16px]">delete</span>
+									</button>
 								</div>
 							</td>
 						</tr>
 					{:else}
 						<tr>
-							<td colspan="7" class="py-16 px-6">
+							<td colspan="8" class="py-16 px-6">
 								<div class="flex flex-col items-center gap-3 text-center">
 									<div class="size-16 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center">
 										<span class="material-symbols-outlined text-3xl text-slate-300">inventory_2</span>

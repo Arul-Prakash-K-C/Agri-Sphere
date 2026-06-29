@@ -24,7 +24,7 @@ export async function PATCH({ params, request, locals }) {
 		}
 
 		const body = await request.json();
-		const { cropName, cropId, lifespan, quantity, unit, harvestDate, qualityGrade, notes } = body;
+		const { cropName, cropId, lifespan, quantity, unit, harvestDate, qualityGrade, notes, category, storageId } = body;
 
 		// Validation
 		if (cropName !== undefined && (typeof cropName !== 'string' || cropName.trim().length === 0)) {
@@ -43,6 +43,8 @@ export async function PATCH({ params, request, locals }) {
 		if (harvestDate !== undefined) updatePayload.harvestDate = harvestDate;
 		if (qualityGrade !== undefined) updatePayload.qualityGrade = qualityGrade;
 		if (notes !== undefined) updatePayload.notes = notes;
+		if (category !== undefined) updatePayload.category = category;
+		if (storageId !== undefined) updatePayload.storageId = storageId;
 		updatePayload.updatedAt = new Date().toISOString();
 
 		await docRef.update(updatePayload);
@@ -58,10 +60,11 @@ export async function PATCH({ params, request, locals }) {
 		if (!invSnapshot.empty) {
 			const invDoc = invSnapshot.docs[0];
 			const newTotal = Number(merged.quantity);
-			const available = newTotal; // soldUsed remains 0 for harvests
 			const progress = 100;
 			await invDoc.ref.update({
 				name: merged.cropName + ' Harvest',
+				category: merged.category || 'Vegetables',
+				storageId: merged.storageId || '',
 				total: newTotal,
 				unit: merged.unit,
 				progress,

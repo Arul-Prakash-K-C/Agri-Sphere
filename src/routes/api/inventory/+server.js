@@ -18,20 +18,63 @@ export async function GET({ locals }) {
 			.get();
 		let inventory = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-		// Fetch storage settings doc (utilization)
-		const settingsDoc = await adminDb.collection('inventory_settings')
-			.doc(locals.user.uid)
-			.get();
-
-		let settings = { silo1: 0, silo2: 0, coldStorage: 0 };
-		if (settingsDoc.exists) {
-			settings = settingsDoc.data();
-		} else {
-			// Save default settings
-			await adminDb.collection('inventory_settings').doc(locals.user.uid).set(settings);
+		// Data cleanup: delete inventory items with no name
+		const namelessItems = inventory.filter(item => !item.name || typeof item.name !== 'string' || item.name.trim() === '');
+		if (namelessItems.length > 0) {
+			const batch = adminDb.batch();
+			namelessItems.forEach(item => {
+				batch.delete(adminDb.collection('inventory').doc(item.id));
+			});
+			await batch.commit();
+			inventory = inventory.filter(item => item.name && typeof item.name === 'string' && item.name.trim() !== '');
 		}
 
-		return json({ inventory, settings });
+		// Fetch storages
+		const storagesSnapshot = await adminDb.collection('storages')
+			.where('farmerId', '==', locals.user.uid)
+			.get();
+		let storages = storagesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+		// Sort client-side by name or createdAt
+		storages.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+
+		// Seed initial default storages if empty
+		if (storages.length === 0) {
+			const now = new Date().toISOString();
+			const defaultStorages = [
+				{
+					name: 'Silo 1',
+					capacity: 1000,
+					unit: 'Bags',
+					categories: ['Grains'],
+					farmerId: locals.user.uid,
+					createdAt: now
+				},
+				{
+					name: 'Silo 2',
+					capacity: 1000,
+					unit: 'Bags',
+					categories: ['Seeds'],
+					farmerId: locals.user.uid,
+					createdAt: now
+				},
+				{
+					name: 'Cold Storage',
+					capacity: 500,
+					unit: 'kg',
+					categories: ['Vegetables', 'Fruits'],
+					farmerId: locals.user.uid,
+					createdAt: now
+				}
+			];
+
+			for (const item of defaultStorages) {
+				const docRef = await adminDb.collection('storages').add(item);
+				storages.push({ id: docRef.id, ...item });
+			}
+		}
+
+		return json({ inventory, storages });
 	} catch (error) {
 		console.error('Error fetching inventory details:', error);
 		return json({ error: 'Internal Server Error' }, { status: 500 });
