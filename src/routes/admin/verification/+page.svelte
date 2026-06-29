@@ -1,6 +1,7 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
 	import { fade, slide, scale } from 'svelte/transition';
+	import Modal from '$lib/components/Modal.svelte';
 	import { browser } from '$app/environment';
 	import { collection, onSnapshot } from 'firebase/firestore';
 	import { db } from '$lib/firebase';
@@ -366,229 +367,224 @@
 	</div>
 
 	<!-- Detailed User Verification Info Modal Overlay -->
-	{#if showDetailsModal && selectedUser}
-		{@const status = getVerificationStatus(selectedUser)}
-		<div transition:fade={{ duration: 150 }} class="fixed inset-0 bg-slate-950/30 backdrop-blur-sm flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
-			<div transition:slide={{ duration: 200 }} class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-xl p-6 overflow-hidden">
-				<div class="flex justify-between items-center pb-4 border-b border-slate-100">
-					<h3 class="font-extrabold text-slate-800 text-sm">Credentials Specification Sheet</h3>
-					<button onclick={closeDetails} class="text-slate-400 hover:text-slate-650 transition-colors p-1 rounded-full hover:bg-slate-100 flex items-center cursor-pointer">
-						<span class="material-symbols-outlined text-lg">close</span>
-					</button>
+	<Modal
+		bind:show={showDetailsModal}
+		size="lg"
+		title="Credentials Specification Sheet"
+	>
+		{#if selectedUser}
+			{@const status = getVerificationStatus(selectedUser)}
+			<div class="space-y-4 text-xs font-semibold text-slate-700">
+				<div class="flex items-center gap-4 bg-slate-50 border border-slate-100 rounded-2xl p-4">
+					<div class="size-14 rounded-full bg-gradient-to-tr from-emerald-600 to-emerald-800 text-white flex items-center justify-center font-extrabold text-lg uppercase shadow">
+						{(selectedUser.fullName || 'U')[0]}
+					</div>
+					<div>
+						<h4 class="font-black text-slate-800 text-base leading-tight">{selectedUser.fullName || 'N/A'}</h4>
+						<p class="text-xs text-slate-450 mt-1 capitalize">{selectedUser.role} • Registered on {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}</p>
+					</div>
 				</div>
 
-				<div class="mt-4 space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-					<div class="flex items-center gap-4 bg-slate-50 border border-slate-100 rounded-2xl p-4">
-						<div class="size-14 rounded-full bg-gradient-to-tr from-emerald-600 to-emerald-800 text-white flex items-center justify-center font-extrabold text-lg uppercase shadow">
-							{(selectedUser.fullName || 'U')[0]}
-						</div>
-						<div>
-							<h4 class="font-black text-slate-800 text-base leading-tight">{selectedUser.fullName || 'N/A'}</h4>
-							<p class="text-xs text-slate-450 mt-1 capitalize">{selectedUser.role} • Registered on {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}</p>
-						</div>
+				<!-- Detailed Info Grid -->
+				<div class="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-650">
+					<div>
+						<span class="text-slate-400 block text-[9px] uppercase tracking-wider font-extrabold">Email Address</span>
+						<p class="text-slate-800 font-bold">{selectedUser.email || 'N/A'}</p>
 					</div>
+					<div>
+						<span class="text-slate-400 block text-[9px] uppercase tracking-wider font-extrabold">Phone Number</span>
+						<p class="text-slate-800 font-bold">{selectedUser.phone || 'N/A'}</p>
+					</div>
+					{#if selectedUser.role === 'farmer'}
+						<div>
+							<span class="text-slate-400 block text-[9px] uppercase tracking-wider font-extrabold">Farm House Identity</span>
+							<p class="text-slate-800 font-bold">{selectedUser.farmName || 'N/A'}</p>
+						</div>
+						<div>
+							<span class="text-slate-400 block text-[9px] uppercase tracking-wider font-extrabold">Field Coordinates</span>
+							<p class="text-slate-800 font-bold">{selectedUser.address || 'N/A'}</p>
+						</div>
+					{/if}
+				</div>
 
-					<!-- Detailed Info Grid -->
-					<div class="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-650">
-						<div>
-							<span class="text-slate-400 block text-[9px] uppercase tracking-wider">Email Address</span>
-							<p class="text-slate-800 font-bold">{selectedUser.email || 'N/A'}</p>
+				<!-- Uploaded Docs Section (Placeholder with premium mock papers look) -->
+				<div class="space-y-2.5 border-t border-slate-100 pt-3">
+					<h4 class="text-xs font-black text-slate-450 uppercase tracking-wider flex items-center gap-1">
+						<span class="material-symbols-outlined text-[15px]">file_present</span>
+						Uploaded Background Certificates
+					</h4>
+					
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+						<div class="bg-slate-50 border border-slate-200/50 rounded-xl p-3 flex flex-col justify-between h-28 hover:bg-slate-100/50 transition-colors">
+							<div>
+								<p class="text-[9px] font-bold uppercase tracking-wider text-slate-400 leading-none">Government ID Identification</p>
+								<p class="text-[10px] font-bold text-slate-655 mt-2">National Card / Passport</p>
+							</div>
+							<div class="flex justify-between items-center text-[10px] text-emerald-600 font-bold mt-2">
+								<span>ID_Verification.pdf</span>
+								<span class="material-symbols-outlined text-[16px] text-emerald-600">visibility</span>
+							</div>
 						</div>
-						<div>
-							<span class="text-slate-400 block text-[9px] uppercase tracking-wider">Phone Number</span>
-							<p class="text-slate-800 font-bold">{selectedUser.phone || 'N/A'}</p>
-						</div>
+
 						{#if selectedUser.role === 'farmer'}
-							<div>
-								<span class="text-slate-400 block text-[9px] uppercase tracking-wider">Farm House Identity</span>
-								<p class="text-slate-800 font-bold">{selectedUser.farmName || 'N/A'}</p>
-							</div>
-							<div>
-								<span class="text-slate-400 block text-[9px] uppercase tracking-wider">Field Coordinates</span>
-								<p class="text-slate-800 font-bold">{selectedUser.address || 'N/A'}</p>
-							</div>
-						{/if}
-					</div>
-
-					<!-- Uploaded Docs Section (Placeholder with premium mock papers look) -->
-					<div class="space-y-2.5 border-t border-slate-100 pt-3">
-						<h4 class="text-xs font-black text-slate-450 uppercase tracking-wider flex items-center gap-1">
-							<span class="material-symbols-outlined text-[15px]">file_present</span>
-							Uploaded Background Certificates
-						</h4>
-						
-						<div class="grid grid-cols-2 gap-3">
 							<div class="bg-slate-50 border border-slate-200/50 rounded-xl p-3 flex flex-col justify-between h-28 hover:bg-slate-100/50 transition-colors">
 								<div>
-									<p class="text-[9px] font-bold uppercase tracking-wider text-slate-400 leading-none">Government ID Identification</p>
-									<p class="text-[10px] font-bold text-slate-650 mt-2">National Card / Passport</p>
+									<p class="text-[9px] font-bold uppercase tracking-wider text-slate-400 leading-none">Merchant Ownership Papers</p>
+									<p class="text-[10px] font-bold text-slate-655 mt-2">Land Registry Certificate</p>
 								</div>
 								<div class="flex justify-between items-center text-[10px] text-emerald-600 font-bold mt-2">
-									<span>ID_Verification.pdf</span>
+									<span>Land_Title_Proof.jpg</span>
 									<span class="material-symbols-outlined text-[16px] text-emerald-600">visibility</span>
 								</div>
 							</div>
+						{:else}
+							<div class="bg-slate-50 border border-slate-200/50 rounded-xl p-3 flex flex-col justify-between h-28 hover:bg-slate-100/50 transition-colors">
+								<div>
+									<p class="text-[9px] font-bold uppercase tracking-wider text-slate-400 leading-none">Trade License Paper</p>
+									<p class="text-[10px] font-bold text-slate-655 mt-2">Business License Record</p>
+								</div>
+								<div class="flex justify-between items-center text-[10px] text-emerald-600 font-bold mt-2">
+									<span>Merchant_License.pdf</span>
+									<span class="material-symbols-outlined text-[16px] text-emerald-600">visibility</span>
+								</div>
+							</div>
+						{/if}
+					</div>
+				</div>
 
-							{#if selectedUser.role === 'farmer'}
-								<div class="bg-slate-50 border border-slate-200/50 rounded-xl p-3 flex flex-col justify-between h-28 hover:bg-slate-100/50 transition-colors">
-									<div>
-										<p class="text-[9px] font-bold uppercase tracking-wider text-slate-400 leading-none">Merchant Ownership Papers</p>
-										<p class="text-[10px] font-bold text-slate-650 mt-2">Land Registry Certificate</p>
-									</div>
-									<div class="flex justify-between items-center text-[10px] text-emerald-600 font-bold mt-2">
-										<span>Land_Title_Proof.jpg</span>
-										<span class="material-symbols-outlined text-[16px] text-emerald-600">visibility</span>
-									</div>
-								</div>
-							{:else}
-								<div class="bg-slate-50 border border-slate-200/50 rounded-xl p-3 flex flex-col justify-between h-28 hover:bg-slate-100/50 transition-colors">
-									<div>
-										<p class="text-[9px] font-bold uppercase tracking-wider text-slate-400 leading-none">Trade License Paper</p>
-										<p class="text-[10px] font-bold text-slate-650 mt-2">Business License Record</p>
-									</div>
-									<div class="flex justify-between items-center text-[10px] text-emerald-600 font-bold mt-2">
-										<span>Merchant_License.pdf</span>
-										<span class="material-symbols-outlined text-[16px] text-emerald-600">visibility</span>
-									</div>
-								</div>
-							{/if}
+				<!-- Rejection Details Feed -->
+				{#if status === 'Rejected'}
+					<div class="bg-red-50/50 border border-red-100 rounded-2xl p-4 text-xs font-semibold text-red-700 animate-slide-in">
+						<p class="font-extrabold uppercase text-[9px] tracking-wider">Reason for Previous Rejection</p>
+						<p class="mt-1 leading-normal">{selectedUser.rejectionReason || 'No reason provided.'}</p>
+					</div>
+				{/if}
+
+				<!-- Action Dialog Form -->
+				{#if showRejectionReasonInput}
+					<div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3 animate-slide-in" transition:slide={{ duration: 150 }}>
+						<label for="rejection-txt" class="block text-xs font-extrabold text-slate-700">Please provide a reason for rejection:</label>
+						<textarea
+							id="rejection-txt"
+							bind:value={rejectionReason}
+							placeholder="e.g. Government registration photo is unclear or expired..."
+							class="w-full p-3 text-xs bg-white border border-slate-200 rounded-xl focus:ring-1 focus:ring-emerald-500 outline-none resize-none"
+							rows="3"
+						></textarea>
+						<div class="flex justify-end gap-2 text-xs font-bold">
+							<button onclick={() => { showRejectionReasonInput = false; }} class="px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-150 cursor-pointer">
+								Cancel
+							</button>
+							<button
+								onclick={() => requestVerificationUpdate(selectedUser.id, 'Rejected', rejectionReason)}
+								disabled={!rejectionReason.trim() || actionLoading}
+								class="px-4 py-1.5 bg-red-650 hover:bg-red-700 text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+							>
+								Confirm Reject
+							</button>
 						</div>
 					</div>
-
-					<!-- Rejection Details Feed -->
-					{#if status === 'Rejected'}
-						<div class="bg-red-50/50 border border-red-100 rounded-2xl p-4 text-xs font-semibold text-red-700 animate-slide-in">
-							<p class="font-extrabold uppercase text-[9px] tracking-wider">Reason for Previous Rejection</p>
-							<p class="mt-1 leading-normal">{selectedUser.rejectionReason || 'No reason provided.'}</p>
-						</div>
-					{/if}
-
-					<!-- Action Dialog Form -->
-					{#if showRejectionReasonInput}
-						<div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3 animate-slide-in" transition:slide={{ duration: 150 }}>
-							<label for="rejection-txt" class="block text-xs font-extrabold text-slate-700">Please provide a reason for rejection:</label>
-							<textarea
-								id="rejection-txt"
-								bind:value={rejectionReason}
-								placeholder="e.g. Government registration photo is unclear or expired..."
-								class="w-full p-3 text-xs bg-white border border-slate-200 rounded-xl focus:ring-1 focus:ring-emerald-500 outline-none resize-none"
-								rows="3"
-							></textarea>
-							<div class="flex justify-end gap-2 text-xs font-bold">
-								<button onclick={() => { showRejectionReasonInput = false; }} class="px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-150 cursor-pointer">
-									Cancel
-								</button>
-								<button
-									onclick={() => requestVerificationUpdate(selectedUser.id, 'Rejected', rejectionReason)}
-									disabled={!rejectionReason.trim() || actionLoading}
-									class="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-								>
-									Confirm Reject
-								</button>
-							</div>
-						</div>
-					{/if}
-
-					<!-- Main modal footer actions -->
-					{#if !showRejectionReasonInput}
-						<div class="flex gap-3 pt-3 border-t border-slate-100">
-							{#if status !== 'Verified'}
-								<button
-									onclick={() => requestVerificationUpdate(selectedUser.id, 'Verified')}
-									disabled={actionLoading}
-									class="flex-1 py-3 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-								>
-									<span class="material-symbols-outlined text-[16px]">check_circle</span>
-									Approve Profile
-								</button>
-							{/if}
-							{#if status !== 'Rejected'}
-								<button
-									onclick={() => { showRejectionReasonInput = true; }}
-									disabled={actionLoading}
-									class="flex-1 py-3 text-xs font-bold rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-								>
-									<span class="material-symbols-outlined text-[16px]">cancel</span>
-									Reject Verification
-								</button>
-							{/if}
-							{#if status === 'Verified' || status === 'Rejected'}
-								<button
-									onclick={() => requestVerificationUpdate(selectedUser.id, 'Pending')}
-									disabled={actionLoading}
-									class="flex-1 py-3 text-xs font-bold rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-650 border border-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-								>
-									<span class="material-symbols-outlined text-[16px]">lock_open</span>
-									Reset Verification
-								</button>
-							{/if}
-						</div>
-					{/if}
-
-				</div>
+				{/if}
 			</div>
-		</div>
-	{/if}
+		{/if}
+
+		{#snippet footer()}
+			{#if selectedUser && !showRejectionReasonInput}
+				{@const status = getVerificationStatus(selectedUser)}
+				<div class="flex gap-3 w-full">
+					{#if status !== 'Verified'}
+						<button
+							onclick={() => requestVerificationUpdate(selectedUser.id, 'Verified')}
+							disabled={actionLoading}
+							class="flex-1 py-3 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+						>
+							<span class="material-symbols-outlined text-[16px]">check_circle</span>
+							Approve Profile
+						</button>
+					{/if}
+					{#if status !== 'Rejected'}
+						<button
+							onclick={() => { showRejectionReasonInput = true; }}
+							disabled={actionLoading}
+							class="flex-1 py-3 text-xs font-bold rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+						>
+							<span class="material-symbols-outlined text-[16px]">cancel</span>
+							Reject Verification
+						</button>
+					{/if}
+					{#if status === 'Verified' || status === 'Rejected'}
+						<button
+							onclick={() => requestVerificationUpdate(selectedUser.id, 'Pending')}
+							disabled={actionLoading}
+							class="flex-1 py-3 text-xs font-bold rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-650 border border-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+						>
+							<span class="material-symbols-outlined text-[16px]">lock_open</span>
+							Reset Verification
+						</button>
+					{/if}
+				</div>
+			{:else}
+				<button onclick={closeDetails} class="btn-secondary w-full py-2.5 text-xs font-bold cursor-pointer">
+					Close Details
+				</button>
+			{/if}
+		{/snippet}
+	</Modal>
 
 	<!-- Custom Confirmation Dialog Modal Popup -->
-	{#if showConfirmModal}
-		<div transition:fade={{ duration: 150 }} class="fixed inset-0 bg-slate-950/30 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-			<div transition:slide={{ duration: 200 }} class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-sm p-6 space-y-4">
-				<div class="flex items-start gap-4">
-					<div class="size-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-						<span class="material-symbols-outlined text-xl">verified_user</span>
-					</div>
-					<div>
-						<h3 class="font-extrabold text-slate-800 text-sm">{confirmTitle}</h3>
-						<p class="text-xs text-slate-500 mt-1 leading-relaxed font-semibold">{confirmMessage}</p>
-					</div>
-				</div>
-				<div class="flex gap-3">
-					<button
-						type="button"
-						onclick={() => { showConfirmModal = false; }}
-						class="btn-secondary flex-1 py-2.5 text-xs font-bold"
-						disabled={actionLoading}
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						onclick={confirmCallback}
-						disabled={actionLoading}
-						class="flex-1 py-2.5 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
-					>
-						{#if actionLoading}
-							<span class="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
-							Updating…
-						{:else}
-							Confirm
-						{/if}
-					</button>
-				</div>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Custom Result Status Modal Popup -->
-	{#if showResultModal}
-		<div transition:fade={{ duration: 150 }} class="fixed inset-0 bg-slate-950/30 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-			<div transition:slide={{ duration: 200 }} class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-sm p-6 space-y-4 text-center">
-				<div class="mx-auto size-12 rounded-full flex items-center justify-center {isSuccessResult ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-650'}">
-					<span class="material-symbols-outlined text-2xl">{isSuccessResult ? 'check_circle' : 'error'}</span>
-				</div>
-				<div>
-					<h3 class="font-extrabold text-slate-800 text-sm">{resultTitle}</h3>
-					<p class="text-xs text-slate-500 mt-1.5 leading-relaxed font-semibold">{resultMessage}</p>
-				</div>
+	<Modal
+		bind:show={showConfirmModal}
+		size="sm"
+		title={confirmTitle}
+	>
+		<p class="text-xs font-semibold text-slate-550 leading-relaxed">{confirmMessage}</p>
+		{#snippet footer()}
+			<div class="flex gap-3 w-full">
 				<button
 					type="button"
-					onclick={() => { showResultModal = false; }}
-					class="w-full py-2.5 text-xs font-bold rounded-lg bg-slate-800 text-white hover:bg-slate-900 transition-colors cursor-pointer"
+					onclick={() => { showConfirmModal = false; }}
+					class="btn-secondary flex-1 py-2.5 text-xs font-bold cursor-pointer"
+					disabled={actionLoading}
 				>
-					Okay
+					Cancel
+				</button>
+				<button
+					type="button"
+					onclick={confirmCallback}
+					disabled={actionLoading}
+					class="flex-1 py-2.5 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60 shadow-sm"
+				>
+					{#if actionLoading}
+						<span class="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+						Updating…
+					{:else}
+						Confirm
+					{/if}
 				</button>
 			</div>
+		{/snippet}
+	</Modal>
+
+	<!-- Custom Result Status Modal Popup -->
+	<Modal
+		bind:show={showResultModal}
+		size="sm"
+		title={resultTitle}
+	>
+		<div class="text-center py-2 space-y-4">
+			<div class="mx-auto size-12 rounded-full flex items-center justify-center {isSuccessResult ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-650'}">
+				<span class="material-symbols-outlined text-2xl">{isSuccessResult ? 'check_circle' : 'error'}</span>
+			</div>
+			<p class="text-xs text-slate-500 leading-relaxed font-semibold">{resultMessage}</p>
 		</div>
-	{/if}
+		{#snippet footer()}
+			<button
+				type="button"
+				onclick={() => { showResultModal = false; }}
+				class="w-full py-2.5 text-xs font-bold rounded-lg bg-slate-800 hover:bg-slate-900 text-white transition-colors cursor-pointer shadow-sm"
+			>
+				Okay
+			</button>
+		{/snippet}
+	</Modal>
 </section>

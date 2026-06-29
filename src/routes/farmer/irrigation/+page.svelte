@@ -1,6 +1,7 @@
 <script>
 	import { fade, slide } from 'svelte/transition';
 	import { onMount } from 'svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	let { data } = $props();
 
@@ -538,197 +539,170 @@
 		</div>
 	</div>
 
-	<!-- Add Run / Note Modal -->
-	{#if showAddModal}
-		<div transition:fade={{ duration: 150 }} class="fixed inset-0 bg-slate-950/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-			<div transition:slide={{ duration: 200 }} class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-6 overflow-hidden">
-				<div class="flex justify-between items-center pb-4 border-b border-slate-100">
-					<h3 class="font-extrabold text-slate-800 text-base flex items-center gap-1.5">
-						<span class="material-symbols-outlined text-primary-green text-lg">
-							{modalActiveTab === 'weather' ? 'wb_sunny' : 'event_note'}
-						</span>
-						<span>{modalActiveTab === 'weather' ? `Adjust Weather (${monthNames[currentMonth].substring(0, 3)} ${clickedDay})` : (isCustomNote ? `Add Note for ${monthNames[currentMonth].substring(0, 3)} ${clickedDay}` : `Schedule Irrigation (starts ${monthNames[currentMonth].substring(0, 3)} ${clickedDay})`)}</span>
-					</h3>
-					<button onclick={() => showAddModal = false} class="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-full hover:bg-slate-100 flex items-center cursor-pointer">
-						<span class="material-symbols-outlined text-lg">close</span>
-					</button>
+	<!-- Ad	<!-- Add Run / Note Modal -->
+	<Modal 
+		bind:show={showAddModal} 
+		size="md" 
+		title={modalActiveTab === 'weather' ? `Adjust Weather (${monthNames[currentMonth].substring(0, 3)} ${clickedDay})` : (isCustomNote ? `Add Note for ${monthNames[currentMonth].substring(0, 3)} ${clickedDay}` : `Schedule Irrigation (starts ${monthNames[currentMonth].substring(0, 3)} ${clickedDay})`)}
+		onSubmit={modalActiveTab === 'event' ? handleAddRun : handleSaveWeatherOverride}
+	>
+		<!-- Modal Tabs -->
+		<div class="flex gap-4 border-b border-slate-100 pb-2.5 text-[10px] font-bold uppercase tracking-wider mb-4">
+			<button 
+				type="button"
+				onclick={() => modalActiveTab = 'event'}
+				class={['pb-1 transition-all border-b-2 cursor-pointer', 
+					modalActiveTab === 'event' ? 'border-primary-green text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'].filter(Boolean).join(' ')}
+			>
+				Schedule Event / Note
+			</button>
+			<button 
+				type="button"
+				onclick={() => modalActiveTab = 'weather'}
+				class={['pb-1 transition-all border-b-2 cursor-pointer', 
+					modalActiveTab === 'weather' ? 'border-primary-green text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'].filter(Boolean).join(' ')}
+			>
+				Adjust Weather
+			</button>
+		</div>
+
+		{#if modalActiveTab === 'event'}
+			<div class="space-y-4 text-xs font-semibold text-slate-700">
+				<!-- Event Type Toggle -->
+				<div class="space-y-1">
+					<span class="block mb-1 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Event Type</span>
+					<div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
+						<button 
+							type="button" 
+							onclick={() => { isCustomNote = false; newTime = '05:00 - 06:00'; }} 
+							class={['py-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer', !isCustomNote ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'].filter(Boolean).join(' ')}
+						>
+							Watering Zone
+						</button>
+						<button 
+							type="button" 
+							onclick={() => { isCustomNote = true; newTime = ''; }} 
+							class={['py-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer', isCustomNote ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'].filter(Boolean).join(' ')}
+						>
+							Custom Note
+						</button>
+					</div>
+				</div>
+				
+				<!-- Location indicator -->
+				<div class="rounded-xl bg-slate-50 border border-slate-200/50 p-2.5 flex items-center justify-between text-[10px] text-slate-500">
+					<span class="font-bold flex items-center gap-1">
+						<span class="material-symbols-outlined text-primary-green text-[14px]">location_on</span>
+						Scheduling Location:
+					</span>
+					<span class="font-black text-slate-800 text-right truncate max-w-[200px]" title={weatherLocation}>{weatherLocation}</span>
 				</div>
 
-				<!-- Modal Tabs -->
-				<div class="flex gap-4 border-b border-slate-100 py-2.5 text-[10px] font-bold uppercase tracking-wider">
-					<button 
-						type="button"
-						onclick={() => modalActiveTab = 'event'}
-						class={['pb-1 transition-all border-b-2', 
-							modalActiveTab === 'event' ? 'border-primary-green text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'].filter(Boolean).join(' ')}
-					>
-						Schedule Event / Note
-					</button>
-					<button 
-						type="button"
-						onclick={() => modalActiveTab = 'weather'}
-						class={['pb-1 transition-all border-b-2', 
-							modalActiveTab === 'weather' ? 'border-primary-green text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'].filter(Boolean).join(' ')}
-					>
-						Adjust Weather
-					</button>
-				</div>
-
-				{#if modalActiveTab === 'event'}
-					<form onsubmit={handleAddRun} class="mt-4 space-y-4 text-xs font-semibold text-slate-700">
-						
-						<!-- Event Type Toggle -->
-						<div class="space-y-1">
-							<span class="block mb-1 text-slate-500">Event Type</span>
-							<div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
-								<button 
-									type="button" 
-									onclick={() => { isCustomNote = false; newTime = '05:00 - 06:00'; }} 
-									class={['py-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer', !isCustomNote ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'].filter(Boolean).join(' ')}
-								>
-									Watering Zone
-								</button>
-								<button 
-									type="button" 
-									onclick={() => { isCustomNote = true; newTime = ''; }} 
-									class={['py-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer', isCustomNote ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'].filter(Boolean).join(' ')}
-								>
-									Custom Note
-								</button>
-							</div>
-						</div>
-						
-						<!-- Location indicator -->
-						<div class="rounded-xl bg-slate-50 border border-slate-200/50 p-2.5 flex items-center justify-between text-[10px] text-slate-500">
-							<span class="font-bold flex items-center gap-1">
-								<span class="material-symbols-outlined text-primary-green text-[14px]">location_on</span>
-								Scheduling Location:
-							</span>
-							<span class="font-black text-slate-800 text-right truncate max-w-[200px]" title={weatherLocation}>{weatherLocation}</span>
-						</div>
-
-						{#if !isCustomNote}
-							<label class="block">
-								<span class="block mb-1">Crop / Zone Name</span>
-								<input type="text" bind:value={newZone} required placeholder="e.g. Dragon Fruit, North Orchard" class="input-field w-full text-xs" />
-							</label>
-						{:else}
-							<label class="block">
-								<span class="block mb-1">Note Description</span>
-								<textarea bind:value={customNoteText} required placeholder="e.g. Clean zone sprinkler heads, record soil moisture, inspect pipeline..." class="input-field w-full text-xs" rows="2"></textarea>
-							</label>
-						{/if}
-
-
-
-						<div class="grid grid-cols-2 gap-4">
-							<label class="block">
-								<span class="block mb-1">Interval (Days)</span>
-								<input type="number" min="1" bind:value={newIntervalDays} required={!isCustomNote} disabled={isCustomNote} placeholder="e.g. 1 (every day)" class="input-field w-full text-xs" />
-							</label>
-							<label class="block">
-								<span class="block mb-1">Time Block</span>
-								<input type="text" bind:value={newTime} required={!isCustomNote} placeholder={isCustomNote ? "e.g. All Day (optional)" : "e.g. 05:00 - 06:00"} class="input-field w-full text-xs" />
-							</label>
-						</div>
-
-						{#if error}
-							<div class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
-								âš ï¸ {error}
-							</div>
-						{/if}
-
-						<div class="flex gap-3 pt-3 border-t border-slate-100">
-							<button 
-								type="button" 
-								onclick={() => showAddModal = false}
-								class="btn-secondary flex-1 py-3 text-xs cursor-pointer"
-							>
-								Cancel
-							</button>
-							<button 
-								type="submit" 
-								disabled={loading}
-								class="btn-primary flex-1 py-3 text-xs cursor-pointer"
-							>
-								{loading ? 'Adding...' : 'Add Item'}
-							</button>
-						</div>
-					</form>
+				{#if !isCustomNote}
+					<label class="block">
+						<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Crop / Zone Name</span>
+						<input type="text" bind:value={newZone} required placeholder="e.g. Dragon Fruit, North Orchard" class="input-field w-full text-xs" />
+					</label>
 				{:else}
-					<!-- Weather Override Form -->
-					<form onsubmit={handleSaveWeatherOverride} class="mt-4 space-y-4 text-xs font-semibold text-slate-700">
-						<div class="rounded-xl bg-slate-50 border border-slate-200/50 p-3 flex flex-col gap-2 text-slate-500">
-							<span class="font-bold flex items-center gap-1 text-[10px] text-slate-650">
-								<span class="material-symbols-outlined text-amber-500 text-[14px]">wb_sunny</span>
-								Manual Weather Controls
-							</span>
-							<p class="text-[9px] font-normal leading-normal">
-								Adjust this specific date's weather properties if the live forecast is incorrect. Existing scheduled irrigation runs on this day will automatically recalculate and adjust.
-							</p>
-						</div>
+					<label class="block">
+						<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Note Description</span>
+						<textarea bind:value={customNoteText} required placeholder="e.g. Clean zone sprinkler heads, record soil moisture, inspect pipeline..." class="input-field w-full text-xs" rows="2"></textarea>
+					</label>
+				{/if}
 
-						<div class="space-y-1">
-							<span class="block text-slate-500">Precipitation Probability ({overrideRainProbability}%)</span>
-							<div class="flex items-center gap-4">
-								<input 
-									type="range" 
-									min="0" 
-									max="100" 
-									step="10" 
-									bind:value={overrideRainProbability}
-									class="flex-1 accent-primary-green h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer"
-								/>
-								<input 
-									type="number" 
-									min="0" 
-									max="100" 
-									step="10" 
-									bind:value={overrideRainProbability} 
-									class="w-14 text-center bg-slate-50 border border-slate-200 rounded-lg p-1 text-xs text-slate-700" 
-								/>
-							</div>
-						</div>
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+					<label class="block">
+						<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Interval (Days)</span>
+						<input type="number" min="1" bind:value={newIntervalDays} required={!isCustomNote} disabled={isCustomNote} placeholder="e.g. 1 (every day)" class="input-field w-full text-xs" />
+					</label>
+					<label class="block">
+						<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Time Block</span>
+						<input type="text" bind:value={newTime} required={!isCustomNote} placeholder={isCustomNote ? "e.g. All Day (optional)" : "e.g. 05:00 - 06:00"} class="input-field w-full text-xs" />
+					</label>
+				</div>
 
-						<!-- Did it Rain Toggle -->
-						<div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-200/50 rounded-xl">
-							<div>
-								<span class="block text-[11px] font-bold text-slate-800">Did it Rain?</span>
-								<span class="block text-[9px] font-normal text-slate-400 font-medium">Specify if rain actually occurred on this day</span>
-							</div>
-							<label class="relative inline-flex items-center cursor-pointer select-none">
-								<input type="checkbox" bind:checked={overrideDidRain} class="sr-only peer" />
-								<div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-green"></div>
-							</label>
-						</div>
-
-						{#if error}
-							<div class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
-								âš ï¸ {error}
-							</div>
-						{/if}
-
-						<div class="flex gap-3 pt-3 border-t border-slate-100">
-							<button 
-								type="button" 
-								onclick={() => showAddModal = false}
-								class="btn-secondary flex-1 py-3 text-xs cursor-pointer"
-							>
-								Cancel
-							</button>
-							<button 
-								type="submit" 
-								disabled={loading}
-								class="btn-primary flex-1 py-3 text-xs cursor-pointer"
-							>
-								{loading ? 'Saving...' : 'Save Adjustments'}
-							</button>
-						</div>
-					</form>
+				{#if error}
+					<div class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+						⚠️ {error}
+					</div>
 				{/if}
 			</div>
-		</div>
-	{/if}
+		{:else}
+			<!-- Weather Override Form -->
+			<div class="space-y-4 text-xs font-semibold text-slate-700">
+				<div class="rounded-xl bg-slate-50 border border-slate-200/50 p-3 flex flex-col gap-2 text-slate-500">
+					<span class="font-bold flex items-center gap-1 text-[10px] text-slate-655 font-extrabold uppercase tracking-wider">
+						<span class="material-symbols-outlined text-amber-500 text-[14px]">wb_sunny</span>
+						Manual Weather Controls
+					</span>
+					<p class="text-[9px] font-normal leading-normal">
+						Adjust this specific date's weather properties if the live forecast is incorrect. Existing scheduled irrigation runs on this day will automatically recalculate and adjust.
+					</p>
+				</div>
+
+				<div class="space-y-1">
+					<span class="block text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Precipitation Probability ({overrideRainProbability}%)</span>
+					<div class="flex items-center gap-4">
+						<input 
+							type="range" 
+							min="0" 
+							max="100" 
+							step="10" 
+							bind:value={overrideRainProbability}
+							class="flex-1 accent-primary-green h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer"
+						/>
+						<input 
+							type="number" 
+							min="0" 
+							max="100" 
+							step="10" 
+							bind:value={overrideRainProbability} 
+							class="w-14 text-center bg-slate-50 border border-slate-200 rounded-lg p-1 text-xs text-slate-700" 
+						/>
+					</div>
+				</div>
+
+				<!-- Did it Rain Toggle -->
+				<div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-200/50 rounded-xl">
+					<div>
+						<span class="block text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Did it Rain?</span>
+						<span class="block text-[9px] font-normal text-slate-400 font-medium">Specify if rain actually occurred on this day</span>
+					</div>
+					<label class="relative inline-flex items-center cursor-pointer select-none">
+						<input type="checkbox" bind:checked={overrideDidRain} class="sr-only peer" />
+						<div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-green"></div>
+					</label>
+				</div>
+
+				{#if error}
+					<div class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+						⚠️ {error}
+					</div>
+				{/if}
+			</div>
+		{/if}
+
+		{#snippet footer()}
+			<button 
+				type="button" 
+				onclick={() => showAddModal = false}
+				class="btn-secondary flex-1 py-3 text-xs cursor-pointer"
+			>
+				Cancel
+			</button>
+			<button 
+				type="submit" 
+				disabled={loading}
+				class="btn-primary flex-1 py-3 text-xs cursor-pointer"
+			>
+				{#if modalActiveTab === 'event'}
+					{loading ? 'Adding...' : 'Add Item'}
+				{:else}
+					{loading ? 'Saving...' : 'Save Adjustments'}
+				{/if}
+			</button>
+		{/snippet}
+	</Modal>
 
 
 	<!-- Main Body Layout -->

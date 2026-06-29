@@ -1,5 +1,6 @@
 <script>
 	import { fade, slide } from "svelte/transition";
+	import Modal from "$lib/components/Modal.svelte";
 
 	let { data } = $props();
 
@@ -247,283 +248,257 @@
 	</div>
 
 	<!-- Modal Backdrop & Window -->
-	{#if showAddModal}
-		<div
-			transition:fade={{ duration: 150 }}
-			class="fixed inset-0 bg-slate-950/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-		>
-			<div
-				transition:slide={{ duration: 200 }}
-				class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-6 overflow-hidden"
-			>
-				<div
-					class="flex justify-between items-center pb-4 border-b border-slate-100"
-				>
-					<h3 class="font-extrabold text-slate-800 text-base">
-						New Crop Registration
-					</h3>
-					<button
-						onclick={closeModal}
-						class="text-slate-400 hover:text-slate-600 transition-colors"
+	<Modal bind:show={showAddModal} size="md" title="New Crop Registration" onSubmit={handleAddCrop}>
+		<div class="space-y-5 text-xs font-semibold text-slate-700">
+			<!-- Section: Crop Info -->
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Crop Name</span>
+					<input
+						type="text"
+						bind:value={newName}
+						required
+						placeholder="e.g. Basmati Rice"
+						class="input-field w-full text-xs"
+					/>
+				</label>
+
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Crop Field</span>
+					<input
+						type="text"
+						bind:value={newLocation}
+						required
+						placeholder="e.g. Field Block C"
+						class="input-field w-full text-xs"
+					/>
+				</label>
+			</div>
+
+			<!-- Section: Plant & Duration -->
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Planted Date</span>
+					<input
+						type="date"
+						bind:value={newPlantedDate}
+						required
+						class="input-field w-full text-xs bg-white py-[7.5px]"
+					/>
+				</label>
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Harvest Duration</span>
+					<select
+						bind:value={newHarvestDurationType}
+						class="input-field w-full text-xs bg-white py-[9.5px]"
+						onchange={() => {
+							if (newHarvestDurationType === "Seasonal") {
+								newHarvestDuration =
+									"Seasonal (" +
+									selectedMonths.join(", ") +
+									")";
+							} else {
+								newHarvestDuration =
+									harvestDays + " Days";
+							}
+						}}
 					>
-						<span class="material-symbols-outlined text-lg"
-							>close</span
-						>
+						<option value="Seasonal">Seasonal</option>
+						<option value="Days">Days</option>
+					</select>
+				</label>
+			</div>
+
+			{#if newHarvestDurationType === "Seasonal"}
+				<div class="space-y-2">
+					<span class="block mb-1 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Select Active Months</span>
+					<div class="grid grid-cols-4 gap-2">
+						{#each ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as month}
+							<button
+								type="button"
+								onclick={() => {
+									if (
+										selectedMonths.includes(month)
+									) {
+										selectedMonths =
+											selectedMonths.filter(
+												(m) => m !== month,
+											);
+									} else {
+										selectedMonths = [
+											...selectedMonths,
+											month,
+										];
+									}
+									newHarvestDuration =
+										"Seasonal (" +
+										selectedMonths.join(", ") +
+										")";
+								}}
+								class={[
+									"py-2 px-1 text-[10px] font-bold rounded-xl border text-center transition-all duration-200 cursor-pointer",
+									selectedMonths.includes(month)
+										? "bg-primary-green text-white border-primary-green shadow-sm"
+										: "bg-white text-slate-600 border-slate-200 hover:border-slate-300",
+								]
+									.filter(Boolean)
+									.join(" ")}
+							>
+								{month}
+							</button>
+						{/each}
+					</div>
+				</div>
+			{:else}
+				<div class="space-y-1.5 animate-slide-in">
+					<label class="block">
+						<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Days to Harvest</span>
+						<input
+							type="number"
+							bind:value={harvestDays}
+							min="1"
+							required
+							class="input-field w-full text-xs"
+							oninput={() => {
+								newHarvestDuration =
+									harvestDays + " Days";
+							}}
+						/>
+					</label>
+				</div>
+			{/if}
+
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Acreage (Acres)</span>
+					<input
+						type="number"
+						bind:value={newAcres}
+						min="1"
+						required
+						class="input-field w-full text-xs"
+					/>
+				</label>
+			</div>
+
+			<!-- Image Selection (URL or File Upload) -->
+			<div class="space-y-2.5">
+				<span class="block mb-1 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Crop Image (Optional)</span>
+				<div
+					class="flex rounded-xl bg-slate-100 p-1 border border-slate-200/50"
+				>
+					<button
+						type="button"
+						onclick={() => {
+							imageInputType = "url";
+						}}
+						class={[
+							"flex-1 py-1.5 text-center text-[10px] font-bold rounded-lg transition-all cursor-pointer",
+							imageInputType === "url"
+								? "bg-white text-slate-800 shadow-sm"
+								: "text-slate-500 hover:text-slate-800",
+						]
+							.filter(Boolean)
+							.join(" ")}
+					>
+						Image URL
+					</button>
+					<button
+						type="button"
+						onclick={() => {
+							imageInputType = "file";
+						}}
+						class={[
+							"flex-1 py-1.5 text-center text-[10px] font-bold rounded-lg transition-all cursor-pointer",
+							imageInputType === "file"
+								? "bg-white text-slate-800 shadow-sm"
+								: "text-slate-500 hover:text-slate-800",
+						]
+							.filter(Boolean)
+							.join(" ")}
+					>
+						Upload Image
 					</button>
 				</div>
-				<form
-					onsubmit={handleAddCrop}
-					class="mt-4 space-y-4 text-xs font-semibold text-slate-700"
-				>
-					<label class="block">
-						<span class="block mb-1">Crop Name</span>
-						<input
-							type="text"
-							bind:value={newName}
-							required
-							placeholder="e.g. Basmati Rice"
-							class="input-field w-full text-xs"
+
+				{#if imageInputType === "url"}
+					<input
+						type="url"
+						bind:value={newImageUrl}
+						placeholder="https://images.unsplash.com..."
+						class="input-field w-full text-xs"
+					/>
+				{:else if uploadedImagePreview}
+					<div
+						class="relative rounded-2xl overflow-hidden border border-slate-200 h-28 flex items-center justify-center bg-slate-50"
+					>
+						<img
+							src={uploadedImagePreview}
+							alt="Uploaded crop preview"
+							class="w-full h-full object-cover"
 						/>
-					</label>
-
-					<label class="block">
-						<span class="block mb-1">Crop Field</span>
-						<input
-							type="text"
-							bind:value={newLocation}
-							required
-							placeholder="e.g. Field Block C"
-							class="input-field w-full text-xs"
-						/>
-					</label>
-
-					<div class="grid grid-cols-2 gap-4">
-						<label class="block">
-							<span class="block mb-1">Planted Date</span>
-							<input
-								type="date"
-								bind:value={newPlantedDate}
-								required
-								class="input-field w-full text-xs bg-white py-[7.5px]"
-							/>
-						</label>
-						<label class="block">
-							<span class="block mb-1">Harvest Duration</span>
-							<select
-								bind:value={newHarvestDurationType}
-								class="input-field w-full text-xs bg-white py-[9.5px]"
-								onchange={() => {
-									if (newHarvestDurationType === "Seasonal") {
-										newHarvestDuration =
-											"Seasonal (" +
-											selectedMonths.join(", ") +
-											")";
-									} else {
-										newHarvestDuration =
-											harvestDays + " Days";
-									}
-								}}
-							>
-								<option value="Seasonal">Seasonal</option>
-								<option value="Days">Days</option>
-							</select>
-						</label>
-					</div>
-
-					{#if newHarvestDurationType === "Seasonal"}
-						<div class="space-y-1.5">
-							<span
-								class="block mb-1 text-[11px] font-bold text-slate-500"
-								>Select Active Months</span
-							>
-							<div class="grid grid-cols-4 gap-2">
-								{#each ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as month}
-									<button
-										type="button"
-										onclick={() => {
-											if (
-												selectedMonths.includes(month)
-											) {
-												selectedMonths =
-													selectedMonths.filter(
-														(m) => m !== month,
-													);
-											} else {
-												selectedMonths = [
-													...selectedMonths,
-													month,
-												];
-											}
-											newHarvestDuration =
-												"Seasonal (" +
-												selectedMonths.join(", ") +
-												")";
-										}}
-										class={[
-											"py-2 px-1 text-[10px] font-bold rounded-xl border text-center transition-all duration-200",
-											selectedMonths.includes(month)
-												? "bg-primary-green text-white border-primary-green shadow-sm"
-												: "bg-white text-slate-600 border-slate-200 hover:border-slate-300",
-										]
-											.filter(Boolean)
-											.join(" ")}
-									>
-										{month}
-									</button>
-								{/each}
-							</div>
-						</div>
-					{:else}
-						<div class="space-y-1.5">
-							<label class="block">
-								<span class="block mb-1">Days to Harvest</span>
-								<input
-									type="number"
-									bind:value={harvestDays}
-									min="1"
-									required
-									class="input-field w-full text-xs"
-									oninput={() => {
-										newHarvestDuration =
-											harvestDays + " Days";
-									}}
-								/>
-							</label>
-						</div>
-					{/if}
-
-					<div class="grid grid-cols-2 gap-4">
-						<label class="block">
-							<span class="block mb-1">Acreage (Acres)</span>
-							<input
-								type="number"
-								bind:value={newAcres}
-								min="1"
-								required
-								class="input-field w-full text-xs"
-							/>
-						</label>
-					</div>
-
-					<!-- Image Selection (URL or File Upload) -->
-					<div class="space-y-2">
-						<span class="block mb-1">Crop Image (Optional)</span>
-						<div
-							class="flex rounded-xl bg-slate-100 p-1 border border-slate-200/50"
-						>
-							<button
-								type="button"
-								onclick={() => {
-									imageInputType = "url";
-								}}
-								class={[
-									"flex-1 py-1.5 text-center text-[10px] font-bold rounded-lg transition-all",
-									imageInputType === "url"
-										? "bg-white text-slate-800 shadow-sm"
-										: "text-slate-500 hover:text-slate-800",
-								]
-									.filter(Boolean)
-									.join(" ")}
-							>
-								Image URL
-							</button>
-							<button
-								type="button"
-								onclick={() => {
-									imageInputType = "file";
-								}}
-								class={[
-									"flex-1 py-1.5 text-center text-[10px] font-bold rounded-lg transition-all",
-									imageInputType === "file"
-										? "bg-white text-slate-800 shadow-sm"
-										: "text-slate-500 hover:text-slate-800",
-								]
-									.filter(Boolean)
-									.join(" ")}
-							>
-								Upload Image
-							</button>
-						</div>
-
-						{#if imageInputType === "url"}
-							<input
-								type="url"
-								bind:value={newImageUrl}
-								placeholder="https://images.unsplash.com..."
-								class="input-field w-full text-xs"
-							/>
-						{:else if uploadedImagePreview}
-							<div
-								class="relative rounded-2xl overflow-hidden border border-slate-200 h-28 flex items-center justify-center bg-slate-50"
-							>
-								<img
-									src={uploadedImagePreview}
-									alt="Uploaded crop preview"
-									class="w-full h-full object-cover"
-								/>
-								<button
-									type="button"
-									onclick={handleRemoveUploadedFile}
-									class="absolute top-2 right-2 bg-slate-900/80 text-white p-1 rounded-full hover:bg-slate-900 transition-colors shadow-sm"
-								>
-									<span
-										class="material-symbols-outlined text-[14px]"
-										>close</span
-									>
-								</button>
-							</div>
-						{:else}
-							<label
-								class="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-primary-green hover:bg-emerald-50/20 rounded-2xl p-4 cursor-pointer transition-all duration-200 group"
-							>
-								<span
-									class="material-symbols-outlined text-2xl text-slate-400 group-hover:text-primary-green mb-1 transition-colors"
-									>cloud_upload</span
-								>
-								<span
-									class="text-[10px] text-slate-500 font-bold group-hover:text-primary-green transition-colors"
-									>Click to upload crop photo</span
-								>
-								<span class="text-[8px] text-slate-400 mt-0.5"
-									>PNG, JPG, JPEG up to 5MB</span
-								>
-								<input
-									type="file"
-									accept="image/*"
-									class="hidden"
-									onchange={handleFileChange}
-								/>
-							</label>
-						{/if}
-					</div>
-
-					{#if error}
-						<div
-							class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 animate-fade-in"
-						>
-							⚠️ {error}
-						</div>
-					{/if}
-
-					<div class="flex gap-3 pt-3 border-t border-slate-100">
 						<button
 							type="button"
-							onclick={closeModal}
-							class="btn-secondary flex-1 py-3 text-xs"
+							onclick={handleRemoveUploadedFile}
+							class="absolute top-2 right-2 bg-slate-900/80 text-white p-1 rounded-full hover:bg-slate-900 transition-colors shadow-sm cursor-pointer"
 						>
-							Cancel
-						</button>
-						<button
-							type="submit"
-							class="btn-primary flex-1 py-3 text-xs"
-						>
-							Register Crop
+							<span
+								class="material-symbols-outlined text-[14px]"
+								>close</span
+							>
 						</button>
 					</div>
-				</form>
+				{:else}
+					<label
+						class="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-primary-green hover:bg-emerald-50/20 rounded-2xl p-4 cursor-pointer transition-all duration-200 group"
+					>
+						<span
+							class="material-symbols-outlined text-2xl text-slate-400 group-hover:text-primary-green mb-1 transition-colors"
+							>cloud_upload</span
+						>
+						<span
+							class="text-[10px] text-slate-500 font-bold group-hover:text-primary-green transition-colors"
+							>Click to upload crop photo</span
+						>
+						<span class="text-[8px] text-slate-400 mt-0.5"
+							>PNG, JPG, JPEG up to 5MB</span
+						>
+						<input
+							type="file"
+							accept="image/*"
+							class="hidden"
+							onchange={handleFileChange}
+						/>
+					</label>
+				{/if}
 			</div>
+
+			{#if error}
+				<div
+					class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 animate-fade-in"
+				>
+					⚠️ {error}
+				</div>
+			{/if}
 		</div>
-	{/if}
+
+		{#snippet footer()}
+			<button
+				type="button"
+				onclick={closeModal}
+				class="btn-secondary flex-1 py-3 text-xs cursor-pointer"
+			>
+				Cancel
+			</button>
+			<button
+				type="submit"
+				class="btn-primary flex-1 py-3 text-xs cursor-pointer"
+				disabled={loading}
+			>
+				{loading ? 'Registering...' : 'Register Crop'}
+			</button>
+		{/snippet}
+	</Modal>
 
 	<!-- Crop Cards Bento Grid -->
 	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -2,6 +2,8 @@
 	import { fade, scale, slide } from 'svelte/transition';
 	import { browser } from '$app/environment';
 	import { onMount, tick } from 'svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import { showAlert } from '$lib/modal.svelte.js';
 
 	let { data } = $props();
 
@@ -21,7 +23,7 @@
 	let priceHistoryLoading = $state(false);
 	let priceTrendFilter = $state('all');
 	let priceChartCanvas = $state(null);
-	let priceChartInstance = $state(null);
+	let priceChartInstance = null;
 
 	// Sync datasets dynamically
 	$effect(() => {
@@ -74,7 +76,7 @@
 			compareList = compareList.filter(p => p.id !== product.id);
 		} else {
 			if (compareList.length >= 3) {
-				alert('You can compare up to 3 products at a time.');
+				showAlert({ title: 'Comparison Limit', message: 'You can compare up to 3 products at a time.', type: 'warning' });
 				return;
 			}
 			compareList = [...compareList, product];
@@ -1136,17 +1138,10 @@
 	{/if}
 
 	<!-- View Details Modal (Extended with Favorite Farmer toggle) -->
-	{#if showProductModal && selectedProduct}
-		{@const isFarmerFavorited = favoriteFarmerIds.includes(selectedProduct.farmerId)}
-		<div transition:fade={{ duration: 150 }} class="fixed inset-0 bg-slate-950/30 backdrop-blur-sm flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
-			<div transition:slide={{ duration: 200 }} class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-2xl p-6 overflow-hidden">
-				<div class="flex justify-between items-center pb-4 border-b border-slate-100">
-					<h3 class="font-extrabold text-slate-800 text-base">Product Specification</h3>
-					<button onclick={() => { showProductModal = false; selectedProduct = null; }} class="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-full hover:bg-slate-100 flex items-center cursor-pointer">
-						<span class="material-symbols-outlined text-lg">close</span>
-					</button>
-				</div>
-				<div class="mt-4 space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+	<Modal bind:show={showProductModal} size="xl" title="Product Specification" type="custom">
+		{#if selectedProduct}
+			{@const isFarmerFavorited = favoriteFarmerIds.includes(selectedProduct.farmerId)}
+			<div class="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
 					
 					<!-- View 1: Details -->
 					{#if currentModalView === 'details'}
@@ -1450,9 +1445,8 @@
 					{/if}
 
 				</div>
-			</div>
-		</div>
 	{/if}
+</Modal>
 
 </section>
 

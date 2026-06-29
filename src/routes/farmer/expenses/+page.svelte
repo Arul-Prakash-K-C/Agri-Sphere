@@ -1,6 +1,7 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
+	import Modal from '$lib/components/Modal.svelte';
 
 	let { data } = $props();
 
@@ -336,327 +337,299 @@
 			<span class="material-symbols-outlined text-[18px]">add</span>
 			<span>Add Expense</span>
 		</button>
-	</div>
-
-	<!-- Add Expense Modal -->
-	{#if showAddModal}
-		<div transition:fade={{ duration: 150 }} class="fixed inset-0 bg-slate-950/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-			<div transition:slide={{ duration: 200 }} class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-6 overflow-hidden">
-				<div class="flex justify-between items-center pb-4 border-b border-slate-100">
-					<h3 class="font-extrabold text-slate-800 text-base font-headline-md">Log New Expense</h3>
-					<button onclick={() => showAddModal = false} class="text-slate-400 hover:text-slate-600 transition-colors">
-						<span class="material-symbols-outlined text-lg">close</span>
-					</button>
-				</div>
-				<form onsubmit={handleAddExpense} class="mt-4 space-y-4 text-xs font-semibold text-slate-700 max-h-[80vh] overflow-y-auto pr-1">
-					<div class="grid grid-cols-2 gap-4">
-						<label class="block">
-							<span class="block mb-1">Category</span>
-							<select bind:value={newCategory} class="input-field w-full text-xs bg-white py-[9.5px]">
-								<option value="Seed">Seed</option>
-								<option value="Fertilizer">Fertilizer</option>
-								<option value="Chemicals">Chemicals</option>
-								<option value="Labor">Labor</option>
-								<option value="Water">Water</option>
-								<option value="Electricity">Electricity</option>
-							</select>
-						</label>
-						<label class="block">
-							<span class="block mb-1">Status</span>
-							<select bind:value={newStatus} class="input-field w-full text-xs bg-white py-[9.5px]">
-								<option value="Pending">Pending</option>
-								<option value="Completed">Completed</option>
-							</select>
-						</label>
-					</div>
-
-					<div class="grid grid-cols-2 gap-4">
-						<label class="block">
-							<span class="block mb-1">Amount (₹)</span>
-							<input type="number" step="0.01" bind:value={newAmount} required placeholder="0.00" class="input-field w-full text-xs" />
-						</label>
-						<label class="block">
-							<span class="block mb-1">Date</span>
-							<input type="date" bind:value={newDate} required class="input-field w-full text-xs" />
-						</label>
-					</div>
-
-					<label class="block">
-						<span class="block mb-1">Description</span>
-						<input type="text" bind:value={newDescription} required placeholder="e.g. Purchase order" class="input-field w-full text-xs" />
-					</label>
-
-					<!-- Item Details Section (Conditional) -->
-					{#if isConditionalCategory(newCategory)}
-						<div transition:slide={{ duration: 200 }} class="p-4 bg-slate-50 rounded-xl border border-slate-200/60 space-y-3">
-							<h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/50 pb-2">
-								<span class="material-symbols-outlined text-[16px] text-primary-green">inventory</span>
-								Item Details ({newCategory})
-							</h4>
-							<div class="grid grid-cols-2 gap-3">
-								<label class="block col-span-2">
-									<span class="block mb-1 text-[11px] text-slate-600">Item Name <span class="text-red-500">*</span></span>
-									<input type="text" bind:value={newItemName} required placeholder="e.g. Potassium Nitrate" class="input-field w-full text-xs" />
-								</label>
-								<label class="block">
-									<span class="block mb-1 text-[11px] text-slate-600">Brand/Manufacturer</span>
-									<input type="text" bind:value={newItemBrand} placeholder="Optional" class="input-field w-full text-xs" />
-								</label>
-								<label class="block">
-									<span class="block mb-1 text-[11px] text-slate-600">Quantity <span class="text-red-500">*</span></span>
-									<input type="number" step="any" bind:value={newItemQuantity} required placeholder="e.g. 50" class="input-field w-full text-xs" />
-								</label>
-								<label class="block">
-									<span class="block mb-1 text-[11px] text-slate-600">Unit <span class="text-red-500">*</span></span>
-									<select bind:value={newItemUnit} class="input-field w-full text-xs bg-white py-[9.5px]">
-										<option value="Kg">Kg</option>
-										<option value="Liters">Liters</option>
-										<option value="Packets">Packets</option>
-										<option value="Bags">Bags</option>
-										<option value="Units">Units</option>
-									</select>
-								</label>
-								<label class="block">
-									<span class="block mb-1 text-[11px] text-slate-600">Cost per Unit</span>
-									<input type="number" step="0.01" bind:value={newItemCostPerUnit} placeholder="Optional" class="input-field w-full text-xs" />
-								</label>
-								<label class="block col-span-2">
-									<span class="block mb-1 text-[11px] text-slate-600">Notes</span>
-									<input type="text" bind:value={newItemNotes} placeholder="Optional item notes" class="input-field w-full text-xs" />
-								</label>
-							</div>
-						</div>
-					{/if}
-
-					{#if error}
-						<div class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 animate-fade-in">
-							⚠️ {error}
-						</div>
-					{/if}
-
-					<div class="flex gap-3 pt-3 border-t border-slate-100">
-						<button 
-							type="button" 
-							onclick={() => showAddModal = false}
-							class="btn-secondary flex-1 py-3 text-xs"
-						>
-							Cancel
-						</button>
-						<button 
-							type="submit" 
-							class="btn-primary flex-1 py-3 text-xs"
-						>
-							Log Expense
-						</button>
-					</div>
-				</form>
+	</div>	<!-- Add Expense Modal -->
+	<Modal bind:show={showAddModal} size="md" title="Log New Expense" onSubmit={handleAddExpense}>
+		<div class="space-y-4 text-xs font-semibold text-slate-700">
+			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Category</span>
+					<select bind:value={newCategory} class="input-field w-full text-xs bg-white py-[9.5px]">
+						<option value="Seed">Seed</option>
+						<option value="Fertilizer">Fertilizer</option>
+						<option value="Chemicals">Chemicals</option>
+						<option value="Labor">Labor</option>
+						<option value="Water">Water</option>
+						<option value="Electricity">Electricity</option>
+					</select>
+				</label>
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Status</span>
+					<select bind:value={newStatus} class="input-field w-full text-xs bg-white py-[9.5px]">
+						<option value="Pending">Pending</option>
+						<option value="Completed">Completed</option>
+					</select>
+				</label>
 			</div>
+
+			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Amount (₹)</span>
+					<input type="number" step="0.01" bind:value={newAmount} required placeholder="0.00" class="input-field w-full text-xs" />
+				</label>
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Date</span>
+					<input type="date" bind:value={newDate} required class="input-field w-full text-xs bg-white py-[7.5px]" />
+				</label>
+			</div>
+
+			<label class="block">
+				<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Description</span>
+				<input type="text" bind:value={newDescription} required placeholder="e.g. Purchase order" class="input-field w-full text-xs" />
+			</label>
+
+			<!-- Item Details Section (Conditional) -->
+			{#if isConditionalCategory(newCategory)}
+				<div transition:slide={{ duration: 200 }} class="p-4 bg-slate-50 rounded-xl border border-slate-200/60 space-y-3">
+					<h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/50 pb-2">
+						<span class="material-symbols-outlined text-[16px] text-primary-green">inventory</span>
+						Item Details ({newCategory})
+					</h4>
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+						<label class="block sm:col-span-2">
+							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Item Name <span class="text-red-500">*</span></span>
+							<input type="text" bind:value={newItemName} required placeholder="e.g. Potassium Nitrate" class="input-field w-full text-xs" />
+						</label>
+						<label class="block">
+							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Brand/Manufacturer</span>
+							<input type="text" bind:value={newItemBrand} placeholder="Optional" class="input-field w-full text-xs" />
+						</label>
+						<label class="block">
+							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Quantity <span class="text-red-500">*</span></span>
+							<input type="number" step="any" bind:value={newItemQuantity} required placeholder="e.g. 50" class="input-field w-full text-xs" />
+						</label>
+						<label class="block">
+							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Unit <span class="text-red-500">*</span></span>
+							<select bind:value={newItemUnit} class="input-field w-full text-xs bg-white py-[9.5px]">
+								<option value="Kg">Kg</option>
+								<option value="Liters">Liters</option>
+								<option value="Packets">Packets</option>
+								<option value="Bags">Bags</option>
+								<option value="Units">Units</option>
+							</select>
+						</label>
+						<label class="block">
+							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Cost per Unit</span>
+							<input type="number" step="0.01" bind:value={newItemCostPerUnit} placeholder="Optional" class="input-field w-full text-xs" />
+						</label>
+						<label class="block sm:col-span-2">
+							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Notes</span>
+							<input type="text" bind:value={newItemNotes} placeholder="Optional item notes" class="input-field w-full text-xs" />
+						</label>
+					</div>
+				</div>
+			{/if}
+
+			{#if error}
+				<div class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 animate-fade-in">
+					⚠️ {error}
+				</div>
+			{/if}
 		</div>
-	{/if}
+
+		{#snippet footer()}
+			<button 
+				type="button" 
+				onclick={() => showAddModal = false}
+				class="btn-secondary flex-1 py-3 text-xs cursor-pointer"
+			>
+				Cancel
+			</button>
+			<button 
+				type="submit" 
+				class="btn-primary flex-1 py-3 text-xs cursor-pointer"
+				disabled={loading}
+			>
+				{loading ? 'Logging...' : 'Log Expense'}
+			</button>
+		{/snippet}
+	</Modal>
 
 	<!-- Edit Expense Modal -->
-	{#if showEditModal}
-		<div transition:fade={{ duration: 150 }} class="fixed inset-0 bg-slate-950/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-			<div transition:slide={{ duration: 200 }} class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-6 overflow-hidden">
-				<div class="flex justify-between items-center pb-4 border-b border-slate-100">
-					<h3 class="font-extrabold text-slate-800 text-base font-headline-md">Edit Expense</h3>
-					<button onclick={() => showEditModal = false} class="text-slate-400 hover:text-slate-600 transition-colors">
-						<span class="material-symbols-outlined text-lg">close</span>
-					</button>
-				</div>
-				<form onsubmit={handleEditExpense} class="mt-4 space-y-4 text-xs font-semibold text-slate-700 max-h-[80vh] overflow-y-auto pr-1">
-					<div class="grid grid-cols-2 gap-4">
-						<label class="block">
-							<span class="block mb-1">Category</span>
-							<select bind:value={editCategory} class="input-field w-full text-xs bg-white py-[9.5px]">
-								<option value="Seed">Seed</option>
-								<option value="Fertilizer">Fertilizer</option>
-								<option value="Chemicals">Chemicals</option>
-								<option value="Labor">Labor</option>
-								<option value="Water">Water</option>
-								<option value="Electricity">Electricity</option>
-							</select>
-						</label>
-						<label class="block">
-							<span class="block mb-1">Status</span>
-							<select bind:value={editStatus} class="input-field w-full text-xs bg-white py-[9.5px]">
-								<option value="Pending">Pending</option>
-								<option value="Completed">Completed</option>
-							</select>
-						</label>
-					</div>
-
-					<div class="grid grid-cols-2 gap-4">
-						<label class="block">
-							<span class="block mb-1">Amount (₹)</span>
-							<input type="number" step="0.01" bind:value={editAmount} required placeholder="0.00" class="input-field w-full text-xs" />
-						</label>
-						<label class="block">
-							<span class="block mb-1">Date</span>
-							<input type="date" bind:value={editDate} required class="input-field w-full text-xs" />
-						</label>
-					</div>
-
-					<label class="block">
-						<span class="block mb-1">Description</span>
-						<input type="text" bind:value={editDescription} required class="input-field w-full text-xs" />
-					</label>
-
-					<!-- Item Details Section (Conditional for Edit) -->
-					{#if isConditionalCategory(editCategory)}
-						<div transition:slide={{ duration: 200 }} class="p-4 bg-slate-50 rounded-xl border border-slate-200/60 space-y-3">
-							<h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/50 pb-2">
-								<span class="material-symbols-outlined text-[16px] text-primary-green">inventory</span>
-								Item Details ({editCategory})
-							</h4>
-							<div class="grid grid-cols-2 gap-3">
-								<label class="block col-span-2">
-									<span class="block mb-1 text-[11px] text-slate-600">Item Name <span class="text-red-500">*</span></span>
-									<input type="text" bind:value={editItemName} required placeholder="e.g. Potassium Nitrate" class="input-field w-full text-xs" />
-								</label>
-								<label class="block">
-									<span class="block mb-1 text-[11px] text-slate-600">Brand/Manufacturer</span>
-									<input type="text" bind:value={editItemBrand} placeholder="Optional" class="input-field w-full text-xs" />
-								</label>
-								<label class="block">
-									<span class="block mb-1 text-[11px] text-slate-600">Quantity <span class="text-red-500">*</span></span>
-									<input type="number" step="any" bind:value={editItemQuantity} required placeholder="e.g. 50" class="input-field w-full text-xs" />
-								</label>
-								<label class="block">
-									<span class="block mb-1 text-[11px] text-slate-600">Unit <span class="text-red-500">*</span></span>
-									<select bind:value={editItemUnit} class="input-field w-full text-xs bg-white py-[9.5px]">
-										<option value="Kg">Kg</option>
-										<option value="Liters">Liters</option>
-										<option value="Packets">Packets</option>
-										<option value="Bags">Bags</option>
-										<option value="Units">Units</option>
-									</select>
-								</label>
-								<label class="block">
-									<span class="block mb-1 text-[11px] text-slate-600">Cost per Unit</span>
-									<input type="number" step="0.01" bind:value={editItemCostPerUnit} placeholder="Optional" class="input-field w-full text-xs" />
-								</label>
-								<label class="block col-span-2">
-									<span class="block mb-1 text-[11px] text-slate-600">Notes</span>
-									<input type="text" bind:value={editItemNotes} placeholder="Optional item notes" class="input-field w-full text-xs" />
-								</label>
-							</div>
-						</div>
-					{/if}
-
-					{#if error}
-						<div class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 animate-fade-in">
-							⚠️ {error}
-						</div>
-					{/if}
-
-					<div class="flex gap-3 pt-3 border-t border-slate-100">
-						<button 
-							type="button" 
-							onclick={() => showEditModal = false}
-							class="btn-secondary flex-1 py-3 text-xs"
-						>
-							Cancel
-						</button>
-						<button 
-							type="submit" 
-							class="btn-primary flex-1 py-3 text-xs"
-						>
-							Save Changes
-						</button>
-					</div>
-				</form>
+	<Modal bind:show={showEditModal} size="md" title="Edit Expense" onSubmit={handleEditExpense}>
+		<div class="space-y-4 text-xs font-semibold text-slate-700">
+			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Category</span>
+					<select bind:value={editCategory} class="input-field w-full text-xs bg-white py-[9.5px]">
+						<option value="Seed">Seed</option>
+						<option value="Fertilizer">Fertilizer</option>
+						<option value="Chemicals">Chemicals</option>
+						<option value="Labor">Labor</option>
+						<option value="Water">Water</option>
+						<option value="Electricity">Electricity</option>
+					</select>
+				</label>
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Status</span>
+					<select bind:value={editStatus} class="input-field w-full text-xs bg-white py-[9.5px]">
+						<option value="Pending">Pending</option>
+						<option value="Completed">Completed</option>
+					</select>
+				</label>
 			</div>
+
+			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Amount (₹)</span>
+					<input type="number" step="0.01" bind:value={editAmount} required placeholder="0.00" class="input-field w-full text-xs" />
+				</label>
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Date</span>
+					<input type="date" bind:value={editDate} required class="input-field w-full text-xs bg-white py-[7.5px]" />
+				</label>
+			</div>
+
+			<label class="block">
+				<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Description</span>
+				<input type="text" bind:value={editDescription} required class="input-field w-full text-xs" />
+			</label>
+
+			<!-- Item Details Section (Conditional for Edit) -->
+			{#if isConditionalCategory(editCategory)}
+				<div transition:slide={{ duration: 200 }} class="p-4 bg-slate-50 rounded-xl border border-slate-200/60 space-y-3">
+					<h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/50 pb-2">
+						<span class="material-symbols-outlined text-[16px] text-primary-green">inventory</span>
+						Item Details ({editCategory})
+					</h4>
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+						<label class="block sm:col-span-2">
+							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Item Name <span class="text-red-500">*</span></span>
+							<input type="text" bind:value={editItemName} required placeholder="e.g. Potassium Nitrate" class="input-field w-full text-xs" />
+						</label>
+						<label class="block">
+							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Brand/Manufacturer</span>
+							<input type="text" bind:value={editItemBrand} placeholder="Optional" class="input-field w-full text-xs" />
+						</label>
+						<label class="block">
+							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Quantity <span class="text-red-500">*</span></span>
+							<input type="number" step="any" bind:value={editItemQuantity} required placeholder="e.g. 50" class="input-field w-full text-xs" />
+						</label>
+						<label class="block">
+							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Unit <span class="text-red-500">*</span></span>
+							<select bind:value={editItemUnit} class="input-field w-full text-xs bg-white py-[9.5px]">
+								<option value="Kg">Kg</option>
+								<option value="Liters">Liters</option>
+								<option value="Packets">Packets</option>
+								<option value="Bags">Bags</option>
+								<option value="Units">Units</option>
+							</select>
+						</label>
+						<label class="block">
+							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Cost per Unit</span>
+							<input type="number" step="0.01" bind:value={editItemCostPerUnit} placeholder="Optional" class="input-field w-full text-xs" />
+						</label>
+						<label class="block sm:col-span-2">
+							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Notes</span>
+							<input type="text" bind:value={editItemNotes} placeholder="Optional item notes" class="input-field w-full text-xs" />
+						</label>
+					</div>
+				</div>
+			{/if}
+
+			{#if error}
+				<div class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 animate-fade-in">
+					⚠️ {error}
+				</div>
+			{/if}
 		</div>
-	{/if}
+
+		{#snippet footer()}
+			<button 
+				type="button" 
+				onclick={() => showEditModal = false}
+				class="btn-secondary flex-1 py-3 text-xs cursor-pointer"
+			>
+				Cancel
+			</button>
+			<button 
+				type="submit" 
+				class="btn-primary flex-1 py-3 text-xs cursor-pointer"
+				disabled={loading}
+			>
+				{loading ? 'Saving...' : 'Save Changes'}
+			</button>
+		{/snippet}
+	</Modal>
 
 	<!-- View Details Modal -->
-	{#if showViewModal && selectedExpense}
-		<div transition:fade={{ duration: 150 }} class="fixed inset-0 bg-slate-950/30 backdrop-blur-sm flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
-			<div transition:slide={{ duration: 200 }} class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-6 overflow-hidden">
-				<div class="flex justify-between items-center pb-4 border-b border-slate-100">
-					<h3 class="font-extrabold text-slate-800 text-base">Expense Details</h3>
-					<button onclick={() => { showViewModal = false; selectedExpense = null; }} class="text-slate-400 hover:text-slate-600 transition-colors">
-						<span class="material-symbols-outlined text-lg">close</span>
-					</button>
+	<Modal bind:show={showViewModal} size="md" title="Expense Details">
+		{#if selectedExpense}
+			<div class="space-y-4 text-xs font-semibold text-slate-700">
+				<div class="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
+					<div>
+						<span class="block mb-1 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Category</span>
+						<span class="text-slate-800 font-extrabold text-sm">{selectedExpense.category}</span>
+					</div>
+					<div>
+						<span class="block mb-1 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Date</span>
+						<span class="text-slate-800 text-sm">{selectedExpense.date}</span>
+					</div>
 				</div>
-				<div class="mt-4 space-y-4 text-xs font-semibold text-slate-700">
-					<div class="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
-						<div>
-							<span class="text-slate-400 block text-[10px] uppercase">Category</span>
-							<span class="text-slate-800 font-extrabold text-sm">{selectedExpense.category}</span>
-						</div>
-						<div>
-							<span class="text-slate-400 block text-[10px] uppercase">Date</span>
-							<span class="text-slate-800 text-sm">{selectedExpense.date}</span>
-						</div>
-					</div>
 
-					<div class="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
-						<div>
-							<span class="text-slate-400 block text-[10px] uppercase">Amount</span>
-							<span class="text-slate-800 font-extrabold text-sm">₹{selectedExpense.amount.toLocaleString()}</span>
-						</div>
-						<div>
-							<span class="text-slate-400 block text-[10px] uppercase">Status</span>
-							<span class={['px-2 py-0.5 rounded-full text-[10px] font-bold border inline-block mt-0.5', selectedExpense.statusColor].join(' ')}>
-								{selectedExpense.status}
-							</span>
-						</div>
+				<div class="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
+					<div>
+						<span class="block mb-1 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Amount</span>
+						<span class="text-slate-800 font-extrabold text-sm">₹{selectedExpense.amount.toLocaleString()}</span>
 					</div>
-
-					<div class="border-b border-slate-100 pb-3">
-						<span class="text-slate-400 block text-[10px] uppercase">Description</span>
-						<span class="text-slate-800 text-sm font-normal block mt-0.5">{selectedExpense.description}</span>
+					<div>
+						<span class="block mb-1 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Status</span>
+						<span class={['px-2 py-0.5 rounded-full text-[10px] font-bold border inline-block mt-0.5', selectedExpense.statusColor].join(' ')}>
+							{selectedExpense.status}
+						</span>
 					</div>
+				</div>
 
-					<!-- Item Details Section -->
-					{#if selectedExpense.itemDetails}
-						<div class="p-4 bg-slate-50 rounded-xl border border-slate-200/50 space-y-2.5">
-							<h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/30 pb-2">
-								<span class="material-symbols-outlined text-[16px] text-primary-green">inventory</span>
-								Item Specifications
-							</h4>
-							<div class="grid grid-cols-2 gap-2 text-[11px]">
-								<div>
-									<span class="text-slate-400 block">Item Name</span>
-									<span class="text-slate-800 font-bold">{selectedExpense.itemDetails.itemName}</span>
-								</div>
-								<div>
-									<span class="text-slate-400 block">Brand</span>
-									<span class="text-slate-800 font-bold">{selectedExpense.itemDetails.brand || 'N/A'}</span>
-								</div>
-								<div>
-									<span class="text-slate-400 block">Quantity</span>
-									<span class="text-slate-800 font-bold">{selectedExpense.itemDetails.quantity} {selectedExpense.itemDetails.unit}</span>
-								</div>
-								<div>
-									<span class="text-slate-400 block">Cost per Unit</span>
-									<span class="text-slate-800 font-bold">{selectedExpense.itemDetails.costPerUnit ? '₹' + selectedExpense.itemDetails.costPerUnit : 'N/A'}</span>
-								</div>
-								{#if selectedExpense.itemDetails.notes}
-									<div class="col-span-2">
-										<span class="text-slate-400 block">Item Notes</span>
-										<span class="text-slate-800 font-normal block">{selectedExpense.itemDetails.notes}</span>
-									</div>
-								{/if}
+				<div class="border-b border-slate-100 pb-3">
+					<span class="block mb-1 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Description</span>
+					<span class="text-slate-800 text-sm font-normal block mt-0.5">{selectedExpense.description}</span>
+				</div>
+
+				<!-- Item Details Section -->
+				{#if selectedExpense.itemDetails}
+					<div class="p-4 bg-slate-50 rounded-xl border border-slate-200/50 space-y-2.5">
+						<h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/30 pb-2">
+							<span class="material-symbols-outlined text-[16px] text-primary-green">inventory</span>
+							Item Specifications
+						</h4>
+						<div class="grid grid-cols-2 gap-2 text-[11px]">
+							<div>
+								<span class="text-slate-400 block text-[9px] uppercase font-bold">Item Name</span>
+								<span class="text-slate-800 font-bold">{selectedExpense.itemDetails.itemName}</span>
 							</div>
+							<div>
+								<span class="text-slate-400 block text-[9px] uppercase font-bold">Brand</span>
+								<span class="text-slate-800 font-bold">{selectedExpense.itemDetails.brand || 'N/A'}</span>
+							</div>
+							<div>
+								<span class="text-slate-400 block text-[9px] uppercase font-bold">Quantity</span>
+								<span class="text-slate-800 font-bold">{selectedExpense.itemDetails.quantity} {selectedExpense.itemDetails.unit}</span>
+							</div>
+							<div>
+								<span class="text-slate-400 block text-[9px] uppercase font-bold">Cost per Unit</span>
+								<span class="text-slate-800 font-bold">{selectedExpense.itemDetails.costPerUnit ? '₹' + selectedExpense.itemDetails.costPerUnit : 'N/A'}</span>
+							</div>
+							{#if selectedExpense.itemDetails.notes}
+								<div class="col-span-2">
+									<span class="text-slate-400 block text-[9px] uppercase font-bold">Item Notes</span>
+									<span class="text-slate-800 font-normal block">{selectedExpense.itemDetails.notes}</span>
+								</div>
+							{/if}
 						</div>
-					{/if}
-
-					<div class="flex pt-2">
-						<button 
-							type="button" 
-							onclick={() => { showViewModal = false; selectedExpense = null; }}
-							class="btn-primary w-full py-3 text-xs"
-						>
-							Dismiss
-						</button>
 					</div>
-				</div>
+				{/if}
 			</div>
-		</div>
-	{/if}
+		{/if}
+
+		{#snippet footer()}
+			<button 
+				type="button" 
+				onclick={() => { showViewModal = false; selectedExpense = null; }}
+				class="btn-primary w-full py-3 text-xs cursor-pointer"
+			>
+				Dismiss
+			</button>
+		{/snippet}
+	</Modal>
 
 	<!-- Dashboard Bento Grid -->
 	<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">

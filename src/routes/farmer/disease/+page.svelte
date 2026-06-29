@@ -1,6 +1,7 @@
 <script>
 	import { fade, slide } from 'svelte/transition';
 	import { invalidateAll } from '$app/navigation';
+	import Modal from '$lib/components/Modal.svelte';
 
 	let { data } = $props();
 
@@ -496,58 +497,42 @@
 
 	</div>
 	<!-- Custom Delete Confirmation Dialog Modal -->
-	{#if showDeleteModal}
-		<div
-			transition:fade={{ duration: 150 }}
-			class="fixed inset-0 bg-slate-950/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-			role="alertdialog"
-			aria-modal="true"
-			aria-label="Confirm scan deletion"
-		>
-			<div
-				transition:slide={{ duration: 200 }}
-				class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-sm p-6 space-y-4"
+	<Modal
+		bind:show={showDeleteModal}
+		size="sm"
+		title="Delete Scan Report?"
+	>
+		<p class="text-xs font-semibold text-slate-550 leading-relaxed">
+			This will permanently delete the AI diagnostic scan report for
+			<strong class="text-slate-700">{scanToDelete?.crop}</strong>
+			({scanToDelete?.pathogen}).
+		</p>
+
+		{#snippet footer()}
+			<button
+				type="button"
+				onclick={closeDeleteModal}
+				class="btn-secondary flex-1 py-2.5 text-xs cursor-pointer"
+				disabled={deleteLoading}
 			>
-				<div class="flex items-start gap-4">
-					<div class="size-11 rounded-2xl bg-red-50 flex items-center justify-center shrink-0">
-						<span class="material-symbols-outlined text-red-600 text-xl">delete_forever</span>
-					</div>
-					<div>
-						<h3 class="font-extrabold text-slate-800 text-sm">Delete Scan Report?</h3>
-						<p class="text-xs text-slate-500 mt-1 leading-relaxed font-semibold">
-							This will permanently delete the AI diagnostic scan report for
-							<strong class="text-slate-700">{scanToDelete?.crop}</strong>
-							({scanToDelete?.pathogen}).
-						</p>
-					</div>
-				</div>
-				<div class="flex gap-3">
-					<button
-						type="button"
-						onclick={closeDeleteModal}
-						class="btn-secondary flex-1 py-2.5 text-xs font-bold"
-						disabled={deleteLoading}
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						onclick={deleteScan}
-						disabled={deleteLoading}
-						class="flex-1 py-2.5 text-xs font-bold rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-					>
-						{#if deleteLoading}
-							<span class="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
-							Deleting…
-						{:else}
-							<span class="material-symbols-outlined text-[15px]">delete</span>
-							Delete Scan
-						{/if}
-					</button>
-				</div>
-			</div>
-		</div>
-	{/if}
+				Cancel
+			</button>
+			<button
+				type="button"
+				onclick={deleteScan}
+				disabled={deleteLoading}
+				class="flex-1 py-2.5 text-xs font-bold rounded-lg bg-red-650 text-white hover:bg-red-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer shadow-sm"
+			>
+				{#if deleteLoading}
+					<span class="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+					Deleting…
+				{:else}
+					<span class="material-symbols-outlined text-[15px]">delete</span>
+					Delete Scan
+				{/if}
+			</button>
+		{/snippet}
+	</Modal>
 </section>
 
 <style>

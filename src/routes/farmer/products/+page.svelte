@@ -1,5 +1,6 @@
 <script>
 	import { fade, slide } from 'svelte/transition';
+	import Modal from '$lib/components/Modal.svelte';
 
 	let { data } = $props();
 
@@ -226,149 +227,136 @@
 	</div>
 
 	<!-- Add/Edit Product Modal -->
-	{#if showModal}
-		<div transition:fade={{ duration: 150 }} class="fixed inset-0 bg-slate-950/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-			<div transition:slide={{ duration: 200 }} class="bg-white rounded-3xl shadow-xl border border-slate-200 w-full max-w-lg p-6 max-h-[95vh] flex flex-col">
-				<div class="flex justify-between items-center pb-4 border-b border-slate-100 flex-shrink-0">
-					<h3 class="font-extrabold text-slate-800 text-base flex items-center gap-1">
-						<span class="material-symbols-outlined text-primary-green text-lg">{editingProduct ? 'edit_note' : 'post_add'}</span>
-						<span>{editingProduct ? 'Edit Produce Listing' : 'Publish New Produce'}</span>
-					</h3>
-					<button onclick={closeModal} class="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-full hover:bg-slate-100 flex items-center">
-						<span class="material-symbols-outlined text-lg">close</span>
+	<Modal bind:show={showModal} size="lg" title={editingProduct ? 'Edit Produce Listing' : 'Publish New Produce'} onSubmit={handleSubmit}>
+		<div class="space-y-4 text-xs font-semibold text-slate-700">
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Produce Name</span>
+					<input type="text" bind:value={formName} required placeholder="e.g. Premium Basmati Rice" class="input-field w-full text-xs" />
+				</label>
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Category</span>
+					<select bind:value={formCategory} class="input-field w-full text-xs bg-white py-[9.5px]">
+						<option value="Vegetables">Vegetables</option>
+						<option value="Fruits">Fruits</option>
+						<option value="Grains">Grains</option>
+						<option value="Legumes">Legumes</option>
+						<option value="Dairy">Dairy</option>
+					</select>
+				</label>
+			</div>
+
+			<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+				<label class="block md:col-span-2">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Available Quantity</span>
+					<input type="number" bind:value={formQuantity} min="1" step="any" required placeholder="e.g. 50" class="input-field w-full text-xs" />
+				</label>
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Unit</span>
+					<select bind:value={formUnit} class="input-field w-full text-xs bg-white py-[9.5px]">
+						<option value="KG">KG</option>
+						<option value="Tons">Tons</option>
+						<option value="Pieces">Pieces</option>
+						<option value="Jars">Jars</option>
+					</select>
+				</label>
+			</div>
+
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Price per Unit (₹)</span>
+					<input type="number" bind:value={formPrice} min="1" step="any" required placeholder="e.g. 180" class="input-field w-full text-xs" />
+				</label>
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Harvest Date</span>
+					<input type="text" bind:value={formHarvestDate} placeholder="e.g. Jun 10, 2026" class="input-field w-full text-xs" />
+				</label>
+			</div>
+
+			<div class="grid grid-cols-1 gap-4">
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Farm Location</span>
+					<input type="text" bind:value={formLocation} required placeholder="e.g. Amritsar, Punjab" class="input-field w-full text-xs" />
+				</label>
+			</div>
+
+			<label class="block">
+				<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Product Description</span>
+				<textarea bind:value={formDescription} rows="2" placeholder="Describe the quality, freshness, bulk availability..." class="input-field w-full text-xs"></textarea>
+			</label>
+
+			<!-- Image Uploader option -->
+			<div class="space-y-2">
+				<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Product Image</span>
+				<div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
+					<button 
+						type="button" 
+						onclick={() => imageInputType = 'url'} 
+						class={['py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer', imageInputType === 'url' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'].filter(Boolean).join(' ')}
+					>
+						Image URL
+					</button>
+					<button 
+						type="button" 
+						onclick={() => imageInputType = 'file'} 
+						class={['py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer', imageInputType === 'file' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'].filter(Boolean).join(' ')}
+					>
+						Upload Photo
 					</button>
 				</div>
-				<form onsubmit={handleSubmit} class="mt-4 space-y-4 text-xs font-semibold text-slate-700 overflow-y-auto pr-1 flex-grow">
-					<div class="grid grid-cols-2 gap-4">
-						<label class="block">
-							<span class="block mb-1">Produce Name</span>
-							<input type="text" bind:value={formName} required placeholder="e.g. Premium Basmati Rice" class="input-field w-full text-xs" />
-						</label>
-						<label class="block">
-							<span class="block mb-1">Category</span>
-							<select bind:value={formCategory} class="input-field w-full text-xs bg-white py-[9.5px]">
-								<option value="Vegetables">Vegetables</option>
-								<option value="Fruits">Fruits</option>
-								<option value="Grains">Grains</option>
-								<option value="Legumes">Legumes</option>
-								<option value="Dairy">Dairy</option>
-							</select>
-						</label>
-					</div>
 
-					<div class="grid grid-cols-3 gap-4">
-						<label class="block col-span-2">
-							<span class="block mb-1">Available Quantity</span>
-							<input type="number" bind:value={formQuantity} min="1" step="any" required placeholder="e.g. 50" class="input-field w-full text-xs" />
-						</label>
-						<label class="block">
-							<span class="block mb-1">Unit</span>
-							<select bind:value={formUnit} class="input-field w-full text-xs bg-white py-[9.5px]">
-								<option value="KG">KG</option>
-								<option value="Tons">Tons</option>
-								<option value="Pieces">Pieces</option>
-								<option value="Jars">Jars</option>
-							</select>
-						</label>
-					</div>
-
-					<div class="grid grid-cols-2 gap-4">
-						<label class="block">
-							<span class="block mb-1">Price per Unit (₹)</span>
-							<input type="number" bind:value={formPrice} min="1" step="any" required placeholder="e.g. 180" class="input-field w-full text-xs" />
-						</label>
-						<label class="block">
-							<span class="block mb-1">Harvest Date</span>
-							<input type="text" bind:value={formHarvestDate} placeholder="e.g. Jun 10, 2026" class="input-field w-full text-xs" />
-						</label>
-					</div>
-
-					<div class="grid grid-cols-1 gap-4">
-						<label class="block">
-							<span class="block mb-1">Farm Location</span>
-							<input type="text" bind:value={formLocation} required placeholder="e.g. Amritsar, Punjab" class="input-field w-full text-xs" />
-						</label>
-					</div>
-
-					<label class="block">
-						<span class="block mb-1">Product Description</span>
-						<textarea bind:value={formDescription} rows="2" placeholder="Describe the quality, freshness, bulk availability..." class="input-field w-full text-xs"></textarea>
-					</label>
-
-					<!-- Image Uploader option -->
+				{#if imageInputType === 'url'}
+					<input type="url" bind:value={formImageUrl} placeholder="https://images.unsplash.com/..." class="input-field w-full text-xs" />
+				{:else}
 					<div class="space-y-2">
-						<span class="block mb-1">Product Image</span>
-						<div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
-							<button 
-								type="button" 
-								onclick={() => imageInputType = 'url'} 
-								class={['py-1.5 rounded-lg text-[10px] font-bold transition-all', imageInputType === 'url' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'].filter(Boolean).join(' ')}
-							>
-								Image URL
-							</button>
-							<button 
-								type="button" 
-								onclick={() => imageInputType = 'file'} 
-								class={['py-1.5 rounded-lg text-[10px] font-bold transition-all', imageInputType === 'file' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'].filter(Boolean).join(' ')}
-							>
-								Upload Photo
-							</button>
-						</div>
-
-						{#if imageInputType === 'url'}
-							<input type="url" bind:value={formImageUrl} placeholder="https://images.unsplash.com/..." class="input-field w-full text-xs" />
-						{:else}
-							<div class="space-y-2">
-								{#if uploadedImagePreview}
-									<div class="relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
-										<img src={uploadedImagePreview} alt="Preview" class="w-full h-full object-cover" />
-										<button 
-											type="button" 
-											onclick={handleRemoveUploadedFile} 
-											class="absolute top-2 right-2 size-7 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-all cursor-pointer"
-										>
-											<span class="material-symbols-outlined text-[16px]">delete</span>
-										</button>
-									</div>
-								{:else}
-									<label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-200 hover:border-primary-green/50 rounded-xl cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-all group">
-										<div class="flex flex-col items-center justify-center pt-5 pb-6">
-											<span class="material-symbols-outlined text-slate-400 group-hover:text-primary-green text-3xl transition-colors mb-1.5">cloud_upload</span>
-											<p class="text-[10px] text-slate-500 font-bold group-hover:text-slate-700 transition-colors">Drag or click to upload photo</p>
-										</div>
-										<input type="file" accept="image/*" class="hidden" onchange={handleFileChange} />
-									</label>
-								{/if}
+						{#if uploadedImagePreview}
+							<div class="relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+								<img src={uploadedImagePreview} alt="Preview" class="w-full h-full object-cover" />
+								<button 
+									type="button" 
+									onclick={handleRemoveUploadedFile} 
+									class="absolute top-2 right-2 size-7 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-all cursor-pointer"
+								>
+									<span class="material-symbols-outlined text-[16px]">close</span>
+								</button>
 							</div>
+						{:else}
+							<label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-200 hover:border-primary-green/50 rounded-xl cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-all group">
+								<div class="flex flex-col items-center justify-center pt-5 pb-6">
+									<span class="material-symbols-outlined text-slate-400 group-hover:text-primary-green text-3xl transition-colors mb-1.5">cloud_upload</span>
+									<p class="text-[10px] text-slate-500 font-bold group-hover:text-slate-700 transition-colors">Drag or click to upload photo</p>
+								</div>
+								<input type="file" accept="image/*" class="hidden" onchange={handleFileChange} />
+							</label>
 						{/if}
 					</div>
-
-					{#if error}
-						<div class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 animate-fade-in">
-							⚠️ {error}
-						</div>
-					{/if}
-
-					<div class="flex gap-3 pt-3 border-t border-slate-100 flex-shrink-0">
-						<button 
-							type="button" 
-							onclick={closeModal}
-							class="btn-secondary flex-1 py-3 text-xs cursor-pointer"
-						>
-							Cancel
-						</button>
-						<button 
-							type="submit" 
-							disabled={loading}
-							class="btn-primary flex-1 py-3 text-xs cursor-pointer"
-						>
-							{loading ? 'Saving...' : (editingProduct ? 'Save Changes' : 'Publish Listing')}
-						</button>
-					</div>
-				</form>
+				{/if}
 			</div>
+
+			{#if error}
+				<div class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 animate-fade-in">
+					⚠️ {error}
+				</div>
+			{/if}
 		</div>
-	{/if}
+
+		{#snippet footer()}
+			<button 
+				type="button" 
+				onclick={closeModal}
+				class="btn-secondary flex-1 py-3 text-xs cursor-pointer"
+			>
+				Cancel
+			</button>
+			<button 
+				type="submit" 
+				disabled={loading}
+				class="btn-primary flex-1 py-3 text-xs cursor-pointer"
+			>
+				{loading ? 'Saving...' : (editingProduct ? 'Save Changes' : 'Publish Listing')}
+			</button>
+		{/snippet}
+	</Modal>
 
 	<!-- Products Grid -->
 	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

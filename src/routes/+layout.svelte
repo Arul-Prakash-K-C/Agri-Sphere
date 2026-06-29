@@ -7,6 +7,8 @@
 	import { authState, startAuthListener } from '$lib/auth.svelte.js';
 	import favicon from '$lib/assets/favicon.svg';
 	import { logout } from '$lib/firebase-data';
+	import Modal from '$lib/components/Modal.svelte';
+	import { modalState } from '$lib/modal.svelte.js';
 
 	let { children, data } = $props();
 
@@ -254,7 +256,7 @@
 			</header>
 
 			<!-- Content section -->
-			<main class="p-6 md:p-10 flex-1 animate-fade-in">
+			<main class="p-6 md:p-10 flex-1">
 				{#if $navigating}
 					{@const targetPath = $navigating.to?.url?.pathname || ''}
 					{#if targetPath.includes('/farmer/crops')}
@@ -773,9 +775,21 @@
 				</div>
 			</header>
 
-			<main class="flex-grow flex flex-col justify-center animate-fade-in">
+			<main class="flex-grow flex flex-col justify-center">
 				{@render children()}
 			</main>
 		</div>
 	{/if}
+
+	<Modal
+		bind:show={modalState.show}
+		type={modalState.type}
+		title={modalState.title}
+		confirmText={modalState.confirmText}
+		cancelText={modalState.cancelText}
+		onConfirm={modalState.onConfirm}
+		onCancel={modalState.onCancel}
+	>
+		<p class="text-xs font-semibold text-slate-550 leading-relaxed">{modalState.message}</p>
+	</Modal>
 </div>
