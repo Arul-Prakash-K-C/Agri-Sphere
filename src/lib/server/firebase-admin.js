@@ -331,3 +331,204 @@ if (env.FIREBASE_SERVICE_ACCOUNT_KEY) {
 
 
 export { adminAuth, adminDb };
+
+export async function syncInventoryForFarmer(farmerId) {
+	// 1. Fetch harvests
+	const harvestsSnapshot = await adminDb.collection('harvests')
+		.where('farmerId', '==', farmerId)
+		.get();
+	const harvests = harvestsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+	// Sort chronologically to simulate sequential additions
+	harvests.sort((a, b) => {
+		return (a.createdAt || a.harvestDate || '').localeCompare(b.createdAt || b.harvestDate || '');
+	});
+
+	// Helper for unit conversion
+	function convertToUnit(amount, fromUnit, toUnit) {
+		if (!amount || isNaN(amount)) return 0;
+		const from = (fromUnit || '').trim().toLowerCase();
+		const to = (toUnit || '').trim().toLowerCase();
+		if (from === to) return amount;
+		
+		if (from === 'kg' && to === 'tons') return amount / 1000;
+		if (from === 'tons' && to === 'kg') return amount * 1000;
+		if (from === 'g' && to === 'kg') return amount / 1000;
+		if (from === 'kg' && to === 'g') return amount * 1000;
+		if (from === 'ml' && to === 'liters') return amount / 1000;
+		if (from === 'liters' && to === 'ml') return amount * 1000;
+
+		return amount;
+	}
+
+	function cleanProductName(name) {
+		return (name || '').replace(/\s+Harvest$/i, '').trim().toLowerCase();
+	}
+
+	function getExpiryDateStr(harvestDateStr, lifespanStr) {
+		if (!harvestDateStr || !lifespanStr) return '';
+		const match = lifespanStr.match(/(\d+)/);
+		if (!match) return '';
+		const lifeDays = parseInt(match[1], 10);
+		const harvested = new Date(harvestDateStr + 'T00:00:00Z');
+		const expiry = new Date(harvested.getTime() + lifeDays * 24 * 60 * 60 * 1000);
+		return expiry.toISOString().split('T')[0];
+	}
+
+	function calculateRemainingLife(harvestDateStr, lifespanStr) {
+		if (!harvestDateStr || !lifespanStr) return null;
+		const match = lifespanStr.match(/(\d+)/);
+		if (!match) return null;
+		const lifeDays = parseInt(match[1], 10);
+		const harvested = new Date(harvestDateStr + 'T00:00:00');
+		const expiry = new Date(harvested.getTime() + lifeDays * 24 * 60 * 60 * 1000);
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const diffMs = expiry.getTime() - today.getTime();
+		return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+	}
+
+	// 2. Fetch existing inventory docs
+	const inventorySnapshot = await adminDb.collection('inventory')
+		.where('farmerId', '==', farmerId)
+		.get();
+	const inventoryItems = inventorySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+	const now = new Date().toISOString();
+
+	// 3. Sequentially build aggregated inventory batches
+	const inventoryBatches = [];
+
+	for (const h of harvests) {
+		if (h.status === 'sold' || h.status === 'Sold') continue;
+
+		const cropName = (h.cropName || '').trim();
+		const category = (h.category || 'Vegetables').trim();
+		const grade = (h.qualityGrade || 'Grade A').trim();
+		const lifespan = (h.lifespan || '').trim();
+		const remainingLife = calculateRemainingLife(h.harvestDate, lifespan);
+		const storageId = (h.storageId || '').trim();
+		const unit = h.unit || 'Liters';
+
+		// Match existing built batches
+		const matched = inventoryBatches.find(inv => {
+			const nameMatch = cleanProductName(inv.cropName) === cleanProductName(cropName);
+			const catMatch = (inv.category || '').trim().toLowerCase() === category.toLowerCase();
+			const gradeMatch = (inv.grade || '').trim().toLowerCase() === grade.toLowerCase();
+			const lifeMatch = inv.remainingLife === remainingLife;
+			const storageMatch = (inv.storageId || '') === storageId;
+			const statusMatch = inv.status !== 'sold' && ((inv.total || 0) - (inv.soldUsed || 0) > 0.001);
+			const notExpired = remainingLife !== null && remainingLife > 0;
+
+			return nameMatch && catMatch && gradeMatch && lifeMatch && storageMatch && statusMatch && notExpired;
+		});
+
+		if (matched) {
+			const qtyInInvUnit = convertToUnit(Number(h.quantity || 0), h.unit, matched.unit);
+			const soldInInvUnit = convertToUnit(Number(h.soldUsed || 0), h.unit, matched.unit);
+			matched.total += qtyInInvUnit + soldInInvUnit;
+			matched.soldUsed += soldInInvUnit;
+			if (h.id && !matched.harvestIds.includes(h.id)) {
+				matched.harvestIds.push(h.id);
+			}
+			if (h.createdAt && h.createdAt < matched.createdAt) {
+				matched.createdAt = h.createdAt;
+			}
+		} else {
+			// Find if there's an existing unused inventory item to reuse its ID
+			const matchedExisting = inventoryItems.find(item => {
+				const isUnused = !inventoryBatches.some(b => b.id === item.id);
+				if (!isUnused) return false;
+				
+				const nameMatch = cleanProductName(item.cropName) === cleanProductName(cropName) || cleanProductName(item.name) === cleanProductName(cropName);
+				const catMatch = (item.category || '').trim().toLowerCase() === category.toLowerCase();
+				const gradeMatch = (item.grade || '').trim().toLowerCase() === grade.toLowerCase();
+				const lifeMatch = item.remainingLife === remainingLife;
+				const storageMatch = (item.storageId || '') === storageId;
+				const statusMatch = item.status !== 'sold' && ((item.total || 0) - (item.soldUsed || 0) > 0.001);
+
+				return nameMatch && catMatch && gradeMatch && lifeMatch && storageMatch && statusMatch;
+			});
+
+			const docId = matchedExisting ? matchedExisting.id : adminDb.collection('inventory').doc().id;
+
+			inventoryBatches.push({
+				id: docId,
+				isNew: !matchedExisting,
+				name: cropName + ' Harvest',
+				cropName: cropName,
+				category: category,
+				grade: grade,
+				lifespan: lifespan,
+				remainingLife: remainingLife,
+				storageId: storageId,
+				unit: unit,
+				total: Number(h.quantity || 0) + Number(h.soldUsed || 0),
+				soldUsed: Number(h.soldUsed || 0),
+				harvestIds: [h.id],
+				farmerId,
+				createdAt: h.createdAt || now
+			});
+		}
+	}
+
+	// 6. Commit all updates, creations, deletions to database
+	const batch = adminDb.batch();
+	const usedInvIds = new Set(inventoryBatches.map(b => b.id));
+
+	for (const inv of inventoryBatches) {
+		const invRef = adminDb.collection('inventory').doc(inv.id);
+		const roundedSoldUsed = Math.round(inv.soldUsed * 1000) / 1000;
+		const isSold = (inv.total - roundedSoldUsed) <= 0.001;
+		
+		const invData = {
+			name: inv.name,
+			cropName: inv.cropName,
+			category: inv.category,
+			total: inv.total,
+			soldUsed: roundedSoldUsed,
+			unit: inv.unit,
+			grade: inv.grade,
+			lifespan: inv.lifespan,
+			remainingLife: inv.remainingLife,
+			harvestIds: inv.harvestIds,
+			farmerId: inv.farmerId,
+			storageId: inv.storageId,
+			status: isSold ? 'sold' : 'Available',
+			updatedAt: now
+		};
+
+		if (inv.isNew) {
+			batch.set(invRef, {
+				...invData,
+				icon: 'inventory_2',
+				progress: 100,
+				statusColor: 'bg-emerald-50 text-dark-green border-emerald-100/50',
+				createdAt: inv.createdAt
+			});
+		} else {
+			batch.update(invRef, invData);
+		}
+
+		for (const hId of inv.harvestIds) {
+			const hRef = adminDb.collection('harvests').doc(hId);
+			batch.update(hRef, { status: isSold ? 'sold' : '' });
+		}
+	}
+
+	// Delete obsolete inventory docs
+	for (const item of inventoryItems) {
+		const isUnused = !usedInvIds.has(item.id);
+		const isHarvestSource = item.sourceType === 'harvest' || (item.harvestIds && item.harvestIds.length > 0) || !item.sourceType;
+		if (isUnused && isHarvestSource) {
+			batch.delete(adminDb.collection('inventory').doc(item.id));
+		}
+	}
+
+	await batch.commit();
+}
+
+export async function upsertInventoryFromHarvest(farmerId, harvest) {
+	await syncInventoryForFarmer(farmerId);
+}
+

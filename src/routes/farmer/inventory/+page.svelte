@@ -77,7 +77,16 @@
 	}
 
 	// Calculate remaining lifespan dynamically
-	function calculateRemainingLifespan(itemName) {
+	function calculateRemainingLifespan(item) {
+		if (item && typeof item === 'object' && item.expiryDate) {
+			const expiry = new Date(item.expiryDate + 'T00:00:00');
+			const today = new Date();
+			today.setHours(0, 0, 0, 0);
+			const diffMs = expiry.getTime() - today.getTime();
+			return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+		}
+
+		const itemName = item && typeof item === 'object' ? item.name : item;
 		const details = getLifespanDetails(itemName);
 		if (!details) return null;
 
@@ -96,18 +105,34 @@
 
 	// Status calculation logic removed
 
+	function getItemDetails(item) {
+		const harvest = harvests.find(h => h.id === item.sourceId) || (item.harvestIds && item.harvestIds.length > 0 ? harvests.find(h => item.harvestIds.includes(h.id)) : null);
+		const category = (item.category || '').trim();
+		const productName = harvest ? harvest.cropName.trim() : (item.name || '').replace(/\s+Harvest$/i, '').trim();
+		const grade = item.grade ? item.grade.trim() : (harvest ? (harvest.qualityGrade || '').trim() : '');
+		const lifespan = item.lifespan ? item.lifespan.trim() : (harvest ? (harvest.lifespan || '').trim() : '');
+		return { category, productName, grade, lifespan };
+	}
+
+	let aggregatedItems = $derived.by(() => {
+    // Aggregation removed: show individual stock items directly.
+    // This placeholder maintains variable for backward compatibility if referenced elsewhere.
+    return stockItems;
+});
+
 	// Dynamic categorisation filter match
 	let filteredItems = $derived.by(() => {
-		if (filterCategory === 'All') return stockItems;
-		return stockItems.filter(item => {
-			const cat = item.category ? item.category.trim().toLowerCase() : '';
-			const filter = filterCategory.trim().toLowerCase();
-			// Map seeds category
-			if (filter === 'seeds' && (cat === 'seeds' || cat === 'seed')) return true;
-			if (filter === 'fertilizers' && (cat === 'fertilizers' || cat === 'fertilizer')) return true;
-			return cat === filter;
-		});
-	});
+    const activeItems = stockItems.filter(item => ((item.total || 0) - (item.soldUsed || 0)) > 0);
+    if (filterCategory === 'All') return activeItems;
+    return activeItems.filter(item => {
+        const cat = item.category ? item.category.trim().toLowerCase() : '';
+        const filter = filterCategory.trim().toLowerCase();
+        // Map seeds category
+        if (filter === 'seeds' && (cat === 'seeds' || cat === 'seed')) return true;
+        if (filter === 'fertilizers' && (cat === 'fertilizers' || cat === 'fertilizer')) return true;
+        return cat === filter;
+    });
+});
 
 	function convertToUnit(amount, fromUnit, toUnit) {
 		if (!amount || isNaN(amount)) return 0;
@@ -373,7 +398,7 @@
 						</thead>
 						<tbody class="divide-y divide-slate-50 font-medium text-slate-600">
 							{#each filteredItems as item (item.id)}
-								{@const daysLeft = calculateRemainingLifespan(item.name)}
+								{@const daysLeft = calculateRemainingLifespan(item)}
 								<tr class="hover:bg-slate-50/30 transition-colors">
 									<td class="p-4 pl-6">
 										<span class="font-bold text-slate-800 break-words line-clamp-2 block leading-snug">{item.name}</span>

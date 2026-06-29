@@ -36,13 +36,13 @@
 		if (role === 'farmer') {
 			return [
 				{ href: '/farmer/dashboard', label: 'Dashboard', icon: 'agriculture' },
+				{ href: '/farmer/irrigation', label: 'Irrigation', icon: 'water_drop' },
+				{ href: '/farmer/disease', label: 'Disease Detection', icon: 'shutter_speed' },
 				{ href: '/farmer/crops', label: 'Crops', icon: 'psychology' },
 				{ href: '/farmer/harvests', label: 'Harvest Logs', icon: 'agriculture' },
 				{ href: '/farmer/expenses', label: 'Expenses', icon: 'payments' },
-				{ href: '/farmer/irrigation', label: 'Irrigation', icon: 'water_drop' },
 				{ href: '/farmer/inventory', label: 'Inventory', icon: 'inventory_2' },
 				{ href: '/farmer/sales', label: 'Sales', icon: 'point_of_sale' },
-				{ href: '/farmer/disease', label: 'Disease Detection', icon: 'shutter_speed' },
 				{ href: '/farmer/products', label: 'My Listings', icon: 'storefront' }
 			];
 		}

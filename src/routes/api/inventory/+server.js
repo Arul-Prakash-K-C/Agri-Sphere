@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { adminDb } from '$lib/server/firebase-admin';
+import { adminDb, syncInventoryForFarmer } from '$lib/server/firebase-admin';
 
 /** @type {import('./$types').RequestHandler} */
 export async function GET({ locals }) {
@@ -12,6 +12,9 @@ export async function GET({ locals }) {
 	}
 
 	try {
+		// Run database aggregation sync
+		await syncInventoryForFarmer(locals.user.uid);
+
 		// Fetch inventory items
 		const snapshot = await adminDb.collection('inventory')
 			.where('farmerId', '==', locals.user.uid)
@@ -149,6 +152,17 @@ export async function POST({ request, locals }) {
 			if (soldUsed !== undefined) updateObj.soldUsed = Number(soldUsed);
 
 			await docRef.update(updateObj);
+
+			const finalTotal = total !== undefined ? Number(total) : Number(docSnap.data().total || 0);
+			const finalSoldUsed = soldUsed !== undefined ? Number(soldUsed) : Number(docSnap.data().soldUsed || 0);
+			const invData = docSnap.data();
+			if (invData.sourceType === 'harvest' && invData.sourceId) {
+				const isSold = (finalTotal - finalSoldUsed) <= 0;
+				await adminDb.collection('harvests').doc(invData.sourceId).update({
+					status: isSold ? 'sold' : ''
+				});
+			}
+
 			return json({ success: true, itemId, ...updateObj });
 		}
 

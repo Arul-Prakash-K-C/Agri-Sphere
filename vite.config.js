@@ -9,5 +9,6 @@ export default defineConfig({
 		process.env.VITE_CACHE_DIR ||
 		`/private/tmp/firebaseExample-vite-cache-${userCacheId}`,
 
-	plugins: [tailwindcss(), sveltekit()]
+	plugins: [tailwindcss(), sveltekit()],
+
 });

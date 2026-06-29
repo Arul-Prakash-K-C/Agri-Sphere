@@ -121,21 +121,6 @@
 
 		<!-- Right Side: Login Card -->
 		<div class="flex flex-col justify-center p-8 sm:p-12 bg-white">
-			<!-- Role Badge Header -->
-			<div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-5">
-				<div>
-					<span class="inline-flex items-center gap-1.5 rounded-full bg-light-green px-3 py-1 text-xs font-bold text-dark-green border border-primary-green/20">
-						🔑 Logging in as {currentMeta.label}
-					</span>
-				</div>
-				<a 
-					href="/select-role?action=login" 
-					class="text-xs font-bold text-primary-green hover:text-dark-green hover:underline transition-colors"
-				>
-					Change Role
-				</a>
-			</div>
-
 			<div class="mt-8 space-y-2">
 				<h2 class="text-3xl font-extrabold tracking-tight text-slate-900">Welcome Back</h2>
 				<p class="text-slate-500 text-sm">Please log in to manage your AgriConnect features.</p>

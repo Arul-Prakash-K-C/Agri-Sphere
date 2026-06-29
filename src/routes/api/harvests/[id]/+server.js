@@ -1,5 +1,21 @@
 import { json } from '@sveltejs/kit';
-import { adminDb } from '$lib/server/firebase-admin';
+import { adminDb, syncInventoryForFarmer } from '$lib/server/firebase-admin';
+
+function convertToUnit(amount, fromUnit, toUnit) {
+	if (!amount || isNaN(amount)) return 0;
+	const from = (fromUnit || '').trim().toLowerCase();
+	const to = (toUnit || '').trim().toLowerCase();
+	if (from === to) return amount;
+	
+	if (from === 'kg' && to === 'tons') return amount / 1000;
+	if (from === 'tons' && to === 'kg') return amount * 1000;
+	if (from === 'g' && to === 'kg') return amount / 1000;
+	if (from === 'kg' && to === 'g') return amount * 1000;
+	if (from === 'ml' && to === 'liters') return amount / 1000;
+	if (from === 'liters' && to === 'ml') return amount * 1000;
+
+	return amount;
+}
 
 /** @type {import('./$types').RequestHandler} */
 export async function PATCH({ params, request, locals }) {
@@ -34,6 +50,45 @@ export async function PATCH({ params, request, locals }) {
 			return json({ error: 'Quantity must be a positive number' }, { status: 400 });
 		}
 
+		const targetStorageId = storageId !== undefined ? storageId : harvestDoc.data().storageId;
+		const targetQuantity = quantity !== undefined ? Number(quantity) : Number(harvestDoc.data().quantity);
+		const targetUnit = unit !== undefined ? unit : harvestDoc.data().unit;
+
+		if (targetStorageId) {
+			const storageSnap = await adminDb.collection('storages').doc(targetStorageId).get();
+			if (!storageSnap.exists) {
+				return json({ error: 'Storage location not found' }, { status: 400 });
+			}
+			const storage = storageSnap.data();
+			if (storage.farmerId !== locals.user.uid) {
+				return json({ error: 'Forbidden' }, { status: 403 });
+			}
+
+			// Get occupied space excluding the inventory item linked to this harvest
+			const invSnapshot = await adminDb.collection('inventory')
+				.where('farmerId', '==', locals.user.uid)
+				.where('storageId', '==', targetStorageId)
+				.get();
+			const occupied = invSnapshot.docs
+				.filter(doc => {
+					const data = doc.data();
+					if (data.harvestIds && Array.isArray(data.harvestIds)) {
+						return !data.harvestIds.includes(params.id);
+					}
+					return data.sourceId !== params.id;
+				})
+				.reduce((sum, doc) => {
+					const item = doc.data();
+					return sum + convertToUnit(((item.total || 0) - (item.soldUsed || 0)), item.unit, storage.unit);
+				}, 0);
+
+			const avail = Math.max(0, storage.capacity - occupied);
+			const quantityInStorageUnit = convertToUnit(targetQuantity, targetUnit || 'Liters', storage.unit);
+			if (quantityInStorageUnit > avail) {
+				return json({ error: `Not enough storage space. Available space: ${Math.round(avail * 100) / 100} ${storage.unit}.` }, { status: 400 });
+			}
+		}
+
 		const updatePayload = {};
 		if (cropName !== undefined) updatePayload.cropName = cropName.trim();
 		if (cropId !== undefined) updatePayload.cropId = cropId;
@@ -49,28 +104,7 @@ export async function PATCH({ params, request, locals }) {
 
 		await docRef.update(updatePayload);
 
-		// Sync inventory — find the linked inventory item by sourceId
-		const merged = { ...harvestDoc.data(), ...updatePayload };
-		const invSnapshot = await adminDb.collection('inventory')
-			.where('farmerId', '==', locals.user.uid)
-			.where('sourceType', '==', 'harvest')
-			.where('sourceId', '==', params.id)
-			.get();
-
-		if (!invSnapshot.empty) {
-			const invDoc = invSnapshot.docs[0];
-			const newTotal = Number(merged.quantity);
-			const progress = 100;
-			await invDoc.ref.update({
-				name: merged.cropName + ' Harvest',
-				category: merged.category || 'Vegetables',
-				storageId: merged.storageId || '',
-				total: newTotal,
-				unit: merged.unit,
-				progress,
-				updatedAt: new Date().toISOString()
-			});
-		}
+		await syncInventoryForFarmer(locals.user.uid);
 
 		const updatedDoc = await docRef.get();
 		return json({ id: updatedDoc.id, ...updatedDoc.data() });
@@ -102,17 +136,8 @@ export async function DELETE({ params, locals }) {
 			return json({ error: 'Forbidden' }, { status: 403 });
 		}
 
-		// Delete linked inventory item first
-		const invSnapshot = await adminDb.collection('inventory')
-			.where('farmerId', '==', locals.user.uid)
-			.where('sourceType', '==', 'harvest')
-			.where('sourceId', '==', params.id)
-			.get();
-
-		const batch = adminDb.batch();
-		invSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-		batch.delete(docRef);
-		await batch.commit();
+		await docRef.delete();
+		await syncInventoryForFarmer(locals.user.uid);
 
 		return json({ success: true, message: 'Harvest log deleted successfully' });
 	} catch (error) {

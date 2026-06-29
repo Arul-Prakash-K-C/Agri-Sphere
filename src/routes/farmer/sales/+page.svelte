@@ -1,17 +1,83 @@
 <script>
 	import { fade, slide } from 'svelte/transition';
+	import { invalidateAll } from '$app/navigation';
 
 	const { data } = $props();
 
 	let sales = $state([]);
 	let inventory = $state([]);
+	let harvests = $state([]);
 	let loading = $state(false);
 	let error = $state('');
 
 	$effect(() => {
 		sales = data?.sales || [];
 		inventory = data?.inventory || [];
+		harvests = data?.harvests || [];
 	});
+
+	// Helper to find harvest details or crop details for dynamic lifespan calculation
+	function getLifespanDetails(itemName, itemHarvestIds = [], itemSourceId = '') {
+		if (!itemName || typeof itemName !== 'string') {
+			return null;
+		}
+		const cleanName = itemName.replace(/\s+Harvest$/i, '').trim().toLowerCase();
+		
+		let matchingHarvest = null;
+		if (itemHarvestIds && itemHarvestIds.length > 0) {
+			matchingHarvest = harvests.find(h => itemHarvestIds.includes(h.id));
+		}
+		if (!matchingHarvest && itemSourceId) {
+			matchingHarvest = harvests.find(h => h.id === itemSourceId);
+		}
+		if (!matchingHarvest) {
+			matchingHarvest = harvests.find(h => h.cropName.trim().toLowerCase() === cleanName);
+		}
+
+		if (matchingHarvest && matchingHarvest.lifespan && matchingHarvest.harvestDate) {
+			return {
+				lifespan: matchingHarvest.lifespan,
+				harvestDate: matchingHarvest.harvestDate
+			};
+		}
+		return null;
+	}
+
+	// Calculate remaining lifespan dynamically
+	function calculateRemainingLifespan(item) {
+		if (item && typeof item === 'object' && item.expiryDate) {
+			const expiry = new Date(item.expiryDate + 'T00:00:00');
+			const today = new Date();
+			today.setHours(0, 0, 0, 0);
+			const diffMs = expiry.getTime() - today.getTime();
+			return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+		}
+
+		let lifespanStr = item.lifespan;
+		let harvestDateStr = null;
+
+		const details = getLifespanDetails(item.name, item.harvestIds, item.sourceId);
+		if (details) {
+			lifespanStr = details.lifespan;
+			harvestDateStr = details.harvestDate;
+		} else if (item.createdAt) {
+			harvestDateStr = item.createdAt.split('T')[0];
+		}
+
+		if (!lifespanStr || !harvestDateStr) return null;
+
+		const match = lifespanStr.match(/(\d+)/);
+		if (!match) return null;
+
+		const lifeDays = parseInt(match[1], 10);
+		const harvested = new Date(harvestDateStr + 'T00:00:00');
+		const expiryDate = new Date(harvested.getTime() + lifeDays * 24 * 60 * 60 * 1000);
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+
+		const diffMs = expiryDate.getTime() - today.getTime();
+		return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+	}
 
 	// ── Computed stats ──────────────────────────────────────────────
 	let totalRevenue = $derived.by(() => sales.reduce((s, x) => s + (x.totalAmount || 0), 0));
@@ -45,7 +111,13 @@
 	let saleDate = $state(new Date().toISOString().split('T')[0]);
 
 	let selectedItem = $derived.by(() => inventory.find(i => i.id === selectedInventoryId) || null);
-	let availableQty = $derived.by(() => selectedItem ? (selectedItem.total || 0) - (selectedItem.soldUsed || 0) : 0);
+	let availableQty = $derived.by(() => {
+		if (!selectedItem) return 0;
+		const cleanName = selectedItem.name.replace(/\s+Harvest$/i, '').trim().toLowerCase();
+		return inventory
+			.filter(i => i.name.replace(/\s+Harvest$/i, '').trim().toLowerCase() === cleanName)
+			.reduce((sum, i) => sum + Math.max(0, (i.total || 0) - (i.soldUsed || 0)), 0);
+	});
 
 	// Auto-fill price per unit when an inventory item is selected
 	$effect(() => {
@@ -108,14 +180,7 @@
 			const result = await res.json();
 			if (!res.ok) throw new Error(result.error || 'Failed to add sale');
 
-			// Optimistic update
-			sales = [result, ...sales];
-			// Also update the local inventory item's soldUsed
-			inventory = inventory.map(i =>
-				i.id === selectedItem.id
-					? { ...i, soldUsed: (i.soldUsed || 0) + qty }
-					: i
-			);
+			await invalidateAll();
 			closeModal();
 		} catch (err) {
 			error = err.message;
@@ -134,13 +199,7 @@
 				const d = await res.json();
 				throw new Error(d.error || 'Failed to delete sale');
 			}
-			sales = sales.filter(s => s.id !== sale.id);
-			// Restore inventory
-			inventory = inventory.map(i =>
-				i.id === sale.inventoryId
-					? { ...i, soldUsed: Math.max(0, (i.soldUsed || 0) - sale.quantity) }
-					: i
-			);
+			await invalidateAll();
 		} catch (err) {
 			alert(err.message);
 		} finally {
@@ -344,7 +403,11 @@
 					>
 						<option value="" disabled>Select inventory item…</option>
 						{#each inventory.filter(i => (i.total || 0) - (i.soldUsed || 0) > 0) as item}
-							<option value={item.id}>{item.name} — {(item.total || 0) - (item.soldUsed || 0)} {item.unit || 'Kg'} available</option>
+							{@const daysLeft = calculateRemainingLifespan(item)}
+							{@const lifespanDisplay = daysLeft !== null ? (daysLeft <= 0 ? 'Expired' : `${daysLeft}d left`) : '—'}
+							<option value={item.id}>
+								{item.name} — {(item.total || 0) - (item.soldUsed || 0)} {item.unit || 'Kg'} available (lifespan: {lifespanDisplay})
+							</option>
 						{/each}
 					</select>
 					{#if selectedItem}

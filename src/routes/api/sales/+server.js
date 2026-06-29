@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { adminDb } from '$lib/server/firebase-admin';
+import { adminDb, syncInventoryForFarmer } from '$lib/server/firebase-admin';
 
 /** @type {import('./$types').RequestHandler} */
 export async function GET({ locals }) {
@@ -39,18 +39,68 @@ export async function POST({ request, locals }) {
 		if (isNaN(qty) || qty <= 0) return json({ error: 'Quantity must be a positive number.' }, { status: 400 });
 		if (isNaN(price) || price < 0) return json({ error: 'Price must be a non-negative number.' }, { status: 400 });
 
-		// Verify inventory item belongs to farmer
-		const invRef = adminDb.collection('inventory').doc(inventoryId);
-		const invSnap = await invRef.get();
-		if (!invSnap.exists) return json({ error: 'Inventory item not found.' }, { status: 404 });
-		if (invSnap.data().farmerId !== locals.user.uid) return json({ error: 'Forbidden.' }, { status: 403 });
+		// Verify selected inventory item belongs to farmer
+		const selectedInvRef = adminDb.collection('inventory').doc(inventoryId);
+		const selectedInvSnap = await selectedInvRef.get();
+		if (!selectedInvSnap.exists) return json({ error: 'Inventory item not found.' }, { status: 404 });
+		const invData = selectedInvSnap.data();
+		if (invData.farmerId !== locals.user.uid) return json({ error: 'Forbidden.' }, { status: 403 });
 
-		const currentSoldUsed = Number(invSnap.data().soldUsed || 0);
-		const currentTotal = Number(invSnap.data().total || 0);
-		const newSoldUsed = currentSoldUsed + qty;
+		// Verify available quantity in the selected batch
+		const totalAvailable = Math.max(0, Number(invData.total || 0) - Number(invData.soldUsed || 0));
+		if (qty > totalAvailable) {
+			return json({ error: `Not enough stock in this batch. Available: ${totalAvailable} ${unit}` }, { status: 400 });
+		}
 
-		if (newSoldUsed > currentTotal) {
-			return json({ error: `Not enough stock. Available: ${currentTotal - currentSoldUsed} ${unit}` }, { status: 400 });
+		// Fetch the harvests associated with this inventory batch
+		const harvestIds = invData.harvestIds || [];
+		const harvestsSnap = await Promise.all(
+			harvestIds.map(hid => adminDb.collection('harvests').doc(hid).get())
+		);
+		
+		let harvests = harvestsSnap
+			.map(snap => ({ id: snap.id, ...snap.data() }))
+			.filter(h => h.status !== 'sold' && h.status !== 'Sold');
+
+		// Sort by createdAt ascending (FIFO)
+		harvests.sort((a, b) => {
+			return (a.createdAt || a.harvestDate || '').localeCompare(b.createdAt || b.harvestDate || '');
+		});
+
+		let remainingQty = qty;
+		const deductions = [];
+		const batch = adminDb.batch();
+
+		for (const h of harvests) {
+			const avail = Number(h.quantity || 0);
+			if (avail <= 0) continue;
+
+			const deduct = Math.min(remainingQty, avail);
+			const hRef = adminDb.collection('harvests').doc(h.id);
+			const newSoldUsed = (Number(h.soldUsed) || 0) + deduct;
+
+			if (deduct >= avail - 0.001) {
+				// Fully sold
+				batch.update(hRef, {
+					status: 'sold',
+					soldUsed: newSoldUsed
+				});
+			} else {
+				// Partially sold
+				batch.update(hRef, {
+					quantity: avail - deduct,
+					soldUsed: newSoldUsed,
+					status: 'Good'
+				});
+			}
+
+			deductions.push({
+				harvestId: h.id,
+				quantity: deduct
+			});
+
+			remainingQty -= deduct;
+			if (remainingQty <= 0.001) break;
 		}
 
 		const newSale = {
@@ -65,13 +115,19 @@ export async function POST({ request, locals }) {
 			buyerName: buyerName ? buyerName.trim() : '',
 			notes: notes ? notes.trim() : '',
 			saleDate: saleDate ? new Date(saleDate).toISOString() : new Date().toISOString(),
-			createdAt: new Date().toISOString()
+			createdAt: new Date().toISOString(),
+			deductions
 		};
 
-		const docRef = await adminDb.collection('sales').add(newSale);
-		await invRef.update({ soldUsed: newSoldUsed });
+		const saleDocRef = adminDb.collection('sales').doc();
+		batch.set(saleDocRef, newSale);
 
-		return json({ id: docRef.id, ...newSale }, { status: 201 });
+		await batch.commit();
+
+		// Synchronize inventory immediately after sale
+		await syncInventoryForFarmer(locals.user.uid);
+
+		return json({ id: saleDocRef.id, ...newSale }, { status: 201 });
 	} catch (error) {
 		console.error('Error creating sale:', error);
 		return json({ error: 'Internal Server Error' }, { status: 500 });

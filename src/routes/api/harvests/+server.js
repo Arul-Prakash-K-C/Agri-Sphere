@@ -1,5 +1,21 @@
 import { json } from '@sveltejs/kit';
-import { adminDb } from '$lib/server/firebase-admin';
+import { adminDb, upsertInventoryFromHarvest } from '$lib/server/firebase-admin';
+
+function convertToUnit(amount, fromUnit, toUnit) {
+	if (!amount || isNaN(amount)) return 0;
+	const from = (fromUnit || '').trim().toLowerCase();
+	const to = (toUnit || '').trim().toLowerCase();
+	if (from === to) return amount;
+	
+	if (from === 'kg' && to === 'tons') return amount / 1000;
+	if (from === 'tons' && to === 'kg') return amount * 1000;
+	if (from === 'g' && to === 'kg') return amount / 1000;
+	if (from === 'kg' && to === 'g') return amount * 1000;
+	if (from === 'ml' && to === 'liters') return amount / 1000;
+	if (from === 'liters' && to === 'ml') return amount * 1000;
+
+	return amount;
+}
 
 /** @type {import('./$types').RequestHandler} */
 export async function GET({ locals }) {
@@ -88,6 +104,33 @@ export async function POST({ request, locals }) {
 			return json({ error: 'Harvest date is required' }, { status: 400 });
 		}
 
+		if (storageId) {
+			const storageSnap = await adminDb.collection('storages').doc(storageId).get();
+			if (!storageSnap.exists) {
+				return json({ error: 'Storage location not found' }, { status: 400 });
+			}
+			const storage = storageSnap.data();
+			if (storage.farmerId !== locals.user.uid) {
+				return json({ error: 'Forbidden' }, { status: 403 });
+			}
+
+			// Get occupied space
+			const invSnapshot = await adminDb.collection('inventory')
+				.where('farmerId', '==', locals.user.uid)
+				.where('storageId', '==', storageId)
+				.get();
+			const occupied = invSnapshot.docs.reduce((sum, doc) => {
+				const item = doc.data();
+				return sum + convertToUnit(((item.total || 0) - (item.soldUsed || 0)), item.unit, storage.unit);
+			}, 0);
+
+			const avail = Math.max(0, storage.capacity - occupied);
+			const quantityInStorageUnit = convertToUnit(Number(quantity), unit || 'Liters', storage.unit);
+			if (quantityInStorageUnit > avail) {
+				return json({ error: `Not enough storage space. Available space: ${Math.round(avail * 100) / 100} ${storage.unit}.` }, { status: 400 });
+			}
+		}
+
 		const now = new Date().toISOString();
 		const newHarvest = {
 			cropName: cropName.trim(),
@@ -105,36 +148,9 @@ export async function POST({ request, locals }) {
 		};
 
 		const docRef = await adminDb.collection('harvests').add(newHarvest);
-		const harvestId = docRef.id;
+		await upsertInventoryFromHarvest(locals.user.uid, { id: docRef.id, ...newHarvest });
 
-		// Upsert inventory: add a harvest-linked inventory record
-		const invQuery = adminDb.collection('inventory')
-			.where('farmerId', '==', locals.user.uid)
-			.where('sourceType', '==', 'harvest')
-			.where('sourceId', '==', harvestId);
-
-		const existingInv = await invQuery.get();
-
-		if (existingInv.empty) {
-			await adminDb.collection('inventory').add({
-				name: cropName.trim() + ' Harvest',
-				category: category || 'Vegetables',
-				icon: 'inventory_2',
-				total: Number(quantity),
-				soldUsed: 0,
-				unit: unit || 'Liters',
-				progress: 100,
-				status: 'Optimal',
-				statusColor: 'bg-emerald-50 text-dark-green border-emerald-100/50',
-				sourceType: 'harvest',
-				sourceId: harvestId,
-				storageId: storageId || '',
-				farmerId: locals.user.uid,
-				createdAt: now
-			});
-		}
-
-		return json({ id: harvestId, ...newHarvest }, { status: 201 });
+		return json({ id: docRef.id, ...newHarvest }, { status: 201 });
 	} catch (error) {
 		console.error('Error creating harvest log:', error);
 		return json({ error: 'Internal Server Error' }, { status: 500 });

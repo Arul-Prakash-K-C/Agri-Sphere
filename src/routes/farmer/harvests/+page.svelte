@@ -7,11 +7,36 @@
 	let harvests = $state([]);
 	let crops    = $state([]);
 	let storages = $state([]);
+	let inventory = $state([]);
 
 	$effect(() => {
 		harvests = data.harvests || [];
 		crops    = data.crops    || [];
 		storages = data.storages || [];
+		inventory = data.inventory || [];
+	});
+
+	let sortedHarvests = $derived.by(() => {
+		const list = [...harvests];
+		list.sort((a, b) => {
+			const aSold = a.status === 'sold' ? 1 : 0;
+			const bSold = b.status === 'sold' ? 1 : 0;
+			
+			if (aSold !== bSold) {
+				return aSold - bSold;
+			}
+			
+			const dateA = a.harvestDate || '';
+			const dateB = b.harvestDate || '';
+			if (dateA !== dateB) {
+				return dateB.localeCompare(dateA);
+			}
+			
+			const timeA = a.createdAt || '';
+			const timeB = b.createdAt || '';
+			return timeB.localeCompare(timeA);
+		});
+		return list;
 	});
 
 	// Modal visibility
@@ -39,11 +64,41 @@
 	let category         = $state('Vegetables');
 	let storageId        = $state('');
 
+	function convertToUnit(amount, fromUnit, toUnit) {
+		if (!amount || isNaN(amount)) return 0;
+		const from = (fromUnit || '').trim().toLowerCase();
+		const to = (toUnit || '').trim().toLowerCase();
+		if (from === to) return amount;
+		
+		if (from === 'kg' && to === 'tons') return amount / 1000;
+		if (from === 'tons' && to === 'kg') return amount * 1000;
+		if (from === 'g' && to === 'kg') return amount / 1000;
+		if (from === 'kg' && to === 'g') return amount * 1000;
+		if (from === 'ml' && to === 'liters') return amount / 1000;
+		if (from === 'liters' && to === 'ml') return amount * 1000;
+
+		return amount;
+	}
+
+	function getStorageAvailableSpace(storage, excludeHarvestId = null) {
+		const occupied = inventory
+			.filter(item => item.storageId === storage.id && (excludeHarvestId === null || item.sourceId !== excludeHarvestId))
+			.reduce((sum, item) => sum + convertToUnit(((item.total || 0) - (item.soldUsed || 0)), item.unit, storage.unit), 0);
+		
+		return Math.max(0, storage.capacity - occupied);
+	}
+
 	let availableStorages = $derived(
 		storages.filter(s =>
 			s.categories &&
 			s.categories.map(c => c.toLowerCase()).includes(category.toLowerCase())
-		)
+		).map(s => {
+			const avail = getStorageAvailableSpace(s, editingHarvest?.id);
+			return {
+				...s,
+				availableSpace: Math.round(avail * 1000) / 1000
+			};
+		})
 	);
 	// Loading / error
 	let loading     = $state(false);
@@ -151,6 +206,17 @@
 			if (!cropName) { error = 'Please enter a crop.'; loading = false; return; }
 			if (!storageId) { error = 'Please select a storage location.'; loading = false; return; }
 
+			const storage = storages.find(s => s.id === storageId);
+			if (storage) {
+				const avail = getStorageAvailableSpace(storage);
+				const quantityInStorageUnit = convertToUnit(Number(quantity), unit, storage.unit);
+				if (quantityInStorageUnit > avail) {
+					error = `Not enough storage space. Available space: ${Math.round(avail * 100) / 100} ${storage.unit}. Required: ${Math.round(quantityInStorageUnit * 100) / 100} ${storage.unit}.`;
+					loading = false;
+					return;
+				}
+			}
+
 			// Resolve cropId if it matches an existing crop by name (without adding new crops)
 			if (!cropId) {
 				const match = crops.find(c => c.name.toLowerCase() === cropName.toLowerCase());
@@ -184,6 +250,12 @@
 
 			const added = await res.json();
 			harvests    = [added, ...harvests];
+			// Fetch updated inventory to recalculate storage capacity correctly
+			const invRes = await fetch('/api/inventory');
+			if (invRes.ok) {
+				const invData = await invRes.json();
+				inventory = invData.inventory || [];
+			}
 			closeFormModal();
 		} catch (err) {
 			error = err.message;
@@ -205,6 +277,17 @@
 
 			if (!cropName) { error = 'Please enter a crop.'; loading = false; return; }
 			if (!storageId) { error = 'Please select a storage location.'; loading = false; return; }
+
+			const storage = storages.find(s => s.id === storageId);
+			if (storage) {
+				const avail = getStorageAvailableSpace(storage, editingHarvest.id);
+				const quantityInStorageUnit = convertToUnit(Number(quantity), unit, storage.unit);
+				if (quantityInStorageUnit > avail) {
+					error = `Not enough storage space. Available space: ${Math.round(avail * 100) / 100} ${storage.unit}. Required: ${Math.round(quantityInStorageUnit * 100) / 100} ${storage.unit}.`;
+					loading = false;
+					return;
+				}
+			}
 
 			// Resolve cropId if it matches an existing crop by name (without adding new crops)
 			if (!cropId) {
@@ -239,6 +322,12 @@
 
 			const updated = await res.json();
 			harvests = harvests.map(h => h.id === updated.id ? updated : h);
+			// Fetch updated inventory to recalculate storage capacity correctly
+			const invRes = await fetch('/api/inventory');
+			if (invRes.ok) {
+				const invData = await invRes.json();
+				inventory = invData.inventory || [];
+			}
 			closeFormModal();
 		} catch (err) {
 			error = err.message;
@@ -545,7 +634,7 @@
 						>
 							<option value="" disabled>— Select storage location —</option>
 							{#each availableStorages as storage (storage.id)}
-								<option value={storage.id}>{storage.name} ({storage.capacity} {storage.unit} Capacity)</option>
+								<option value={storage.id}>{storage.name} (Available: {storage.availableSpace} {storage.unit} / Capacity: {storage.capacity} {storage.unit})</option>
 							{:else}
 								<option value="" disabled>No storages configured for {category}</option>
 							{/each}
@@ -690,7 +779,7 @@
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-slate-50 font-medium text-slate-600">
-					{#each harvests as harvest (harvest.id)}
+					{#each sortedHarvests as harvest (harvest.id)}
 						{@const status = getLifespanStatus(harvest.harvestDate, harvest.lifespan)}
 						<tr class="hover:bg-slate-50/40 transition-colors group">
 							<!-- Crop Name -->
@@ -733,7 +822,15 @@
 
 							<!-- Status -->
 							<td class="p-4">
-								{#if status}
+								{#if harvest.status === 'sold'}
+									<span
+										class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-slate-100 text-slate-500 border-slate-200"
+										title="All stock has been sold or used"
+									>
+										<span class="material-symbols-outlined text-[11px]">check_circle</span>
+										Sold
+									</span>
+								{:else if status}
 									<span
 										class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border {status.classes}"
 										title="Next harvest in {status.daysRemaining} day{status.daysRemaining === 1 ? '' : 's'}"
