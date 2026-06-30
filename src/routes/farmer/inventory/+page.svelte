@@ -120,19 +120,33 @@
     return stockItems;
 });
 
-	// Dynamic categorisation filter match
+	// Bind page search parameter
+	import { page } from '$app/state';
+	let searchQuery = $derived(page.url.searchParams.get('search') || '');
+
+	// Dynamic categorisation filter match with search queries
 	let filteredItems = $derived.by(() => {
-    const activeItems = stockItems.filter(item => ((item.total || 0) - (item.soldUsed || 0)) > 0);
-    if (filterCategory === 'All') return activeItems;
-    return activeItems.filter(item => {
-        const cat = item.category ? item.category.trim().toLowerCase() : '';
-        const filter = filterCategory.trim().toLowerCase();
-        // Map seeds category
-        if (filter === 'seeds' && (cat === 'seeds' || cat === 'seed')) return true;
-        if (filter === 'fertilizers' && (cat === 'fertilizers' || cat === 'fertilizer')) return true;
-        return cat === filter;
-    });
-});
+		let items = stockItems.filter(item => ((item.total || 0) - (item.soldUsed || 0)) > 0);
+		
+		// Apply search filter if present
+		const q = searchQuery.trim().toLowerCase();
+		if (q) {
+			items = items.filter(item => 
+				(item.name || '').toLowerCase().includes(q) || 
+				(item.category || '').toLowerCase().includes(q)
+			);
+		}
+
+		if (filterCategory === 'All') return items;
+		return items.filter(item => {
+			const cat = item.category ? item.category.trim().toLowerCase() : '';
+			const filter = filterCategory.trim().toLowerCase();
+			// Map seeds category
+			if (filter === 'seeds' && (cat === 'seeds' || cat === 'seed')) return true;
+			if (filter === 'fertilizers' && (cat === 'fertilizers' || cat === 'fertilizer')) return true;
+			return cat === filter;
+		});
+	});
 
 	function convertToUnit(amount, fromUnit, toUnit) {
 		if (!amount || isNaN(amount)) return 0;
@@ -383,49 +397,50 @@
 				</div>
 
 				<!-- Responsive Table -->
-				<div class="overflow-x-auto">
-					<table class="w-full text-left border-collapse text-xs table-fixed min-w-[760px]">
+				<div class="overflow-x-auto w-full">
+					<table class="w-full text-left border-collapse text-xs table-fixed min-w-0 sm:min-w-[760px]">
 						<thead>
 							<tr class="bg-slate-50/50 font-bold uppercase tracking-wider text-[9px] text-slate-400 border-b border-slate-100">
-								<th class="p-4 pl-6 w-[20%]">Product Name</th>
-								<th class="p-4 w-[12%]">Category</th>
-								<th class="p-4 text-center w-[12%]">Stock Level</th>
-								<th class="p-4 text-center w-[12%]">Sold/Used</th>
-								<th class="p-4 text-center w-[15%]">Available Stock</th>
-								<th class="p-4 text-center w-[12%]">Unit</th>
-								<th class="p-4 pr-6 text-center w-[17%]">Remaining Lifespan</th>
+								<th class="p-4 pl-6 w-[55%] sm:w-[20%]">Product Name</th>
+								<th class="p-4 hidden sm:table-cell sm:w-[12%]">Category</th>
+								<th class="p-4 text-center hidden sm:table-cell sm:w-[12%]">Stock Level</th>
+								<th class="p-4 text-center hidden sm:table-cell sm:w-[12%]">Sold/Used</th>
+								<th class="p-4 text-center w-[45%] sm:w-[15%]">Available Stock</th>
+								<th class="p-4 text-center hidden sm:table-cell sm:w-[12%]">Unit</th>
+								<th class="p-4 pr-6 text-center hidden sm:table-cell sm:w-[17%]">Remaining Lifespan</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-slate-50 font-medium text-slate-600">
 							{#each filteredItems as item (item.id)}
 								{@const daysLeft = calculateRemainingLifespan(item)}
 								<tr class="hover:bg-slate-50/30 transition-colors">
-									<td class="p-4 pl-6">
+									<td class="p-4 pl-6 w-[55%] sm:w-auto">
 										<span class="font-bold text-slate-800 break-words line-clamp-2 block leading-snug">{item.name}</span>
+										<span class="text-[9px] text-slate-400 font-medium sm:hidden block mt-0.5 capitalize">{item.category} • {item.unit || 'Kg'}</span>
 									</td>
-									<td class="p-4 text-slate-400 capitalize">{item.category}</td>
-									<td class="p-4 text-center">
+									<td class="p-4 text-slate-400 capitalize hidden sm:table-cell">{item.category}</td>
+									<td class="p-4 text-center hidden sm:table-cell">
 										<span class="font-bold text-slate-600">{item.total || 0}</span>
 									</td>
-									<td class="p-4 text-center">
+									<td class="p-4 text-center hidden sm:table-cell">
 										<span class="font-bold text-slate-600">{item.soldUsed || 0}</span>
 									</td>
-									<td class="p-4 text-center">
+									<td class="p-4 text-center w-[45%] sm:w-auto">
 										<span class="font-black text-slate-800">
-											{((item.total || 0) - (item.soldUsed || 0)).toLocaleString()}
+											{((item.total || 0) - (item.soldUsed || 0)).toLocaleString()} {item.unit || 'Kg'}
 										</span>
 									</td>
-									<td class="p-4 text-center">
+									<td class="p-4 text-center hidden sm:table-cell">
 										<span class="font-bold text-slate-600">{item.unit || 'Kg'}</span>
 									</td>
-									<td class="p-4 pr-6 text-center">
+									<td class="p-4 pr-6 text-center hidden sm:table-cell">
 										{#if daysLeft !== null}
 											<span class={['font-bold flex items-center justify-center gap-1', daysLeft <= 2 ? 'text-red-500 font-extrabold' : 'text-slate-500'].join(' ')}>
 												<span class="material-symbols-outlined text-[13px]">schedule</span>
 												{daysLeft <= 0 ? 'Expired' : daysLeft + ' Day' + (daysLeft === 1 ? '' : 's')}
 											</span>
 										{:else}
-											<span class="text-slate-300">—</span>
+											<span class="text-slate-350">—</span>
 										{/if}
 									</td>
 								</tr>

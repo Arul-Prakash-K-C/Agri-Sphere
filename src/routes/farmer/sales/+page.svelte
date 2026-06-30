@@ -302,8 +302,9 @@
 		}
 	}
 
-	// ── Filtering & Pagination ────────────────────────────────────────
-	let searchQuery = $state('');
+	// Bind page search parameter
+	import { page } from '$app/state';
+	let searchQuery = $derived(page.url.searchParams.get('search') || '');
 	let activeFilter = $state('All');
 	let dateFilter = $state('All');
 	let customFromDate = $state('');
@@ -630,7 +631,17 @@
 					<input
 						type="text"
 						placeholder="Search item, buyer…"
-						bind:value={searchQuery}
+						value={searchQuery}
+						oninput={(e) => {
+							const val = e.target.value;
+							const url = new URL(window.location.href);
+							if (val.trim()) {
+								url.searchParams.set('search', val);
+							} else {
+								url.searchParams.delete('search');
+							}
+							import('$app/navigation').then(n => n.goto(url.toString(), { replaceState: true, keepFocus: true }));
+						}}
 						class="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-primary-green bg-slate-50 focus:bg-white transition-colors"
 					/>
 				</div>
@@ -660,74 +671,81 @@
 		{/if}
 
 		<!-- Table -->
-		<div class="overflow-x-auto">
-			<table class="w-full text-left text-xs border-collapse table-fixed min-w-[700px]">
+		<div class="w-full">
+			<table class="w-full text-left text-xs border-collapse table-fixed min-w-0">
 				<thead>
 					<tr class="bg-slate-50/50 font-bold uppercase tracking-wider text-[9px] text-slate-400 border-b border-slate-100">
-						<th class="p-4 pl-6 w-[10%]">Type</th>
-						<th class="p-4 w-[18%]">Item</th>
-						<th class="p-4 w-[12%]">Category</th>
-						<th class="p-4 text-center w-[8%]">Qty</th>
-						<th class="p-4 text-center w-[10%]">Price / Unit</th>
-						<th class="p-4 text-center w-[12%]">Total</th>
-						<th class="p-4 w-[12%]">Buyer</th>
-						<th class="p-4 text-center w-[10%]">Date</th>
-						<th class="p-4 pr-6 text-center w-[8%]">Action</th>
+						<th class="p-4 pl-6 w-[22%] sm:w-[10%]">Type</th>
+						<th class="p-4 w-[48%] sm:w-[18%]">Item</th>
+						<th class="p-4 hidden sm:table-cell sm:w-[12%]">Category</th>
+						<th class="p-4 text-center hidden sm:table-cell sm:w-[8%]">Qty</th>
+						<th class="p-4 text-center hidden sm:table-cell sm:w-[10%]">Price / Unit</th>
+						<th class="p-4 text-right pr-6 w-[30%] sm:w-[12%]">Total</th>
+						<th class="p-4 hidden sm:table-cell sm:w-[12%]">Buyer</th>
+						<th class="p-4 text-center hidden sm:table-cell sm:w-[10%]">Date</th>
+						<th class="p-4 pr-6 text-center hidden sm:table-cell sm:w-[8%]">Action</th>
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-slate-50 font-medium text-slate-600">
 					{#each paginatedSales as sale (sale.id)}
 						<tr class="hover:bg-slate-50/40 transition-colors" transition:slide={{ duration: 150 }}>
-							<td class="p-4 pl-6">
+							<td class="p-4 pl-6 w-[22%] sm:w-auto">
 								{#if !sale.type || sale.type === 'Sale'}
 									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-dark-green border border-emerald-250/50">
 										Sale
 									</span>
 								{:else if sale.type === 'Self Use'}
 									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-250/50">
-										Self Use
+										Self
 									</span>
 								{:else}
 									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-250/50">
-										Wastage
+										Waste
 									</span>
 								{/if}
 							</td>
-							<td class="p-4">
+							<td class="p-4 w-[48%] sm:w-auto">
 								<span class="font-bold text-slate-800 line-clamp-1">{sale.itemName}</span>
+								<div class="sm:hidden text-[9px] text-slate-400 font-semibold space-y-0.5 mt-1">
+									<p>Amount: {sale.quantity} {sale.unit} {#if (!sale.type || sale.type === 'Sale') && sale.pricePerUnit} @ {formatCurrency(sale.pricePerUnit)}{/if}</p>
+									{#if (!sale.type || sale.type === 'Sale') && sale.buyerName}
+										<p>Buyer: {sale.buyerName}</p>
+									{/if}
+									<p>Date: {formatDate(sale.saleDate)}</p>
+								</div>
 								{#if sale.notes}
-									<span class="block text-[10px] text-slate-400 font-medium line-clamp-1" title={sale.notes}>
+									<span class="block text-[10px] text-slate-400 font-medium line-clamp-1 mt-0.5" title={sale.notes}>
 										Note: {sale.notes}
 									</span>
 								{/if}
 							</td>
-							<td class="p-4">
+							<td class="p-4 hidden sm:table-cell">
 								<span class="text-slate-400 capitalize">{sale.category || '—'}</span>
 							</td>
-							<td class="p-4 text-center font-bold text-slate-700">{sale.quantity} {sale.unit}</td>
-							<td class="p-4 text-center">
+							<td class="p-4 text-center hidden sm:table-cell font-bold text-slate-700">{sale.quantity} {sale.unit}</td>
+							<td class="p-4 text-center hidden sm:table-cell">
 								{#if !sale.type || sale.type === 'Sale'}
 									{formatCurrency(sale.pricePerUnit)}
 								{:else}
 									<span class="text-slate-350">—</span>
 								{/if}
 							</td>
-							<td class="p-4 text-center">
+							<td class="p-4 text-right pr-6 w-[30%] sm:w-auto">
 								{#if !sale.type || sale.type === 'Sale'}
 									<span class="font-extrabold text-dark-green">{formatCurrency(sale.totalAmount)}</span>
 								{:else}
-									<span class="text-slate-350">—</span>
+									<span class="text-slate-350 italic text-[10px] capitalize">{sale.type}</span>
 								{/if}
 							</td>
-							<td class="p-4 truncate">
+							<td class="p-4 truncate hidden sm:table-cell">
 								{#if (!sale.type || sale.type === 'Sale') && sale.buyerName}
 									{sale.buyerName}
 								{:else}
 									<span class="text-slate-350 italic">—</span>
 								{/if}
 							</td>
-							<td class="p-4 text-center text-slate-500">{formatDate(sale.saleDate)}</td>
-							<td class="p-4 pr-6 text-center">
+							<td class="p-4 text-center text-slate-500 hidden sm:table-cell">{formatDate(sale.saleDate)}</td>
+							<td class="p-4 pr-6 text-center hidden sm:table-cell">
 								<div class="flex items-center justify-center gap-1.5">
 									{#if !sale.type || sale.type === 'Sale'}
 										<button

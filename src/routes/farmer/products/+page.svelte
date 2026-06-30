@@ -4,9 +4,24 @@
 
 	let { data } = $props();
 
+	// Bind page search parameter
+	import { page } from '$app/state';
+	let searchQuery = $derived(page.url.searchParams.get('search') || '');
+
 	let products = $state([]);
 	$effect(() => {
 		products = data.products || [];
+	});
+
+	// Filter products list based on search query parameter
+	let filteredProducts = $derived.by(() => {
+		const q = searchQuery.trim().toLowerCase();
+		if (!q) return products;
+		return products.filter(p => 
+			(p.name || '').toLowerCase().includes(q) || 
+			(p.category || '').toLowerCase().includes(q) || 
+			(p.description || '').toLowerCase().includes(q)
+		);
 	});
 
 	let showModal = $state(false);
@@ -358,9 +373,9 @@
 		{/snippet}
 	</Modal>
 
-	<!-- Products Grid -->
+	<!-- Crop Cards Bento Grid -->
 	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-		{#each products as product (product.id)}
+		{#each filteredProducts as product (product.id)}
 			<article class="bg-white rounded-2xl border border-slate-200/50 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col group">
 				<div class="relative h-48 w-full overflow-hidden">
 					<img src={product.imageUrl || 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=600&q=80'} alt={product.name} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />

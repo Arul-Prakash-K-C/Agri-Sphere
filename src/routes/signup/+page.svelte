@@ -105,9 +105,9 @@
 	}
 
 	const roleLabels = {
-		farmer: 'Farmer 🌱',
-		customer: 'Customer 🛒',
-		admin: 'Admin ⚙️'
+		farmer: 'Grower Partner',
+		customer: 'Market Buyer',
+		admin: 'System Administrator'
 	};
 </script>
 
@@ -127,8 +127,8 @@
 		<!-- Header (Fixed at the top) -->
 		<div class="flex items-center justify-between border-b border-slate-100 px-6 py-5 bg-white/50">
 			<div>
-				<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 border border-emerald-200">
-					✨ Registering as {roleLabels[role] || 'User'}
+				<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 border border-emerald-250/60 shadow-sm">
+					Registering as {roleLabels[role] || 'User'}
 				</span>
 			</div>
 			<a 

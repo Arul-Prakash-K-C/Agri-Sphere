@@ -862,48 +862,85 @@
 			<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Recent Expenses Logs</h3>
 			<span class="text-xs font-semibold text-slate-400 bg-slate-50 border border-slate-100 rounded-full px-3 py-0.5">{expenses.length} logs saved</span>
 		</div>
-		<div class="overflow-x-auto">
-			<table class="w-full text-left border-collapse text-xs">
+		<div class="w-full">
+			<table class="w-full text-left border-collapse text-xs table-fixed min-w-0">
 				<thead>
 					<tr class="bg-slate-50/50 font-bold uppercase tracking-wider text-[10px] text-slate-400 border-b border-slate-100">
-						<th class="p-4 pl-6">Date</th>
-						<th class="p-4">Category</th>
-						<th class="p-4">Description</th>
-						<th class="p-4">Amount</th>
-						<th class="p-4">Status</th>
-						<th class="p-4 pr-6 text-center">Actions</th>
+						<th class="p-4 pl-6 w-[22%] sm:w-[15%] hidden sm:table-cell">Date</th>
+						<th class="p-4 pl-6 sm:pl-4 w-[50%] sm:w-[22%]">Category</th>
+						<th class="p-4 w-[25%] sm:w-[25%] hidden sm:table-cell">Description</th>
+						<th class="p-4 text-right pr-6 sm:pr-4 w-[35%] sm:w-[15%]">Amount</th>
+						<th class="p-4 w-[15%] hidden sm:table-cell">Status</th>
+						<th class="p-4 pr-6 text-center w-[15%] hidden sm:table-cell">Actions</th>
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-slate-50 font-medium text-slate-600">
 					{#if loading}
 						{#each Array(2) as _}
 							<tr class="animate-pulse border-b border-slate-50">
-								<td class="p-4 pl-6"><div class="skeleton h-4 w-20 rounded"></div></td>
-								<td class="p-4"><div class="skeleton h-4 w-20 rounded"></div></td>
-								<td class="p-4"><div class="skeleton h-4 w-32 rounded"></div></td>
-								<td class="p-4"><div class="skeleton h-4 w-16 rounded"></div></td>
-								<td class="p-4"><div class="skeleton h-4 w-16 rounded"></div></td>
-								<td class="p-4 pr-6 text-center"><div class="skeleton h-4 w-14 rounded mx-auto"></div></td>
+								<td class="p-4 pl-6 hidden sm:table-cell"><div class="skeleton h-4 w-20 rounded"></div></td>
+								<td class="p-4 pl-6 sm:pl-4"><div class="skeleton h-4 w-20 rounded"></div></td>
+								<td class="p-4 hidden sm:table-cell"><div class="skeleton h-4 w-32 rounded"></div></td>
+								<td class="p-4 text-right pr-6 sm:pr-4"><div class="skeleton h-4 w-16 rounded ml-auto"></div></td>
+								<td class="p-4 hidden sm:table-cell"><div class="skeleton h-4 w-16 rounded"></div></td>
+								<td class="p-4 pr-6 text-center hidden sm:table-cell"><div class="skeleton h-4 w-14 rounded mx-auto"></div></td>
 							</tr>
 						{/each}
 					{/if}
 					{#each expenses as expense (expense.id)}
 						<tr class="hover:bg-slate-50/30 transition-colors">
-							<td class="p-4 pl-6 text-slate-400">{expense.date}</td>
-							<td class="p-4 font-bold text-slate-800 flex items-center gap-1.5 mt-2 ml-4">
-								{expense.category}
-								{#if expense.itemDetails}
-									<span class="inline-block w-1.5 h-1.5 rounded-full bg-primary-green" title="Has Item Details"></span>
-								{/if}
+							<td class="p-4 pl-6 text-slate-400 hidden sm:table-cell">{expense.date}</td>
+							<td class="p-4 pl-6 sm:pl-4 w-[50%] sm:w-auto">
+								<div class="font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
+									<span>{expense.category}</span>
+									{#if expense.itemDetails}
+										<span class="inline-block w-1.5 h-1.5 rounded-full bg-primary-green" title="Has Item Details"></span>
+									{/if}
+								</div>
+								<div class="sm:hidden text-[9px] text-slate-400 font-semibold space-y-0.5 mt-1">
+									{#if expense.description}
+										<p class="text-slate-500 font-medium">{expense.description}</p>
+									{/if}
+									<p>Date: {expense.date} • <span class={expense.status === 'Completed' ? 'text-emerald-600' : 'text-amber-600'}>{expense.status}</span></p>
+									<!-- Mobile Action Buttons -->
+									<div class="flex items-center gap-3 pt-1.5">
+										<button 
+											onclick={() => openViewModal(expense)}
+											class="text-slate-400 hover:text-slate-650 transition-colors py-0.5 flex items-center gap-0.5"
+											title="View Details"
+										>
+											<span class="material-symbols-outlined text-[14px]">visibility</span>
+											<span>View</span>
+										</button>
+										<button 
+											onclick={() => openEditModal(expense)}
+											class="text-primary-green hover:text-dark-green transition-colors py-0.5 flex items-center gap-0.5"
+											title="Edit"
+										>
+											<span class="material-symbols-outlined text-[14px]">edit</span>
+											<span>Edit</span>
+										</button>
+										<button 
+											onclick={() => handleDeleteExpense(expense.id, expense.amount)}
+											class="text-red-500 hover:text-red-700 transition-colors py-0.5 flex items-center gap-0.5"
+											title="Delete"
+										>
+											<span class="material-symbols-outlined text-[14px]">delete</span>
+											<span>Delete</span>
+										</button>
+									</div>
+								</div>
 							</td>
-							<td class="p-4 text-slate-500">{expense.description}</td>
-							<td class="p-4 font-extrabold text-slate-800">₹{expense.amount.toFixed(2)}</td>
-							<td class="p-4">
+							<td class="p-4 text-slate-500 hidden sm:table-cell">{expense.description}</td>
+							<td class="p-4 text-right pr-6 sm:pr-4 font-extrabold text-slate-800 w-[35%] sm:w-auto">
+								₹{expense.amount.toFixed(2)}
+							</td>
+							<td class="p-4 hidden sm:table-cell">
 								<span class={['px-2.5 py-0.5 rounded-full text-[10px] font-bold border', expense.statusColor].filter(Boolean).join(' ')}>
 									{expense.status}
 								</span>
 							</td>
-							<td class="p-4 pr-6 text-center">
+							<td class="p-4 pr-6 text-center hidden sm:table-cell">
 								<div class="flex items-center justify-center gap-1">
 									<button 
 										onclick={() => openViewModal(expense)}

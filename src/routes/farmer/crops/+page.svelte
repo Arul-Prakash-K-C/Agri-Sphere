@@ -9,6 +9,21 @@
 		crops = data.crops || [];
 	});
 
+	// Bind page search parameter
+	import { page } from '$app/state';
+	let searchQuery = $derived(page.url.searchParams.get('search') || '');
+
+	// Filter crops list based on search query parameter
+	let filteredCrops = $derived.by(() => {
+		const q = searchQuery.trim().toLowerCase();
+		if (!q) return crops;
+		return crops.filter(c => 
+			(c.name || '').toLowerCase().includes(q) || 
+			(c.location || '').toLowerCase().includes(q) ||
+			(c.harvestDuration || '').toLowerCase().includes(q)
+		);
+	});
+
 	// Show/hide add crop dialog
 	let showAddModal = $state(false);
 
@@ -502,7 +517,7 @@
 
 	<!-- Crop Cards Bento Grid -->
 	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-		{#each crops as crop (crop.id)}
+		{#each filteredCrops as crop (crop.id)}
 			<article
 				class="bg-white rounded-2xl border border-slate-200/50 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col group"
 			>

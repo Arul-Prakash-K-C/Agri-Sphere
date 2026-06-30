@@ -217,11 +217,24 @@
 				<!-- Utility buttons -->
 				<div class="flex items-center gap-3">
 					<!-- Search bar (desktop) -->
+					<!-- Listens to inputs to dynamically filter results across page routes or redirects -->
 					<div class="relative hidden sm:block">
 						<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
 						<input 
 							type="text" 
 							placeholder="Search resources..." 
+							value={page.url.searchParams.get('search') || ''}
+							oninput={(e) => {
+								const val = e.target.value;
+								const url = new URL(window.location.href);
+								if (val.trim()) {
+									url.searchParams.set('search', val);
+								} else {
+									url.searchParams.delete('search');
+								}
+								// Replace state or navigate to search
+								goto(url.toString(), { replaceState: true, keepFocus: true });
+							}}
 							class="bg-slate-100/80 border-none rounded-full py-1.5 pl-9 pr-4 text-xs font-medium focus:ring-2 focus:ring-primary-green focus:bg-white w-48 transition-all duration-300 focus:w-56 outline-none"
 						/>
 					</div>
