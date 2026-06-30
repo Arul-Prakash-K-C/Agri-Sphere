@@ -105,3 +105,58 @@ export async function DELETE({ params, locals }) {
 		return json({ error: 'Internal Server Error' }, { status: 500 });
 	}
 }
+
+/** @type {import('./$types').RequestHandler} */
+export async function PUT({ params, request, locals }) {
+	if (!locals.user) return json({ error: 'Unauthorized' }, { status: 401 });
+	if (locals.profile?.role !== 'farmer') return json({ error: 'Forbidden' }, { status: 403 });
+
+	try {
+		const body = await request.json();
+		const { buyerName, pricePerUnit, totalAmount, saleDate, notes } = body;
+
+		const saleRef = adminDb.collection('sales').doc(params.id);
+		const saleSnap = await saleRef.get();
+		if (!saleSnap.exists) {
+			return json({ error: 'Sale not found.' }, { status: 404 });
+		}
+
+		const saleData = saleSnap.data();
+		if (saleData.farmerId !== locals.user.uid) {
+			return json({ error: 'Forbidden.' }, { status: 403 });
+		}
+
+		// Validation: if it is a Sale, require at least one of pricePerUnit or totalAmount
+		let price = 0;
+		let total = 0;
+		if (saleData.type === 'Sale' || !saleData.type) {
+			if (pricePerUnit === undefined && totalAmount === undefined) {
+				return json({ error: 'At least one of Price or Total is required.' }, { status: 400 });
+			}
+			price = Number(pricePerUnit);
+			total = Number(totalAmount);
+			if (isNaN(price) || price < 0 || isNaN(total) || total < 0) {
+				return json({ error: 'Price and total must be non-negative numbers.' }, { status: 400 });
+			}
+		}
+
+		const updatedData = {
+			buyerName: buyerName ? buyerName.trim() : '',
+			pricePerUnit: (saleData.type === 'Sale' || !saleData.type) ? Math.round(price * 100) / 100 : 0,
+			totalAmount: (saleData.type === 'Sale' || !saleData.type) ? Math.round(total * 100) / 100 : 0,
+			saleDate: saleDate ? new Date(saleDate).toISOString() : saleData.saleDate,
+			notes: notes ? notes.trim() : '',
+			updatedAt: new Date().toISOString()
+		};
+
+		await saleRef.update(updatedData);
+
+		// Synchronize inventory
+		await syncInventoryForFarmer(locals.user.uid);
+
+		return json({ success: true, ...updatedData });
+	} catch (error) {
+		console.error('Error updating sale:', error);
+		return json({ error: 'Internal Server Error' }, { status: 500 });
+	}
+}

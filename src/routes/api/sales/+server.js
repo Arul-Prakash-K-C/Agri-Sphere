@@ -227,6 +227,7 @@ export async function POST({ request, locals }) {
 			notes: notes ? notes.trim() : '',
 			saleDate: saleDate ? new Date(saleDate).toISOString() : new Date().toISOString(),
 			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
 			deductions,
 			saleAllocations,
 			type

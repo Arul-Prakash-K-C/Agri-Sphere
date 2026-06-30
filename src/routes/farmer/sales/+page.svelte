@@ -92,6 +92,7 @@
 	let allocationType = $state('Sale');
 	let quantity = $state('');
 	let pricePerUnit = $state('');
+	let totalPrice = $state('');
 	let buyerName = $state('');
 	let notes = $state('');
 	let saleDate = $state(new Date().toISOString().split('T')[0]);
@@ -156,17 +157,56 @@
 	let selectedItem = $derived.by(() => dropdownOptions.find(opt => opt.id === selectedInventoryId) || null);
 	let availableQty = $derived.by(() => selectedItem ? selectedItem.availableQty : 0);
 
-	// Auto-fill price per unit when an inventory item is selected
-	$effect(() => {
-		if (selectedItem) {
-			pricePerUnit = selectedItem.price || '';
-		}
-	});
-	let computedTotal = $derived.by(() => {
+	function handleQuantityInput(val) {
+		quantity = val;
 		const q = Number(quantity);
-		const p = Number(pricePerUnit);
-		return q > 0 && p >= 0 ? Math.round(q * p * 100) / 100 : 0;
-	});
+		if (q > 0) {
+			if (pricePerUnit !== '' && pricePerUnit !== null && pricePerUnit !== undefined) {
+				const p = Number(pricePerUnit);
+				totalPrice = (Math.round(q * p * 100) / 100).toFixed(2);
+			} else if (totalPrice !== '' && totalPrice !== null && totalPrice !== undefined) {
+				const t = Number(totalPrice);
+				pricePerUnit = (Math.round((t / q) * 100) / 100).toFixed(2);
+			}
+		}
+	}
+
+	function handlePriceInput(val) {
+		pricePerUnit = val;
+		if (pricePerUnit !== '' && pricePerUnit !== null && pricePerUnit !== undefined) {
+			error = '';
+		}
+		const q = Number(quantity);
+		if (q > 0 && pricePerUnit !== '' && pricePerUnit !== null && pricePerUnit !== undefined) {
+			const p = Number(pricePerUnit);
+			totalPrice = (Math.round(q * p * 100) / 100).toFixed(2);
+		}
+	}
+
+	function handleTotalInput(val) {
+		totalPrice = val;
+		if (totalPrice !== '' && totalPrice !== null && totalPrice !== undefined) {
+			error = '';
+		}
+		const q = Number(quantity);
+		if (q > 0 && totalPrice !== '' && totalPrice !== null && totalPrice !== undefined) {
+			const t = Number(totalPrice);
+			pricePerUnit = (Math.round((t / q) * 100) / 100).toFixed(2);
+		}
+	}
+
+	function handleInventoryChange() {
+		const item = dropdownOptions.find(opt => opt.id === selectedInventoryId);
+		if (item) {
+			pricePerUnit = item.price || '';
+			const q = Number(quantity);
+			if (q > 0 && pricePerUnit !== '') {
+				totalPrice = (Math.round(q * Number(pricePerUnit) * 100) / 100).toFixed(2);
+			} else {
+				totalPrice = '';
+			}
+		}
+	}
 
 	function openModal() {
 		showModal = true;
@@ -175,6 +215,7 @@
 		allocationType = 'Sale';
 		quantity = '';
 		pricePerUnit = '';
+		totalPrice = '';
 		buyerName = '';
 		notes = '';
 		saleDate = new Date().toISOString().split('T')[0];
@@ -193,9 +234,21 @@
 		if (!selectedItem) return;
 
 		const qty = Number(quantity);
-		if (qty <= 0 || qty > availableQty) {
-			error = `Quantity must be between 1 and ${availableQty} ${selectedItem.unit}`;
+		if (isNaN(qty) || qty <= 0) {
+			error = "Quantity must be a positive number.";
 			return;
+		}
+		if (qty > availableQty) {
+			error = `Quantity cannot exceed available stock of ${availableQty} ${selectedItem.unit || 'Kg'}`;
+			return;
+		}
+
+		if (allocationType === 'Sale') {
+			if ((pricePerUnit === '' || pricePerUnit === null || pricePerUnit === undefined) &&
+				(totalPrice === '' || totalPrice === null || totalPrice === undefined)) {
+				error = "At least one of Price per Unit or Total Price is required.";
+				return;
+			}
 		}
 
 		loading = true;
@@ -211,7 +264,7 @@
 					category: selectedItem.category || '',
 					quantity: qty,
 					unit: selectedItem.unit || 'Kg',
-					pricePerUnit: allocationType === 'Sale' ? Number(pricePerUnit) : 0,
+					pricePerUnit: allocationType === 'Sale' ? Number(pricePerUnit || 0) : 0,
 					buyerName: allocationType === 'Sale' ? buyerName : '',
 					notes,
 					saleDate,
@@ -249,16 +302,112 @@
 		}
 	}
 
-	// ── Filtering ────────────────────────────────────────────────────
+	// ── Filtering & Pagination ────────────────────────────────────────
 	let searchQuery = $state('');
 	let activeFilter = $state('All');
+	let dateFilter = $state('All');
+	let customFromDate = $state('');
+	let customToDate = $state('');
+
+	function isDateInFilter(dateIso, filter) {
+		if (filter === 'All') return true;
+		if (!dateIso) return false;
+
+		const saleDate = new Date(dateIso);
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+
+		const tomorrow = new Date(today);
+		tomorrow.setDate(tomorrow.getDate() + 1);
+
+		switch (filter) {
+			case 'Today': {
+				const start = new Date(today);
+				return saleDate >= start && saleDate < tomorrow;
+			}
+			case 'Yesterday': {
+				const start = new Date(today);
+				start.setDate(start.getDate() - 1);
+				const end = new Date(today);
+				return saleDate >= start && saleDate < end;
+			}
+			case 'This Week': {
+				const start = new Date(today);
+				start.setDate(today.getDate() - today.getDay());
+				return saleDate >= start && saleDate < tomorrow;
+			}
+			case 'Previous Week': {
+				const start = new Date(today);
+				start.setDate(today.getDate() - today.getDay() - 7);
+				const end = new Date(today);
+				end.setDate(today.getDate() - today.getDay());
+				return saleDate >= start && saleDate < end;
+			}
+			case 'This Month': {
+				const start = new Date(today.getFullYear(), today.getMonth(), 1);
+				return saleDate >= start && saleDate < tomorrow;
+			}
+			case 'Previous Month': {
+				const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+				const end = new Date(today.getFullYear(), today.getMonth(), 1);
+				return saleDate >= start && saleDate < end;
+			}
+			case 'This Quarter': {
+				const q = Math.floor(today.getMonth() / 3);
+				const start = new Date(today.getFullYear(), q * 3, 1);
+				return saleDate >= start && saleDate < tomorrow;
+			}
+			case 'Previous Quarter': {
+				const currentQuarter = Math.floor(today.getMonth() / 3);
+				const start = new Date(today.getFullYear(), (currentQuarter - 1) * 3, 1);
+				const end = new Date(today.getFullYear(), currentQuarter * 3, 1);
+				return saleDate >= start && saleDate < end;
+			}
+			case 'Half Year': {
+				const start = today.getMonth() < 6
+					? new Date(today.getFullYear(), 0, 1)
+					: new Date(today.getFullYear(), 6, 1);
+				return saleDate >= start && saleDate < tomorrow;
+			}
+			case 'Previous Half Year': {
+				let start, end;
+				if (today.getMonth() < 6) {
+					start = new Date(today.getFullYear() - 1, 6, 1);
+					end = new Date(today.getFullYear(), 0, 1);
+				} else {
+					start = new Date(today.getFullYear(), 0, 1);
+					end = new Date(today.getFullYear(), 6, 1);
+				}
+				return saleDate >= start && saleDate < end;
+			}
+			case 'This Year': {
+				const start = new Date(today.getFullYear(), 0, 1);
+				return saleDate >= start && saleDate < tomorrow;
+			}
+			case 'Previous Year': {
+				const start = new Date(today.getFullYear() - 1, 0, 1);
+				const end = new Date(today.getFullYear(), 0, 1);
+				return saleDate >= start && saleDate < end;
+			}
+			case 'Custom Date Range': {
+				if (!customFromDate || !customToDate) return true;
+				const start = new Date(customFromDate + 'T00:00:00');
+				const end = new Date(customToDate + 'T23:59:59');
+				return saleDate >= start && saleDate <= end;
+			}
+			default:
+				return true;
+		}
+	}
+
 	let filteredSales = $derived(
 		sales.filter(s => {
 			const q = searchQuery.trim().toLowerCase();
 			const queryMatch = !q || (
 				s.itemName?.toLowerCase().includes(q) ||
 				s.buyerName?.toLowerCase().includes(q) ||
-				s.category?.toLowerCase().includes(q)
+				s.notes?.toLowerCase().includes(q) ||
+				(s.type || 'Sale').toLowerCase().includes(q)
 			);
 			
 			const typeMatch = activeFilter === 'All' || 
@@ -266,9 +415,123 @@
 				(activeFilter === 'Self Use' && s.type === 'Self Use') ||
 				(activeFilter === 'Wastage' && s.type === 'Wastage');
 
-			return queryMatch && typeMatch;
+			const dateMatch = isDateInFilter(s.saleDate, dateFilter);
+
+			return queryMatch && typeMatch && dateMatch;
 		})
 	);
+
+	let currentPage = $state(1);
+	const itemsPerPage = 10;
+
+	$effect(() => {
+		// Reset to page 1 whenever search query, active type filter, or date filter changes
+		searchQuery;
+		activeFilter;
+		dateFilter;
+		customFromDate;
+		customToDate;
+		currentPage = 1;
+	});
+
+	let totalPages = $derived(Math.max(1, Math.ceil(filteredSales.length / itemsPerPage)));
+	let paginatedSales = $derived(filteredSales.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage));
+
+	$effect(() => {
+		// Automatically adjust page to fit within totalPages after edit/delete
+		if (currentPage > totalPages) {
+			currentPage = totalPages;
+		}
+	});
+
+	// ── Edit modal state and logic ────────────────────────────────────
+	let showEditModal = $state(false);
+	let editingSale = $state(null);
+	let editBuyerName = $state('');
+	let editPricePerUnit = $state('');
+	let editTotalPrice = $state('');
+	let editSaleDate = $state('');
+	let editNotes = $state('');
+	let editError = $state('');
+
+	function openEditModal(sale) {
+		editingSale = sale;
+		editBuyerName = sale.buyerName || '';
+		editPricePerUnit = sale.pricePerUnit !== undefined && sale.pricePerUnit !== null ? sale.pricePerUnit.toString() : '';
+		editTotalPrice = sale.totalAmount !== undefined && sale.totalAmount !== null ? sale.totalAmount.toString() : '';
+		editSaleDate = sale.saleDate ? sale.saleDate.split('T')[0] : '';
+		editNotes = sale.notes || '';
+		editError = '';
+		showEditModal = true;
+	}
+
+	function closeEditModal() {
+		showEditModal = false;
+		editingSale = null;
+		editError = '';
+	}
+
+	function handleEditPriceInput(val) {
+		editPricePerUnit = val;
+		if (editPricePerUnit !== '' && editPricePerUnit !== null && editPricePerUnit !== undefined) {
+			editError = '';
+		}
+		const q = Number(editingSale?.quantity || 0);
+		if (q > 0 && editPricePerUnit !== '' && editPricePerUnit !== null && editPricePerUnit !== undefined) {
+			const p = Number(editPricePerUnit);
+			editTotalPrice = (Math.round(q * p * 100) / 100).toFixed(2);
+		}
+	}
+
+	function handleEditTotalInput(val) {
+		editTotalPrice = val;
+		if (editTotalPrice !== '' && editTotalPrice !== null && editTotalPrice !== undefined) {
+			editError = '';
+		}
+		const q = Number(editingSale?.quantity || 0);
+		if (q > 0 && editTotalPrice !== '' && editTotalPrice !== null && editTotalPrice !== undefined) {
+			const t = Number(editTotalPrice);
+			editPricePerUnit = (Math.round((t / q) * 100) / 100).toFixed(2);
+		}
+	}
+
+	async function handleUpdateSale(e) {
+		e.preventDefault();
+		if (!editingSale) return;
+
+		if ((editPricePerUnit === '' || editPricePerUnit === null || editPricePerUnit === undefined) &&
+			(editTotalPrice === '' || editTotalPrice === null || editTotalPrice === undefined)) {
+			editError = "At least one of Price or Total is required.";
+			return;
+		}
+
+		loading = true;
+		editError = '';
+
+		try {
+			const res = await fetch(`/api/sales/${editingSale.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					buyerName: editBuyerName,
+					pricePerUnit: Number(editPricePerUnit || 0),
+					totalAmount: Number(editTotalPrice || 0),
+					saleDate: editSaleDate,
+					notes: editNotes
+				})
+			});
+
+			const result = await res.json();
+			if (!res.ok) throw new Error(result.error || 'Failed to update sale');
+
+			await invalidateAll();
+			closeEditModal();
+		} catch (err) {
+			editError = err.message;
+		} finally {
+			loading = false;
+		}
+	}
 
 	function formatDate(iso) {
 		if (!iso) return '—';
@@ -339,16 +602,62 @@
 					{/each}
 				</div>
 			</div>
-			<div class="relative w-full sm:w-64">
-				<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[16px]">search</span>
-				<input
-					type="text"
-					placeholder="Search item, buyer…"
-					bind:value={searchQuery}
-					class="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-primary-green bg-slate-50 focus:bg-white transition-colors"
-				/>
+			<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+				<!-- Date Filter -->
+				<select
+					bind:value={dateFilter}
+					class="border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-primary-green bg-white text-slate-600 cursor-pointer"
+				>
+					<option value="All">📅 All Dates</option>
+					<option value="Today">Today</option>
+					<option value="Yesterday">Yesterday</option>
+					<option value="This Week">This Week</option>
+					<option value="Previous Week">Previous Week</option>
+					<option value="This Month">This Month</option>
+					<option value="Previous Month">Previous Month</option>
+					<option value="This Quarter">This Quarter</option>
+					<option value="Previous Quarter">Previous Quarter</option>
+					<option value="Half Year">Half Year</option>
+					<option value="Previous Half Year">Previous Half Year</option>
+					<option value="This Year">This Year</option>
+					<option value="Previous Year">Previous Year</option>
+					<option value="Custom Date Range">Custom Date Range…</option>
+				</select>
+
+				<!-- Search input -->
+				<div class="relative w-full sm:w-64">
+					<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[16px]">search</span>
+					<input
+						type="text"
+						placeholder="Search item, buyer…"
+						bind:value={searchQuery}
+						class="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-primary-green bg-slate-50 focus:bg-white transition-colors"
+					/>
+				</div>
 			</div>
 		</div>
+
+		<!-- Custom Date Range Pickers -->
+		{#if dateFilter === 'Custom Date Range'}
+			<div class="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center gap-3 bg-slate-50/30" transition:slide={{ duration: 150 }}>
+				<div class="flex items-center gap-1.5 text-xs text-slate-500 font-bold">
+					<span>From:</span>
+					<input
+						type="date"
+						bind:value={customFromDate}
+						class="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:border-primary-green bg-white"
+					/>
+				</div>
+				<div class="flex items-center gap-1.5 text-xs text-slate-500 font-bold">
+					<span>To:</span>
+					<input
+						type="date"
+						bind:value={customToDate}
+						class="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:border-primary-green bg-white"
+					/>
+				</div>
+			</div>
+		{/if}
 
 		<!-- Table -->
 		<div class="overflow-x-auto">
@@ -367,25 +676,30 @@
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-slate-50 font-medium text-slate-600">
-					{#each filteredSales as sale (sale.id)}
+					{#each paginatedSales as sale (sale.id)}
 						<tr class="hover:bg-slate-50/40 transition-colors" transition:slide={{ duration: 150 }}>
 							<td class="p-4 pl-6">
 								{#if !sale.type || sale.type === 'Sale'}
 									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-dark-green border border-emerald-250/50">
-										🟢 Sale
+										Sale
 									</span>
 								{:else if sale.type === 'Self Use'}
 									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-250/50">
-										🔵 Self Use
+										Self Use
 									</span>
 								{:else}
 									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-250/50">
-										🟠 Wastage
+										Wastage
 									</span>
 								{/if}
 							</td>
 							<td class="p-4">
 								<span class="font-bold text-slate-800 line-clamp-1">{sale.itemName}</span>
+								{#if sale.notes}
+									<span class="block text-[10px] text-slate-400 font-medium line-clamp-1" title={sale.notes}>
+										Note: {sale.notes}
+									</span>
+								{/if}
 							</td>
 							<td class="p-4">
 								<span class="text-slate-400 capitalize">{sale.category || '—'}</span>
@@ -414,18 +728,29 @@
 							</td>
 							<td class="p-4 text-center text-slate-500">{formatDate(sale.saleDate)}</td>
 							<td class="p-4 pr-6 text-center">
-								<button
-									onclick={() => handleDelete(sale)}
-									class="text-slate-300 hover:text-red-500 transition-colors p-1"
-									title="Delete log (restores stock)"
-								>
-									<span class="material-symbols-outlined text-[16px]">delete</span>
-								</button>
+								<div class="flex items-center justify-center gap-1.5">
+									{#if !sale.type || sale.type === 'Sale'}
+										<button
+											onclick={() => openEditModal(sale)}
+											class="text-slate-300 hover:text-primary-green transition-colors p-1"
+											title="Edit sale record"
+										>
+											<span class="material-symbols-outlined text-[16px]">edit</span>
+										</button>
+									{/if}
+									<button
+										onclick={() => handleDelete(sale)}
+										class="text-slate-300 hover:text-red-500 transition-colors p-1"
+										title="Delete log (restores stock)"
+									>
+										<span class="material-symbols-outlined text-[16px]">delete</span>
+									</button>
+								</div>
 							</td>
 						</tr>
 					{:else}
 						<tr>
-							<td colspan="8" class="p-14 text-center">
+							<td colspan="9" class="p-14 text-center">
 								<div class="flex flex-col items-center gap-2">
 									<span class="material-symbols-outlined text-4xl text-slate-200">point_of_sale</span>
 									<p class="font-bold text-slate-400">No sales recorded yet.</p>
@@ -439,8 +764,46 @@
 		</div>
 
 		<!-- Footer -->
-		<div class="p-4 border-t border-slate-100 flex justify-between items-center text-slate-400 text-xs bg-slate-50/50">
-			<span>Showing {filteredSales.length} of {sales.length} transactions</span>
+		<div class="p-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 text-slate-400 text-xs bg-slate-50/50">
+			<span>
+				{#if filteredSales.length > 0}
+					Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredSales.length)} of {filteredSales.length} allocations
+				{:else}
+					Showing 0 of 0 allocations
+				{/if}
+			</span>
+
+			{#if totalPages > 1}
+				<div class="flex items-center gap-1.5 font-bold">
+					<button
+						type="button"
+						disabled={currentPage === 1}
+						onclick={() => currentPage = Math.max(1, currentPage - 1)}
+						class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+					>
+						&lt; Prev
+					</button>
+
+					{#each Array.from({ length: totalPages }, (_, i) => i + 1) as pageNum}
+						<button
+							type="button"
+							onclick={() => currentPage = pageNum}
+							class="size-8 rounded-lg border transition-colors cursor-pointer {currentPage === pageNum ? 'bg-primary-green text-white border-primary-green' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}"
+						>
+							{pageNum}
+						</button>
+					{/each}
+
+					<button
+						type="button"
+						disabled={currentPage === totalPages}
+						onclick={() => currentPage = Math.min(totalPages, currentPage + 1)}
+						class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+					>
+						Next &gt;
+					</button>
+				</div>
+			{/if}
 		</div>
 	</div>
 
@@ -517,6 +880,7 @@
 					<select
 						id="inventory"
 						bind:value={selectedInventoryId}
+						onchange={handleInventoryChange}
 						required
 						class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green bg-white"
 					>
@@ -546,7 +910,8 @@
 							min="0.001"
 							max={availableQty || undefined}
 							step="any"
-							bind:value={quantity}
+							value={quantity}
+							oninput={(e) => handleQuantityInput(e.target.value)}
 							required
 							placeholder="0"
 							class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green"
@@ -555,14 +920,14 @@
 					<!-- Price per unit -->
 					{#if allocationType === 'Sale'}
 						<div>
-							<label for="price" class="block text-xs font-bold text-slate-600 mb-1.5">Price per {selectedItem?.unit || 'Unit'} (₹) <span class="text-red-400">*</span></label>
+							<label for="price" class="block text-xs font-bold text-slate-600 mb-1.5">Price per {selectedItem?.unit || 'Unit'} (₹)</label>
 							<input
 								id="price"
 								type="number"
 								min="0"
 								step="any"
-								bind:value={pricePerUnit}
-								required
+								value={pricePerUnit}
+								oninput={(e) => handlePriceInput(e.target.value)}
 								placeholder="0.00"
 								class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green"
 							/>
@@ -570,17 +935,23 @@
 					{/if}
 				</div>
 
-				<!-- Computed total -->
-				{#if allocationType === 'Sale' && computedTotal > 0}
-					<div class="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-2.5 flex justify-between items-center">
-						<span class="text-xs font-bold text-slate-600">Total Sale Value</span>
-						<span class="font-extrabold text-dark-green text-base">{formatCurrency(computedTotal)}</span>
-					</div>
-				{/if}
-
-				<div class="grid gap-3 {allocationType === 'Sale' ? 'grid-cols-2' : 'grid-cols-1'}">
-					<!-- Buyer name -->
-					{#if allocationType === 'Sale'}
+				<!-- Total Price -->
+				{#if allocationType === 'Sale'}
+					<div class="grid grid-cols-2 gap-3">
+						<div>
+							<label for="totalPrice" class="block text-xs font-bold text-slate-600 mb-1.5">Total Price (₹)</label>
+							<input
+								id="totalPrice"
+								type="number"
+								min="0"
+								step="any"
+								value={totalPrice}
+								oninput={(e) => handleTotalInput(e.target.value)}
+								placeholder="0.00"
+								class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green"
+							/>
+						</div>
+						<!-- Buyer name -->
 						<div>
 							<label for="buyer" class="block text-xs font-bold text-slate-600 mb-1.5">Buyer Name</label>
 							<input
@@ -591,18 +962,19 @@
 								class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green"
 							/>
 						</div>
-					{/if}
-					<!-- Sale date -->
-					<div>
-						<label for="sale-date" class="block text-xs font-bold text-slate-600 mb-1.5">Allocation Date <span class="text-red-400">*</span></label>
-						<input
-							id="sale-date"
-							type="date"
-							bind:value={saleDate}
-							required
-							class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green"
-						/>
 					</div>
+				{/if}
+
+				<!-- Sale date -->
+				<div>
+					<label for="sale-date" class="block text-xs font-bold text-slate-600 mb-1.5">Allocation Date <span class="text-red-400">*</span></label>
+					<input
+						id="sale-date"
+						type="date"
+						bind:value={saleDate}
+						required
+						class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green"
+					/>
 				</div>
 
 				<!-- Notes -->
@@ -630,6 +1002,137 @@
 						class="btn-primary flex-1 py-3 text-xs"
 					>
 						{loading ? 'Saving…' : 'Record Allocation'}
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}
+
+<!-- Edit Sale Modal -->
+{#if showEditModal && editingSale}
+	<div
+		role="button"
+		tabindex="0"
+		aria-label="Close edit modal"
+		transition:fade={{ duration: 150 }}
+		class="fixed inset-0 bg-slate-950/35 backdrop-blur-xs flex items-center justify-center z-50 p-4"
+		onclick={(e) => { if (e.target === e.currentTarget) closeEditModal(); }}
+		onkeydown={(e) => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { closeEditModal(); } }}
+	>
+		<div
+			transition:slide={{ duration: 200 }}
+			class="bg-white rounded-3xl shadow-xl border border-slate-100 w-full max-w-lg overflow-hidden"
+		>
+			<!-- Header -->
+			<div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+				<h3 class="font-extrabold text-slate-800 text-base">Edit Sale Record</h3>
+				<button
+					onclick={closeEditModal}
+					class="text-slate-400 hover:text-slate-600 transition-colors size-8 rounded-full hover:bg-slate-100 flex items-center justify-center"
+				>
+					<span class="material-symbols-outlined text-lg">close</span>
+				</button>
+			</div>
+
+			<!-- Form -->
+			<form onsubmit={handleUpdateSale} class="p-6 space-y-4">
+				{#if editError}
+					<div class="bg-red-50 border border-red-100 text-red-700 text-xs font-semibold rounded-xl px-4 py-2.5">
+						{editError}
+					</div>
+				{/if}
+
+				<div>
+					<p class="text-xs text-slate-500 font-semibold mb-2">
+						Editing allocation for: <span class="font-extrabold text-slate-800">{editingSale.itemName}</span>
+					</p>
+					<p class="text-[10px] text-slate-400 font-semibold uppercase">
+						Quantity: {editingSale.quantity} {editingSale.unit} (Non-editable)
+					</p>
+				</div>
+
+				<div class="grid grid-cols-2 gap-3">
+					<!-- Price per unit -->
+					<div>
+						<label for="editPrice" class="block text-xs font-bold text-slate-600 mb-1.5">Price per {editingSale.unit} (₹)</label>
+						<input
+							id="editPrice"
+							type="number"
+							min="0"
+							step="any"
+							value={editPricePerUnit}
+							oninput={(e) => handleEditPriceInput(e.target.value)}
+							placeholder="0.00"
+							class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green bg-white"
+						/>
+					</div>
+					<!-- Total Price -->
+					<div>
+						<label for="editTotalPrice" class="block text-xs font-bold text-slate-600 mb-1.5">Total Price (₹)</label>
+						<input
+							id="editTotalPrice"
+							type="number"
+							min="0"
+							step="any"
+							value={editTotalPrice}
+							oninput={(e) => handleEditTotalInput(e.target.value)}
+							placeholder="0.00"
+							class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green bg-white"
+						/>
+					</div>
+				</div>
+
+				<div class="grid grid-cols-2 gap-3">
+					<!-- Buyer name -->
+					<div>
+						<label for="editBuyer" class="block text-xs font-bold text-slate-600 mb-1.5">Buyer Name</label>
+						<input
+							id="editBuyer"
+							type="text"
+							bind:value={editBuyerName}
+							placeholder="e.g. Ravi Traders"
+							class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green bg-white"
+						/>
+					</div>
+					<!-- Sale date -->
+					<div>
+						<label for="editSaleDate" class="block text-xs font-bold text-slate-600 mb-1.5">Allocation Date <span class="text-red-400">*</span></label>
+						<input
+							id="editSaleDate"
+							type="date"
+							bind:value={editSaleDate}
+							required
+							class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green bg-white"
+						/>
+					</div>
+				</div>
+
+				<!-- Notes -->
+				<div>
+					<label for="editNotes" class="block text-xs font-bold text-slate-600 mb-1.5">Notes</label>
+					<textarea
+						id="editNotes"
+						bind:value={editNotes}
+						rows="2"
+						placeholder="Optional notes…"
+						class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-medium focus:outline-none focus:border-primary-green resize-none bg-white"
+					></textarea>
+				</div>
+
+				<!-- Actions -->
+				<div class="flex gap-3 pt-2 border-t border-slate-100">
+					<button
+						type="button"
+						onclick={closeEditModal}
+						class="btn-secondary flex-1 py-3 text-xs"
+					>Cancel</button>
+					<button
+						type="submit"
+						disabled={loading}
+						class="btn-primary flex-1 py-3 text-xs"
+					>
+						{loading ? 'Saving…' : 'Save Changes'}
 					</button>
 				</div>
 			</form>
