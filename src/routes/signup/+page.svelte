@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { authState, registerUser } from '$lib/auth.svelte.js';
 	import { roleHome } from '$lib/firebase-data';
+	import Silk from '$lib/components/Silk.svelte';
 
 	// Stepper state: 1, 2, 3
 	let currentStep = $state(1);
@@ -114,30 +115,36 @@
 	<title>Sign Up - AgriConnect</title>
 </svelte:head>
 
-<section class="mx-auto flex min-h-[85vh] max-w-xl items-center px-4 py-8 sm:px-6">
-	<div class="w-full rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-10">
+<section class="h-screen w-screen flex items-center justify-center p-4 relative overflow-hidden bg-slate-900">
+	<!-- Silk Background behind the card -->
+	<div class="absolute inset-0 z-0 select-none pointer-events-none">
+		<Silk color="#006b2c" speed={3} scale={1.5} noiseIntensity={1.2} />
+	</div>
+
+	<!-- Glassmorphic White Container with fixed max height to fit perfectly in viewport -->
+	<div class="w-full max-w-xl h-full max-h-[85vh] rounded-3xl border border-slate-200 bg-white/95 backdrop-blur-md shadow-2xl flex flex-col relative z-10 text-slate-800 overflow-hidden transition-all duration-300">
 		
-		<!-- Header -->
-		<div class="flex items-center justify-between border-b border-slate-100 pb-5">
+		<!-- Header (Fixed at the top) -->
+		<div class="flex items-center justify-between border-b border-slate-100 px-6 py-5 bg-white/50">
 			<div>
-				<span class="inline-flex items-center gap-1.5 rounded-full bg-light-green px-3 py-1 text-xs font-bold text-dark-green border border-primary-green/20">
+				<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 border border-emerald-200">
 					✨ Registering as {roleLabels[role] || 'User'}
 				</span>
 			</div>
 			<a 
 				href="/select-role?action=signup" 
-				class="text-xs font-bold text-primary-green hover:text-dark-green hover:underline transition-colors"
+				class="text-xs font-bold text-emerald-600 hover:text-emerald-700 hover:underline transition-colors duration-200"
 			>
 				Change Role
 			</a>
 		</div>
 
-		<!-- Progress Stepper -->
-		<div class="mt-8 relative flex items-center justify-between w-full mb-8">
+		<!-- Progress Stepper (Fixed below header) -->
+		<div class="px-6 sm:px-10 mt-6 relative flex items-center justify-between w-full mb-6">
 			<!-- Stepper progress bar -->
-			<div class="absolute left-0 top-1/2 h-0.5 bg-slate-100 w-full -translate-y-1/2 -z-10"></div>
+			<div class="absolute left-0 top-1/2 h-[2px] bg-slate-100 w-full -translate-y-1/2 -z-10"></div>
 			<div 
-				class="absolute left-0 top-1/2 h-0.5 bg-primary-green transition-all duration-300 -translate-y-1/2 -z-10"
+				class="absolute left-0 top-1/2 h-[2px] bg-emerald-500 transition-all duration-500 ease-out -translate-y-1/2 -z-10"
 				style="width: {(currentStep - 1) * 50}%"
 			></div>
 
@@ -145,8 +152,8 @@
 			<div class="flex flex-col items-center">
 				<span 
 					class={[
-						'size-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all duration-300 border',
-						currentStep >= 1 ? 'bg-primary-green text-white border-primary-green' : 'bg-white text-slate-400 border-slate-200'
+						'size-8 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 border',
+						currentStep >= 1 ? 'bg-emerald-500 text-white border-emerald-500 shadow-md' : 'bg-white text-slate-400 border-slate-200'
 					].filter(Boolean).join(' ')}
 				>
 					1
@@ -158,8 +165,8 @@
 			<div class="flex flex-col items-center">
 				<span 
 					class={[
-						'size-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all duration-300 border',
-						currentStep >= 2 ? 'bg-primary-green text-white border-primary-green' : 'bg-white text-slate-400 border-slate-200'
+						'size-8 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 border',
+						currentStep >= 2 ? 'bg-emerald-500 text-white border-emerald-500 shadow-md' : 'bg-white text-slate-400 border-slate-200'
 					].filter(Boolean).join(' ')}
 				>
 					2
@@ -171,8 +178,8 @@
 			<div class="flex flex-col items-center">
 				<span 
 					class={[
-						'size-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all duration-300 border',
-						currentStep >= 3 ? 'bg-primary-green text-white border-primary-green' : 'bg-white text-slate-400 border-slate-200'
+						'size-8 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 border',
+						currentStep >= 3 ? 'bg-emerald-500 text-white border-emerald-500 shadow-md' : 'bg-white text-slate-400 border-slate-200'
 					].filter(Boolean).join(' ')}
 				>
 					3
@@ -181,209 +188,221 @@
 			</div>
 		</div>
 
-		<!-- Step Wizard Form -->
-		<form onsubmit={submitSignup} class="space-y-5">
+		<!-- Step Wizard Form with scrollable body and fixed bottom section -->
+		<form onsubmit={submitSignup} class="flex flex-col flex-grow overflow-hidden">
 			
-			<!-- STEP 1: Account / Contact Information -->
-			{#if currentStep === 1}
-				<div class="space-y-4 animate-fade-in">
-					<h2 class="text-xl font-extrabold text-slate-800">Basic Information</h2>
-					<p class="text-xs text-slate-400 -mt-1 font-medium">Please supply your full name and primary contact routes.</p>
-					
-					<label class="block">
-						<span class="text-sm font-semibold text-slate-700">Full Name</span>
-						<input
-							type="text"
-							bind:value={fullName}
-							required
-							placeholder="Asha Sharma"
-							class="mt-1 w-full rounded-2xl border-slate-200 focus:border-primary-green focus:ring focus:ring-primary-green/20 transition-all duration-200"
-						/>
-					</label>
-
-					<label class="block">
-						<span class="text-sm font-semibold text-slate-700">Email Address</span>
-						<input
-							type="email"
-							bind:value={email}
-							required
-							placeholder="asha@example.com"
-							class="mt-1 w-full rounded-2xl border-slate-200 focus:border-primary-green focus:ring focus:ring-primary-green/20 transition-all duration-200"
-						/>
-					</label>
-
-					<label class="block">
-						<span class="text-sm font-semibold text-slate-700">Phone Number</span>
-						<input
-							type="tel"
-							bind:value={phone}
-							required
-							placeholder="+91 98765 43210"
-							class="mt-1 w-full rounded-2xl border-slate-200 focus:border-primary-green focus:ring focus:ring-primary-green/20 transition-all duration-200"
-						/>
-					</label>
-				</div>
-			{/if}
-
-			<!-- STEP 2: Password setup -->
-			{#if currentStep === 2}
-				<div class="space-y-4 animate-fade-in">
-					<h2 class="text-xl font-extrabold text-slate-800">Security Credentials</h2>
-					<p class="text-xs text-slate-400 -mt-1 font-medium">Establish a strong secret password for protecting your transactions.</p>
-
-					<label class="block">
-						<span class="text-sm font-semibold text-slate-700">Password</span>
-						<input
-							type="password"
-							bind:value={password}
-							required
-							minlength="6"
-							placeholder="Min. 6 characters"
-							class="mt-1 w-full rounded-2xl border-slate-200 focus:border-primary-green focus:ring focus:ring-primary-green/20 transition-all duration-200"
-						/>
-					</label>
-
-					<label class="block">
-						<span class="text-sm font-semibold text-slate-700">Confirm Password</span>
-						<input
-							type="password"
-							bind:value={confirmPassword}
-							required
-							minlength="6"
-							placeholder="Repeat password"
-							class="mt-1 w-full rounded-2xl border-slate-200 focus:border-primary-green focus:ring focus:ring-primary-green/20 transition-all duration-200"
-						/>
-					</label>
-
-					{#if password && confirmPassword && password !== confirmPassword}
-						<p class="text-xs font-semibold text-red-500">❌ Passwords do not match yet.</p>
-					{:else if password && confirmPassword && password === confirmPassword}
-						<p class="text-xs font-semibold text-primary-green">✓ Passwords match successfully.</p>
-					{/if}
-				</div>
-			{/if}
-
-			<!-- STEP 3: Role-specific details -->
-			{#if currentStep === 3}
-				<div class="space-y-4 animate-fade-in">
-					<h2 class="text-xl font-extrabold text-slate-800">Professional Details</h2>
-					<p class="text-xs text-slate-400 -mt-1 font-medium">Fill in setup information required for the {role} workspace profile.</p>
-
-					<!-- Farmer Conditional Form -->
-					{#if role === 'farmer'}
+			<!-- Scrollable Form Body -->
+			<div class="flex-grow overflow-y-auto px-6 sm:px-10 py-2 space-y-5 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+				
+				<!-- STEP 1: Account / Contact Information -->
+				{#if currentStep === 1}
+					<div class="space-y-4 animate-fade-in">
+						<div>
+							<h2 class="text-xl font-extrabold text-slate-900">Basic Information</h2>
+							<p class="text-xs text-slate-500 mt-1 font-medium">Please supply your full name and primary contact details.</p>
+						</div>
+						
 						<label class="block">
-							<span class="text-sm font-semibold text-slate-700">Farm Name</span>
+							<span class="text-sm font-semibold text-slate-700">Full Name</span>
 							<input
 								type="text"
-								bind:value={farmName}
+								bind:value={fullName}
 								required
-								placeholder="Green Valley Organics"
-								class="mt-1 w-full rounded-2xl border-slate-200 focus:border-primary-green focus:ring focus:ring-primary-green/20 transition-all duration-200"
+								placeholder="Asha Sharma"
+								class="mt-1.5 w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500/20 focus:outline-none transition-all duration-200"
 							/>
 						</label>
 
 						<label class="block">
-							<span class="text-sm font-semibold text-slate-700">Farm Area Size (Acres)</span>
+							<span class="text-sm font-semibold text-slate-700">Email Address</span>
 							<input
-								type="number"
-								min="1"
-								bind:value={farmArea}
+								type="email"
+								bind:value={email}
 								required
-								placeholder="e.g. 15"
-								class="mt-1 w-full rounded-2xl border-slate-200 focus:border-primary-green focus:ring focus:ring-primary-green/20 transition-all duration-200"
+								placeholder="asha@example.com"
+								class="mt-1.5 w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500/20 focus:outline-none transition-all duration-200"
 							/>
 						</label>
 
 						<label class="block">
-							<span class="text-sm font-semibold text-slate-700">Farm Address</span>
-							<textarea
-								bind:value={address}
+							<span class="text-sm font-semibold text-slate-700">Phone Number</span>
+							<input
+								type="tel"
+								bind:value={phone}
 								required
-								rows="3"
-								placeholder="Rural Sector 4A, Green Valley Village"
-								class="mt-1 w-full rounded-2xl border-slate-200 focus:border-primary-green focus:ring focus:ring-primary-green/20 transition-all duration-200"
-							></textarea>
+								placeholder="+91 98765 43210"
+								class="mt-1.5 w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500/20 focus:outline-none transition-all duration-200"
+							/>
 						</label>
-					{/if}
+					</div>
+				{/if}
 
-					<!-- Customer Conditional Form -->
-					{#if role === 'customer'}
-						<label class="block">
-							<span class="text-sm font-semibold text-slate-700">Delivery / Shipping Address</span>
-							<textarea
-								bind:value={address}
-								required
-								rows="4"
-								placeholder="Warehouse 92, Industrial Trade Loop, City Center"
-								class="mt-1 w-full rounded-2xl border-slate-200 focus:border-primary-green focus:ring focus:ring-primary-green/20 transition-all duration-200"
-							></textarea>
-						</label>
-					{/if}
+				<!-- STEP 2: Password setup -->
+				{#if currentStep === 2}
+					<div class="space-y-4 animate-fade-in">
+						<div>
+							<h2 class="text-xl font-extrabold text-slate-900">Security Credentials</h2>
+							<p class="text-xs text-slate-500 mt-1 font-medium">Establish a strong secret password for protecting your account.</p>
+						</div>
 
-					<!-- Admin Conditional Form -->
-					{#if role === 'admin'}
 						<label class="block">
-							<span class="text-sm font-semibold text-slate-700">Admin Access Code</span>
+							<span class="text-sm font-semibold text-slate-700">Password</span>
 							<input
 								type="password"
-								bind:value={adminAccessCode}
+								bind:value={password}
 								required
-								placeholder="Enter code (Hint: AGRI-ADMIN-2026)"
-								class="mt-1 w-full rounded-2xl border-slate-200 focus:border-primary-green focus:ring focus:ring-primary-green/20 transition-all duration-200"
+								minlength="6"
+								placeholder="Min. 6 characters"
+								class="mt-1.5 w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500/20 focus:outline-none transition-all duration-200"
 							/>
 						</label>
 
-						<div class="rounded-2xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 leading-relaxed">
-							⚠️ <strong>Authorized Only:</strong> Accessing Admin workspace requires standard code validation. Unauthorized accounts will be suspended.
-						</div>
-					{/if}
-				</div>
-			{/if}
+						<label class="block">
+							<span class="text-sm font-semibold text-slate-700">Confirm Password</span>
+							<input
+								type="password"
+								bind:value={confirmPassword}
+								required
+								minlength="6"
+								placeholder="Repeat password"
+								class="mt-1.5 w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500/20 focus:outline-none transition-all duration-200"
+							/>
+						</label>
 
-			{#if error}
-				<div class="rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 animate-fade-in">
-					⚠️ {error}
-				</div>
-			{/if}
-
-			<!-- Button Controls -->
-			<div class="flex items-center gap-3 pt-4 border-t border-slate-100">
-				{#if currentStep > 1}
-					<button
-						type="button"
-						onclick={prevStep}
-						class="w-1/3 rounded-2xl border border-slate-200 bg-white py-3.5 font-semibold text-slate-700 hover:bg-slate-50 transition-all-custom"
-					>
-						Back
-					</button>
+						{#if password && confirmPassword && password !== confirmPassword}
+							<p class="text-xs font-semibold text-red-500 flex items-center gap-1">❌ Passwords do not match yet.</p>
+						{:else if password && confirmPassword && password === confirmPassword}
+							<p class="text-xs font-semibold text-emerald-600 flex items-center gap-1">✓ Passwords match successfully.</p>
+						{/if}
+					</div>
 				{/if}
 
-				{#if currentStep < 3}
-					<button
-						type="button"
-						onclick={nextStep}
-						disabled={currentStep === 1 ? !step1Valid : !step2Valid}
-						class="flex-grow rounded-2xl bg-primary-green py-3.5 font-semibold text-white shadow-lg shadow-primary-green/10 hover:bg-dark-green hover:scale-[1.01] transition-all-custom disabled:cursor-not-allowed disabled:opacity-60"
-					>
-						Continue
-					</button>
-				{:else}
-					<button
-						type="submit"
-						disabled={loading || !step3Valid}
-						class="flex-grow rounded-2xl bg-gradient-to-br from-primary-green to-dark-green py-3.5 font-semibold text-white shadow-lg shadow-primary-green/20 hover:shadow-primary-green/30 hover:scale-[1.01] active:scale-[0.99] transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60"
-					>
-						{loading ? 'Creating workspace...' : 'Submit & Register'}
-					</button>
+				<!-- STEP 3: Role-specific details -->
+				{#if currentStep === 3}
+					<div class="space-y-4 animate-fade-in">
+						<div>
+							<h2 class="text-xl font-extrabold text-slate-900 font-sans">Professional Details</h2>
+							<p class="text-xs text-slate-500 mt-1 font-medium">Fill in setup information required for the {role} workspace profile.</p>
+						</div>
+
+						<!-- Farmer Conditional Form -->
+						{#if role === 'farmer'}
+							<label class="block">
+								<span class="text-sm font-semibold text-slate-700">Farm Name</span>
+								<input
+									type="text"
+									bind:value={farmName}
+									required
+									placeholder="Green Valley Organics"
+									class="mt-1.5 w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500/20 focus:outline-none transition-all duration-200"
+								/>
+							</label>
+
+							<label class="block">
+								<span class="text-sm font-semibold text-slate-700">Farm Area Size (Acres)</span>
+								<input
+									type="number"
+									min="1"
+									bind:value={farmArea}
+									required
+									placeholder="e.g. 15"
+									class="mt-1.5 w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500/20 focus:outline-none transition-all duration-200"
+								/>
+							</label>
+
+							<label class="block">
+								<span class="text-sm font-semibold text-slate-700">Farm Address</span>
+								<textarea
+									bind:value={address}
+									required
+									rows="3"
+									placeholder="Rural Sector 4A, Green Valley Village"
+									class="mt-1.5 w-full p-4 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500/20 focus:outline-none transition-all duration-200"
+								></textarea>
+							</label>
+						{/if}
+
+						<!-- Customer Conditional Form -->
+						{#if role === 'customer'}
+							<label class="block">
+								<span class="text-sm font-semibold text-slate-700">Delivery / Shipping Address</span>
+								<textarea
+									bind:value={address}
+									required
+									rows="4"
+									placeholder="Warehouse 92, Industrial Trade Loop, City Center"
+									class="mt-1.5 w-full p-4 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500/20 focus:outline-none transition-all duration-200"
+								></textarea>
+							</label>
+						{/if}
+
+						<!-- Admin Conditional Form -->
+						{#if role === 'admin'}
+							<label class="block">
+								<span class="text-sm font-semibold text-slate-700">Admin Access Code</span>
+								<input
+									type="password"
+									bind:value={adminAccessCode}
+									required
+									placeholder="Enter code (Hint: AGRI-ADMIN-2026)"
+									class="mt-1.5 w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500/20 focus:outline-none transition-all duration-200"
+								/>
+							</label>
+
+							<div class="rounded-xl bg-amber-50 border border-amber-200 p-4 text-xs text-amber-800 leading-relaxed shadow-sm">
+								⚠️ <strong>Authorized Only:</strong> Accessing Admin workspace requires standard code validation. Unauthorized accounts will be suspended.
+							</div>
+						{/if}
+					</div>
+				{/if}
+
+				{#if error}
+					<div class="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-xs sm:text-sm text-red-700 animate-fade-in shadow-sm">
+						⚠️ {error}
+					</div>
 				{/if}
 			</div>
-		</form>
 
-		<p class="mt-8 text-center text-sm text-slate-500 font-medium">
-			Already registered?
-			<a href="/login" class="font-semibold text-primary-green hover:text-dark-green hover:underline">
-				Login here
-			</a>
-		</p>
+			<!-- Button Controls & Footer (Fixed at the bottom) -->
+			<div class="border-t border-slate-100 px-6 sm:px-10 py-5 bg-slate-50 space-y-4">
+				<div class="flex items-center gap-3">
+					{#if currentStep > 1}
+						<button
+							type="button"
+							onclick={prevStep}
+							class="w-1/3 h-12 rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 transition-all duration-200 focus:outline-none active:scale-[0.98]"
+						>
+							Back
+						</button>
+					{/if}
+
+					{#if currentStep < 3}
+						<button
+							type="button"
+							onclick={nextStep}
+							disabled={currentStep === 1 ? !step1Valid : !step2Valid}
+							class="flex-grow h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:opacity-50 text-white font-bold shadow-md hover:scale-[1.01] active:scale-[0.98] transition-all duration-200 disabled:pointer-events-none focus:outline-none"
+						>
+							Continue
+						</button>
+					{:else}
+						<button
+							type="submit"
+							disabled={loading || !step3Valid}
+							class="flex-grow h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-bold shadow-md hover:scale-[1.01] active:scale-[0.98] transition-all duration-300 disabled:pointer-events-none disabled:opacity-50 focus:outline-none"
+						>
+							{loading ? 'Creating workspace...' : 'Submit & Register'}
+						</button>
+					{/if}
+				</div>
+
+				<p class="text-center text-xs sm:text-sm text-slate-500 font-medium">
+					Already registered?
+					<a href="/login" class="font-bold text-emerald-600 hover:text-emerald-700 hover:underline transition-colors duration-200">
+						Login here
+					</a>
+				</p>
+			</div>
+		</form>
 	</div>
 </section>
