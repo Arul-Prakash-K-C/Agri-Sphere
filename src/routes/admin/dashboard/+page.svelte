@@ -4,6 +4,7 @@
 	import { browser } from '$app/environment';
 	import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 	import { db } from '$lib/firebase';
+	import ExportReportButton from '$lib/components/ExportReportButton.svelte';
 
 	let { data } = $props();
 
@@ -414,6 +415,18 @@
 			<p class="text-slate-500 text-xs mt-1 font-semibold leading-relaxed">
 				Monitor live system logs, farmer availability alerts, pricing charts, and category analysis summaries.
 			</p>
+		</div>
+		<div class="flex items-center gap-3">
+			<ExportReportButton 
+				reportType="dashboard_summary" 
+				dataList={users} 
+				reportOptions={[
+					{ value: 'dashboard_summary', label: 'Dashboard Summary' },
+					{ value: 'users', label: 'User Directory Report' }
+				]}
+				extraData={{ crops: [], expenses: [], inventory: [], sales: [], disease: [], harvests: [], users, products }}
+				customClass="rounded-full px-5 py-3 bg-gradient-to-br from-primary-green to-dark-green !text-white !border-0 shadow-md shadow-primary-green/20 hover:shadow-primary-green/30 cursor-pointer"
+			/>
 		</div>
 		{#if error}
 			<div class="bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold px-4 py-2.5 rounded-2xl flex items-center gap-2">

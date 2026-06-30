@@ -2,6 +2,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import { onMount } from 'svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import ExportReportButton from '$lib/components/ExportReportButton.svelte';
 
 	let { data } = $props();
 
@@ -519,6 +520,11 @@
 			<p class="text-sm text-slate-500 mt-1">Monitor and schedule water distribution zones.</p>
 		</div>
 		<div class="flex items-center gap-3">
+			<ExportReportButton 
+				reportType="irrigation" 
+				dataList={scheduleRuns} 
+				customClass="rounded-full px-5 py-3"
+			/>
 			{#if scheduleRuns.length > 0}
 				<button 
 					onclick={clearAll}

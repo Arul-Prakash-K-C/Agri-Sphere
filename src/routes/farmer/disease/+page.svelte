@@ -2,6 +2,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import { invalidateAll } from '$app/navigation';
 	import Modal from '$lib/components/Modal.svelte';
+	import ExportReportButton from '$lib/components/ExportReportButton.svelte';
 
 	let { data } = $props();
 
@@ -217,6 +218,11 @@
 			<h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">AI Crop Disease Detection</h1>
 			<p class="text-sm text-slate-500 mt-1">Upload a clear leaf image for real-time web-grounded diagnostic analysis and treatment remedies.</p>
 		</div>
+		<ExportReportButton 
+			reportType="disease" 
+			dataList={recentScans} 
+			customClass="rounded-full px-5 py-3"
+		/>
 	</div>
 
 

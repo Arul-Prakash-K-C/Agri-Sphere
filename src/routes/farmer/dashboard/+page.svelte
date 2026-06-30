@@ -1,5 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
+	import ExportReportButton from '$lib/components/ExportReportButton.svelte';
 
 	let { data } = $props();
 
@@ -443,10 +444,16 @@
 					<option value="Custom Range">Custom Range</option>
 				</select>
 			</div>
-			<button class="bg-gradient-to-br from-primary-green to-dark-green text-white px-5 py-2 rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/30 cursor-pointer">
-				<span class="material-symbols-outlined text-[18px]">download</span>
-				<span>Export Report</span>
-			</button>
+			<ExportReportButton 
+				reportType="dashboard_summary" 
+				dataList={crops} 
+				reportOptions={[
+					{ value: 'dashboard_summary', label: 'Dashboard Summary' },
+					{ value: 'analytics', label: 'Analytics Report' }
+				]}
+				extraData={{ crops, expenses, inventory, sales }}
+				customClass="!rounded-2xl bg-gradient-to-br from-primary-green to-dark-green !text-white !border-0 px-5 py-2 shadow-md shadow-primary-green/20 hover:shadow-primary-green/30 cursor-pointer flex items-center gap-1.5"
+			/>
 		</div>
 	</div>
 

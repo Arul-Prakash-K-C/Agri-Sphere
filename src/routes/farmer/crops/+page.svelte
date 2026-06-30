@@ -1,6 +1,7 @@
 <script>
 	import { fade, slide } from "svelte/transition";
 	import Modal from "$lib/components/Modal.svelte";
+	import ExportReportButton from "$lib/components/ExportReportButton.svelte";
 
 	let { data } = $props();
 
@@ -253,13 +254,20 @@
 				Monitor and manage your current season's yield.
 			</p>
 		</div>
-		<button
-			onclick={() => (showAddModal = true)}
-			class="bg-gradient-to-br from-primary-green to-dark-green text-white font-bold text-xs px-5 py-3 rounded-full flex items-center justify-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/45 hover:-translate-y-0.5 transition-all whitespace-nowrap"
-		>
-			<span class="material-symbols-outlined text-[18px]">add</span>
-			<span>Add Crop</span>
-		</button>
+		<div class="flex items-center gap-3">
+			<ExportReportButton 
+				reportType="crops" 
+				dataList={crops} 
+				customClass="rounded-full px-5 py-3"
+			/>
+			<button
+				onclick={() => (showAddModal = true)}
+				class="bg-gradient-to-br from-primary-green to-dark-green text-white font-bold text-xs px-5 py-3 rounded-full flex items-center justify-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/45 hover:-translate-y-0.5 transition-all whitespace-nowrap cursor-pointer"
+			>
+				<span class="material-symbols-outlined text-[18px]">add</span>
+				<span>Add Crop</span>
+			</button>
+		</div>
 	</div>
 
 	<!-- Modal Backdrop & Window -->

@@ -1,6 +1,7 @@
 <script>
 	import { fade, slide } from 'svelte/transition';
 	import Modal from '$lib/components/Modal.svelte';
+	import ExportReportButton from '$lib/components/ExportReportButton.svelte';
 
 	let { data } = $props();
 
@@ -232,13 +233,20 @@
 			</h1>
 			<p class="text-sm text-slate-500 mt-1">Manage and publish your agricultural produce listings directly to customers.</p>
 		</div>
-		<button 
-			onclick={openAddModal}
-			class="bg-gradient-to-br from-primary-green to-dark-green text-white font-bold text-xs px-5 py-3 rounded-full flex items-center justify-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/45 hover:-translate-y-0.5 transition-all whitespace-nowrap cursor-pointer"
-		>
-			<span class="material-symbols-outlined text-[18px]">add_shopping_cart</span>
-			<span>Add Produce Listing</span>
-		</button>
+		<div class="flex items-center gap-3">
+			<ExportReportButton 
+				reportType="marketplace" 
+				dataList={products} 
+				customClass="rounded-full px-5 py-3"
+			/>
+			<button 
+				onclick={openAddModal}
+				class="bg-gradient-to-br from-primary-green to-dark-green text-white font-bold text-xs px-5 py-3 rounded-full flex items-center justify-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/45 hover:-translate-y-0.5 transition-all whitespace-nowrap cursor-pointer"
+			>
+				<span class="material-symbols-outlined text-[18px]">add_shopping_cart</span>
+				<span>Add Produce Listing</span>
+			</button>
+		</div>
 	</div>
 
 	<!-- Add/Edit Product Modal -->

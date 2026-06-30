@@ -1,6 +1,7 @@
 <script>
 	import { fade, slide } from 'svelte/transition';
 	import { invalidateAll } from '$app/navigation';
+	import ExportReportButton from '$lib/components/ExportReportButton.svelte';
 
 	let { data } = $props();
 
@@ -290,6 +291,11 @@
 			<h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Inventory Control</h1>
 			<p class="text-sm text-slate-500 mt-1">Review storage logs, manage metric units, and track lifespans.</p>
 		</div>
+		<ExportReportButton 
+			reportType="inventory" 
+			dataList={stockItems} 
+			customClass="rounded-full px-5 py-3"
+		/>
 	</div>
 
 	<!-- Dashboard Bento Grid -->

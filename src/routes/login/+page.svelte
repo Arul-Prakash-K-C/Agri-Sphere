@@ -83,9 +83,9 @@
 				<p class="text-xs font-medium text-emerald-100/90 leading-relaxed max-w-[240px]">Empowering growers, digitizing supply lines, and building trust directly from field to market.</p>
 			</div>
 
-			<!-- Core Illustration — Animated Tractor -->
-			<div class="my-auto flex items-center justify-center relative z-10 max-h-[220px]">
-				<svg viewBox="0 0 400 310" class="w-full max-w-[270px]" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<!-- Core Illustration — Stationary Tractor positioned between the paragraphs -->
+			<div class="relative z-10 w-full h-48 select-none pointer-events-none flex items-center justify-center my-4">
+				<svg class="w-full h-full" viewBox="0 0 400 310" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
 					<style>
 						@keyframes spin {
 							from { transform: rotate(0deg); }
@@ -95,15 +95,58 @@
 							0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.2; }
 							50% { transform: scale(1.4) translate(-10px, -6px); opacity: 0.4; }
 						}
+						@keyframes float-smoke {
+							0% {
+								transform: translate(0, 0) scale(0.4);
+								opacity: 0;
+							}
+							10% {
+								opacity: 0.6;
+							}
+							80% {
+								opacity: 0.4;
+							}
+							100% {
+								transform: translate(15px, -45px) scale(2.2);
+								opacity: 0;
+							}
+						}
+						@keyframes drive-loop {
+							0% {
+								transform: translateX(-300px);
+							}
+							100% {
+								transform: translateX(650px);
+							}
+						}
+						@keyframes offroad-bump {
+							0%, 100% { transform: translateY(0px) rotate(0deg); }
+							25% { transform: translateY(-4px) rotate(-1deg); }
+							50% { transform: translateY(1px) rotate(1deg); }
+							75% { transform: translateY(-3px) rotate(-0.5deg); }
+						}
+						.moving-tractor {
+							animation: drive-loop 7s linear infinite;
+						}
 						.spin-wheel {
-							animation: spin 5s linear infinite;
+							animation: spin 0.6s linear infinite;
 						}
 						.dust-particle {
-							animation: bounce-dust 2s ease-in-out infinite;
+							animation: bounce-dust 0.8s ease-in-out infinite;
+						}
+						.bump-assembly {
+							animation: offroad-bump 0.35s linear infinite;
+							transform-origin: 190px 150px;
+						}
+						.smoke-puff {
+							animation: float-smoke 1.8s infinite linear;
 						}
 						.d-2 { animation-delay: 0.4s; }
 						.d-3 { animation-delay: 0.8s; }
 						.d-4 { animation-delay: 1.2s; }
+						.sm-1 { animation-delay: 0s; }
+						.sm-2 { animation-delay: 0.8s; }
+						.sm-3 { animation-delay: 1.6s; }
 					</style>
 					<defs>
 						<linearGradient id="bodyGrad" x1="0" y1="0" x2="1" y2="1">
@@ -128,93 +171,105 @@
 						</filter>
 					</defs>
 
-					<!-- Ambient background glow -->
-					<circle cx="200" cy="155" r="95" fill="url(#tractorGlow)"/>
+					<!-- Group container that moves the entire tractor assembly in a loop from left to right, scaled down to 35% -->
+					<g class="moving-tractor" style="transform-origin: center;">
+						<g style="transform: scale(1.0) translate(0px, 5px);">
+							<g class="bump-assembly">
+						<!-- Flying Dust Particles (Behind rear wheel) -->
+						<g class="dust-particle d-1" style="transform-origin: 80px 220px;">
+							<circle cx="80" cy="220" r="10" fill="#e2e8f0" opacity="0.3" filter="blur(2px)" />
+						</g>
+						<g class="dust-particle d-2" style="transform-origin: 75px 224px;">
+							<circle cx="75" cy="224" r="14" fill="#ffffff" opacity="0.25" filter="blur(3.5px)" />
+						</g>
+						<g class="dust-particle d-3" style="transform-origin: 82px 216px;">
+							<circle cx="82" cy="216" r="8" fill="#f8fafc" opacity="0.35" filter="blur(1.5px)" />
+						</g>
+						<g class="dust-particle d-4" style="transform-origin: 70px 226px;">
+							<circle cx="70" cy="226" r="16" fill="#cbd5e1" opacity="0.2" filter="blur(4px)" />
+						</g>
 
-					<!-- Ground / Soil line -->
-					<path d="M 60 235 Q 200 232 340 235" stroke="rgba(255,255,255,0.2)" stroke-width="2" stroke-linecap="round"/>
+						<!-- TRACTOR BODY GROUP -->
+						<g filter="url(#shadow)">
+							<!-- Cab / Glass Greenhouse Roof (Highly realistic details) -->
+							<path d="M 112 135 L 125 70 L 180 70 L 175 135 Z" fill="url(#cabGrad)" stroke="#ffffff" stroke-width="1.5" stroke-opacity="0.5"/>
+							<line x1="148" y1="70" x2="145" y2="135" stroke="#ffffff" stroke-width="1" stroke-opacity="0.3" />
+							
+							<!-- Cab Interior Seat / Controls silhouette -->
+							<path d="M 125 135 L 132 108 L 148 108 L 152 135" fill="#475569" opacity="0.7"/>
+							<circle cx="158" cy="115" r="4" fill="#334155" />
+							
+							<!-- Main Engine Body / Chassis (Premium silver/white) -->
+							<path d="M 98 135 H 265 V 195 H 98 Z" fill="url(#bodyGrad)" stroke="#cbd5e1" stroke-width="1"/>
+							<!-- Front Engine Hood (Slope layer for depth) -->
+							<path d="M 175 135 L 265 155 V 195 H 175 Z" fill="url(#bodyHighlight)" />
+							<!-- Ventilation Grills for realistic look -->
+							<line x1="195" y1="162" x2="245" y2="173" stroke="#94a3b8" stroke-width="2" />
+							<line x1="195" y1="168" x2="245" y2="179" stroke="#94a3b8" stroke-width="2" />
+							<line x1="195" y1="174" x2="245" y2="185" stroke="#94a3b8" stroke-width="2" />
+							
+							<!-- Front Grill (Distinct vertical front block) -->
+							<path d="M 265 155 L 268 156 V 193 L 265 195 Z" fill="#1e293b"/>
+							<!-- Front Headlight (Glow effect) -->
+							<path d="M 268 160 L 278 162 L 278 170 L 268 170 Z" fill="#fef08a"/>
+							<polygon points="278,162 335,150 335,195 278,170" fill="#fef08a" opacity="0.15"/>
+							
+							<!-- Exhaust Pipe / Smokestack -->
+							<path d="M 225 145 V 95 H 229 V 145 Z" fill="#334155"/>
+							<path d="M 225 95 L 222 88 H 232 L 229 95 Z" fill="#1e293b"/>
 
-					<!-- Flying Dust Particles (Behind rear wheel) -->
-					<g class="dust-particle d-1" style="transform-origin: 80px 220px;">
-						<circle cx="80" cy="220" r="10" fill="#e2e8f0" opacity="0.3" filter="blur(2px)" />
-					</g>
-					<g class="dust-particle d-2" style="transform-origin: 75px 224px;">
-						<circle cx="75" cy="224" r="14" fill="#ffffff" opacity="0.25" filter="blur(3.5px)" />
-					</g>
-					<g class="dust-particle d-3" style="transform-origin: 82px 216px;">
-						<circle cx="82" cy="216" r="8" fill="#f8fafc" opacity="0.35" filter="blur(1.5px)" />
-					</g>
-					<g class="dust-particle d-4" style="transform-origin: 70px 226px;">
-						<circle cx="70" cy="226" r="16" fill="#cbd5e1" opacity="0.2" filter="blur(4px)" />
-					</g>
+							<!-- Exhaust Smoke Puffs (Floating upwards from coordinate X=227, Y=88) -->
+							<g class="smoke-puff sm-1" style="transform-origin: 227px 88px;">
+								<circle cx="227" cy="84" r="6" fill="#ffffff" opacity="0.6" filter="blur(1px)"/>
+							</g>
+							<g class="smoke-puff sm-2" style="transform-origin: 227px 88px;">
+								<circle cx="227" cy="84" r="8" fill="#f1f5f9" opacity="0.5" filter="blur(1.5px)"/>
+							</g>
+							<g class="smoke-puff sm-3" style="transform-origin: 227px 88px;">
+								<circle cx="227" cy="84" r="10" fill="#e2e8f0" opacity="0.4" filter="blur(2px)"/>
+							</g>
 
-					<!-- TRACTOR BODY GROUP -->
-					<g filter="url(#shadow)">
-						<!-- Cab / Glass Greenhouse Roof (Highly realistic details) -->
-						<path d="M 112 135 L 125 70 L 180 70 L 175 135 Z" fill="url(#cabGrad)" stroke="#ffffff" stroke-width="1.5" stroke-opacity="0.5"/>
-						<line x1="148" y1="70" x2="145" y2="135" stroke="#ffffff" stroke-width="1" stroke-opacity="0.3" />
-						
-						<!-- Cab Interior Seat / Controls silhouette -->
-						<path d="M 125 135 L 132 108 L 148 108 L 152 135" fill="#475569" opacity="0.7"/>
-						<circle cx="158" cy="115" r="4" fill="#334155" />
-						
-						<!-- Main Engine Body / Chassis (Premium silver/white) -->
-						<path d="M 98 135 H 265 V 195 H 98 Z" fill="url(#bodyGrad)" stroke="#cbd5e1" stroke-width="1"/>
-						<!-- Front Engine Hood (Slope layer for depth) -->
-						<path d="M 175 135 L 265 155 V 195 H 175 Z" fill="url(#bodyHighlight)" />
-						<!-- Ventilation Grills for realistic look -->
-						<line x1="195" y1="162" x2="245" y2="173" stroke="#94a3b8" stroke-width="2" />
-						<line x1="195" y1="168" x2="245" y2="179" stroke="#94a3b8" stroke-width="2" />
-						<line x1="195" y1="174" x2="245" y2="185" stroke="#94a3b8" stroke-width="2" />
-						
-						<!-- Front Grill (Distinct vertical front block) -->
-						<path d="M 265 155 L 268 156 V 193 L 265 195 Z" fill="#1e293b"/>
-						<!-- Front Headlight (Glow effect) -->
-						<path d="M 268 160 L 278 162 L 278 170 L 268 170 Z" fill="#fef08a"/>
-						<polygon points="278,162 335,150 335,195 278,170" fill="#fef08a" opacity="0.15"/>
-						
-						<!-- Exhaust Pipe / Smokestack -->
-						<path d="M 225 145 V 95 H 229 V 145 Z" fill="#334155"/>
-						<path d="M 225 95 L 222 88 H 232 L 229 95 Z" fill="#1e293b"/>
+							<!-- Rear Mudguard / Fender -->
+							<path d="M 80 185 C 80 120 125 110 185 125" stroke="url(#bodyGrad)" stroke-width="9" stroke-linecap="round" fill="none"/>
+							<!-- Front Mudguard / Fender -->
+							<path d="M 252 195 C 252 170 274 165 298 172" stroke="url(#bodyGrad)" stroke-width="5" stroke-linecap="round" fill="none"/>
+						</g>
 
-						<!-- Rear Mudguard / Fender -->
-						<path d="M 80 185 C 80 120 125 110 185 125" stroke="url(#bodyGrad)" stroke-width="9" stroke-linecap="round" fill="none"/>
-						<!-- Front Mudguard / Fender -->
-						<path d="M 252 195 C 252 170 274 165 298 172" stroke="url(#bodyGrad)" stroke-width="5" stroke-linecap="round" fill="none"/>
-					</g>
+						<!-- ROTATING GIANT REAR WHEEL (Center: 135, 180, Radius: 50) -->
+						<g class="spin-wheel" style="transform-origin: 135px 180px;">
+							<!-- Outer Heavy Tire -->
+							<circle cx="135" cy="180" r="50" fill="#0f172a" stroke="#475569" stroke-width="3" />
+							<!-- Large Tractor Tire Tread Spokes -->
+							<line x1="135" y1="130" x2="135" y2="230" stroke="#334155" stroke-width="5" />
+							<line x1="85" y1="180" x2="185" y2="180" stroke="#334155" stroke-width="5" />
+							<line x1="100" y1="145" x2="170" y2="215" stroke="#334155" stroke-width="4" />
+							<line x1="100" y1="215" x2="170" y2="145" stroke="#334155" stroke-width="4" />
+							<line x1="110" y1="135" x2="160" y2="225" stroke="#334155" stroke-width="2" />
+							<line x1="110" y1="225" x2="160" y2="135" stroke="#334155" stroke-width="2" />
+							<!-- Inner Wheel Rim -->
+							<circle cx="135" cy="180" r="30" fill="#cbd5e1" stroke="#ffffff" stroke-width="1.5" stroke-opacity="0.8" />
+							<circle cx="135" cy="180" r="18" fill="#e2e8f0" />
+							<!-- Center Hub -->
+							<circle cx="135" cy="180" r="7" fill="#475569" />
+						</g>
 
-					<!-- ROTATING GIANT REAR WHEEL (Center: 135, 180, Radius: 50) -->
-					<g class="spin-wheel" style="transform-origin: 135px 180px;">
-						<!-- Outer Heavy Tire -->
-						<circle cx="135" cy="180" r="50" fill="#0f172a" stroke="#475569" stroke-width="3" />
-						<!-- Large Tractor Tire Tread Spokes -->
-						<line x1="135" y1="130" x2="135" y2="230" stroke="#334155" stroke-width="5" />
-						<line x1="85" y1="180" x2="185" y2="180" stroke="#334155" stroke-width="5" />
-						<line x1="100" y1="145" x2="170" y2="215" stroke="#334155" stroke-width="4" />
-						<line x1="100" y1="215" x2="170" y2="145" stroke="#334155" stroke-width="4" />
-						<line x1="110" y1="135" x2="160" y2="225" stroke="#334155" stroke-width="2" />
-						<line x1="110" y1="225" x2="160" y2="135" stroke="#334155" stroke-width="2" />
-						<!-- Inner Wheel Rim -->
-						<circle cx="135" cy="180" r="30" fill="#cbd5e1" stroke="#ffffff" stroke-width="1.5" stroke-opacity="0.8" />
-						<circle cx="135" cy="180" r="18" fill="#e2e8f0" />
-						<!-- Center Hub -->
-						<circle cx="135" cy="180" r="7" fill="#475569" />
-					</g>
-
-					<!-- ROTATING SMALL FRONT WHEEL (Center: 275, 208, Radius: 22) -->
-					<g class="spin-wheel" style="transform-origin: 275px 208px;">
-						<!-- Outer Tire -->
-						<circle cx="275" cy="208" r="22" fill="#0f172a" stroke="#475569" stroke-width="2" />
-						<!-- Spokes -->
-						<line x1="275" y1="186" x2="275" y2="230" stroke="#334155" stroke-width="2" />
-						<line x1="253" y1="208" x2="297" y2="208" stroke="#334155" stroke-width="2" />
-						<line x1="259" y1="192" x2="291" y2="224" stroke="#334155" stroke-width="1.5" />
-						<line x1="259" y1="224" x2="291" y2="192" stroke="#334155" stroke-width="1.5" />
-						<!-- Rim -->
-						<circle cx="275" cy="208" r="12" fill="#cbd5e1" stroke="#ffffff" stroke-width="1" stroke-opacity="0.8" />
-						<circle cx="275" cy="208" r="7" fill="#e2e8f0" />
-						<!-- Hub -->
-						<circle cx="275" cy="208" r="3" fill="#475569" />
+						<!-- ROTATING SMALL FRONT WHEEL (Center: 275, 208, Radius: 22) -->
+						<g class="spin-wheel" style="transform-origin: 275px 208px;">
+							<!-- Outer Tire -->
+							<circle cx="275" cy="208" r="22" fill="#0f172a" stroke="#475569" stroke-width="2" />
+							<!-- Spokes -->
+							<line x1="275" y1="186" x2="275" y2="230" stroke="#334155" stroke-width="2" />
+							<line x1="253" y1="208" x2="297" y2="208" stroke="#334155" stroke-width="2" />
+							<line x1="259" y1="192" x2="291" y2="224" stroke="#334155" stroke-width="1.5" />
+							<line x1="259" y1="224" x2="291" y2="192" stroke="#334155" stroke-width="1.5" />
+							<!-- Rim -->
+							<circle cx="275" cy="208" r="12" fill="#cbd5e1" stroke="#ffffff" stroke-width="1" stroke-opacity="0.8" />
+							<circle cx="275" cy="208" r="7" fill="#e2e8f0" />
+							<!-- Hub -->
+							<circle cx="275" cy="208" r="3" fill="#475569" />
+						</g>
+							</g>
+						</g>
 					</g>
 				</svg>
 			</div>
