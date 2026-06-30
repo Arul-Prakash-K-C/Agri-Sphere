@@ -105,6 +105,25 @@
 	function toggleNotificationsDropdown() {
 		showNotifications = !showNotifications;
 	}
+
+	// Dropup states for mobile navigation menu
+	let cropsDropupOpen = $state(false);
+	let salesDropupOpen = $state(false);
+
+	function toggleCropsDropup() {
+		cropsDropupOpen = !cropsDropupOpen;
+		salesDropupOpen = false;
+	}
+
+	function toggleSalesDropup() {
+		salesDropupOpen = !salesDropupOpen;
+		cropsDropupOpen = false;
+	}
+
+	function closeDropups() {
+		cropsDropupOpen = false;
+		salesDropupOpen = false;
+	}
 </script>
 
 <svelte:head>
@@ -720,26 +739,159 @@
 			</main>
 
 			<!-- Mobile Bottom Navigation (Visible only on mobile screen widths) -->
-			<nav class="md:hidden fixed bottom-0 w-full bg-white/95 backdrop-blur-md border-t border-emerald-100 flex justify-around items-center py-3.5 z-40 shadow-lg">
-				{#each navItems as item (item.href)}
+			<!-- Displays 6 icons: Dashboard, Disease, Crops (Crops/Irrigation/Harvest), Sales (Sales/Expenses), Inventory, Listings -->
+			<nav class="md:hidden fixed bottom-0 w-full bg-white/95 backdrop-blur-md border-t border-emerald-100 flex justify-around items-center py-2.5 z-40 shadow-lg">
+				{#if authState.profile && authState.profile.role === 'farmer'}
+					<!-- Dashboard -->
 					<a
-						href={item.href}
+						href="/farmer/dashboard"
 						class={[
 							'flex flex-col items-center gap-0.5 text-xs font-bold transition-colors duration-200',
-							page.url.pathname === item.href ? 'text-primary-green' : 'text-slate-500'
+							page.url.pathname === '/farmer/dashboard' ? 'text-primary-green' : 'text-slate-500'
 						].filter(Boolean).join(' ')}
 					>
-						<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' {page.url.pathname === item.href ? '1' : '0'};">{item.icon}</span>
-						<span class="text-[9px] mt-0.5 tracking-tight">{item.label}</span>
+						<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' {page.url.pathname === '/farmer/dashboard' ? '1' : '0'};">agriculture</span>
 					</a>
-				{/each}
+
+					<!-- Disease -->
+					<a
+						href="/farmer/disease"
+						class={[
+							'flex flex-col items-center gap-0.5 text-xs font-bold transition-colors duration-200',
+							page.url.pathname === '/farmer/disease' ? 'text-primary-green' : 'text-slate-500'
+						].filter(Boolean).join(' ')}
+					>
+						<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' {page.url.pathname === '/farmer/disease' ? '1' : '0'};">shutter_speed</span>
+					</a>
+
+					<!-- Crops (Groups Crops, Irrigation, Harvest Logs with Dropup) -->
+					<div class="relative flex flex-col items-center">
+						{#if cropsDropupOpen}
+							<div class="absolute bottom-[52px] left-1/2 -translate-x-1/2 bg-white rounded-2xl border border-emerald-100/80 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.15)] py-2 px-2.5 flex flex-col gap-1.5 min-w-[130px] z-50 animate-fade-in
+								after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-8 after:border-t-white after:border-x-transparent after:border-b-transparent
+								before:content-[''] before:absolute before:top-full before:left-1/2 before:-translate-x-1/2 before:border-[9px] before:border-t-emerald-100/80 before:border-x-transparent before:border-b-transparent before:-z-10">
+								<a
+									href="/farmer/crops"
+									onclick={closeDropups}
+									class={['px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors', page.url.pathname === '/farmer/crops' ? 'bg-primary-green text-white' : 'text-slate-700 hover:bg-slate-50'].join(' ')}
+								>
+									<span class="material-symbols-outlined text-[16px]">psychology</span>
+									Crops
+								</a>
+								<a
+									href="/farmer/irrigation"
+									onclick={closeDropups}
+									class={['px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors', page.url.pathname === '/farmer/irrigation' ? 'bg-primary-green text-white' : 'text-slate-700 hover:bg-slate-50'].join(' ')}
+								>
+									<span class="material-symbols-outlined text-[16px]">water_drop</span>
+									Irrigation
+								</a>
+								<a
+									href="/farmer/harvests"
+									onclick={closeDropups}
+									class={['px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors', page.url.pathname === '/farmer/harvests' ? 'bg-primary-green text-white' : 'text-slate-700 hover:bg-slate-50'].join(' ')}
+								>
+									<span class="material-symbols-outlined text-[16px]">agriculture</span>
+									Harvests
+								</a>
+							</div>
+							<!-- click outside backdrop -->
+							<button tabindex="-1" onclick={closeDropups} class="fixed inset-0 bg-transparent z-45 cursor-default w-screen h-screen pointer-events-auto border-none outline-none"></button>
+						{/if}
+						<button
+							type="button"
+							onclick={toggleCropsDropup}
+							class={[
+								'flex flex-col items-center gap-0.5 text-xs font-bold transition-colors duration-200 outline-none border-none bg-transparent cursor-pointer relative z-48',
+								['/farmer/crops', '/farmer/irrigation', '/farmer/harvests'].some(p => page.url.pathname.startsWith(p)) ? 'text-primary-green' : 'text-slate-500'
+							].filter(Boolean).join(' ')}
+						>
+							<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' {['/farmer/crops', '/farmer/irrigation', '/farmer/harvests'].some(p => page.url.pathname.startsWith(p)) ? '1' : '0'};">psychology</span>
+						</button>
+					</div>
+
+					<!-- Sales (Groups Sales, Expenses with Dropup) -->
+					<div class="relative flex flex-col items-center">
+						{#if salesDropupOpen}
+							<div class="absolute bottom-[52px] left-1/2 -translate-x-1/2 bg-white rounded-2xl border border-emerald-100/80 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.15)] py-2 px-2.5 flex flex-col gap-1.5 min-w-[120px] z-50 animate-fade-in
+								after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-8 after:border-t-white after:border-x-transparent after:border-b-transparent
+								before:content-[''] before:absolute before:top-full before:left-1/2 before:-translate-x-1/2 before:border-[9px] before:border-t-emerald-100/80 before:border-x-transparent before:border-b-transparent before:-z-10">
+								<a
+									href="/farmer/sales"
+									onclick={closeDropups}
+									class={['px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors', page.url.pathname === '/farmer/sales' ? 'bg-primary-green text-white' : 'text-slate-700 hover:bg-slate-50'].join(' ')}
+								>
+									<span class="material-symbols-outlined text-[16px]">point_of_sale</span>
+									Sales
+								</a>
+								<a
+									href="/farmer/expenses"
+									onclick={closeDropups}
+									class={['px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors', page.url.pathname === '/farmer/expenses' ? 'bg-primary-green text-white' : 'text-slate-700 hover:bg-slate-50'].join(' ')}
+								>
+									<span class="material-symbols-outlined text-[16px]">payments</span>
+									Expenses
+								</a>
+							</div>
+							<!-- click outside backdrop -->
+							<button tabindex="-1" onclick={closeDropups} class="fixed inset-0 bg-transparent z-45 cursor-default w-screen h-screen pointer-events-auto border-none outline-none"></button>
+						{/if}
+						<button
+							type="button"
+							onclick={toggleSalesDropup}
+							class={[
+								'flex flex-col items-center gap-0.5 text-xs font-bold transition-colors duration-200 outline-none border-none bg-transparent cursor-pointer relative z-48',
+								['/farmer/sales', '/farmer/expenses'].some(p => page.url.pathname.startsWith(p)) ? 'text-primary-green' : 'text-slate-500'
+							].filter(Boolean).join(' ')}
+						>
+							<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' {['/farmer/sales', '/farmer/expenses'].some(p => page.url.pathname.startsWith(p)) ? '1' : '0'};">point_of_sale</span>
+						</button>
+					</div>
+
+					<!-- Inventory -->
+					<a
+						href="/farmer/inventory"
+						class={[
+							'flex flex-col items-center gap-0.5 text-xs font-bold transition-colors duration-200',
+							page.url.pathname.startsWith('/farmer/inventory') ? 'text-primary-green' : 'text-slate-500'
+						].filter(Boolean).join(' ')}
+					>
+						<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' {page.url.pathname.startsWith('/farmer/inventory') ? '1' : '0'};">inventory_2</span>
+					</a>
+
+					<!-- My Listings -->
+					<a
+						href="/farmer/products"
+						class={[
+							'flex flex-col items-center gap-0.5 text-xs font-bold transition-colors duration-200',
+							page.url.pathname.startsWith('/farmer/products') ? 'text-primary-green' : 'text-slate-500'
+						].filter(Boolean).join(' ')}
+					>
+						<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' {page.url.pathname.startsWith('/farmer/products') ? '1' : '0'};">storefront</span>
+					</a>
+				{/if}
+				{#if !(authState.profile && authState.profile.role === 'farmer')}
+					<!-- Fallback for standard guest/buyer accounts -->
+					{#each navItems as item (item.href)}
+						<a
+							href={item.href}
+							class={[
+								'flex flex-col items-center gap-0.5 text-xs font-bold transition-colors duration-200',
+								page.url.pathname === item.href ? 'text-primary-green' : 'text-slate-500'
+							].filter(Boolean).join(' ')}
+						>
+							<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' {page.url.pathname === item.href ? '1' : '0'};">{item.icon}</span>
+						</a>
+					{/each}
+				{/if}
+
+				<!-- Logout Button -->
 				<button
 					type="button"
 					onclick={handleLogout}
 					class="flex flex-col items-center gap-0.5 text-xs font-bold text-red-500"
 				>
 					<span class="material-symbols-outlined text-[22px]">logout</span>
-					<span class="text-[9px] mt-0.5 tracking-tight">Logout</span>
 				</button>
 			</nav>
 		</div>
