@@ -81,7 +81,7 @@ export async function POST({ request, locals }) {
 		const data = docSnap.data();
 
 		if (action === 'add_run') {
-			const { zone, startDateStr, intervalDays, time, location } = payload;
+			const { zone, startDateStr, intervalDays, time, location, type, monthsLimit } = payload;
 			if (!zone || typeof zone !== 'string') {
 				return json({ error: 'Zone/Crop is required' }, { status: 400 });
 			}
@@ -94,8 +94,11 @@ export async function POST({ request, locals }) {
 			const startDate = new Date(startYear, startMonth1 - 1, startDay);
 
 			let endDate;
-			if (zone.startsWith('Note:')) {
+			if (zone.startsWith('Note:') || type === 'Note') {
 				endDate = new Date(startDate);
+			} else if (type === 'Fertilizer') {
+				const months = Math.max(1, Number(monthsLimit || 1));
+				endDate = new Date(startYear, startMonth1 - 1 + months, startDay);
 			} else {
 				// Irrigation occurs throughout the year: set end date to 1 year in the future
 				endDate = new Date(startYear + 1, startMonth1 - 1, startDay);
@@ -215,7 +218,8 @@ export async function POST({ request, locals }) {
 					rainProb = rainForecast[dateString] !== undefined ? rainForecast[dateString] : 0;
 				}
 
-				const extensionDays = rained ? Math.max(1, Math.floor(rainProb / 20)) : Math.floor(rainProb / 20);
+				const rainSmart = !!data.rainSmartEnabled;
+				const extensionDays = rainSmart ? (rained ? Math.max(1, Math.floor(rainProb / 20)) : Math.floor(rainProb / 20)) : 0;
 				
 				// Safely shift dates using a new Date object to handle month boundaries
 				const shiftedDate = new Date(curYear, curMonth, curDay + extensionDays);
@@ -227,6 +231,8 @@ export async function POST({ request, locals }) {
 				let colorClass = 'bg-emerald-50 text-dark-green border-emerald-100/50';
 				if (zone.startsWith('Note:')) {
 					colorClass = 'bg-amber-50 text-amber-800 border-amber-100/50';
+				} else if (type === 'Fertilizer') {
+					colorClass = 'bg-purple-50 text-purple-800 border-purple-100/50';
 				} else if (isPostponed) {
 					colorClass = 'bg-sky-50 text-sky-855 border-sky-100/50';
 				}
@@ -247,16 +253,17 @@ export async function POST({ request, locals }) {
 					didRain: rained,
 					extensionDays,
 					colorClass,
-					intervalDays: interval
+					intervalDays: interval,
+					type: type || (zone.startsWith('Note:') ? 'Note' : 'Irrigation')
 				};
 				createdRuns.push(newRun);
 
-				// Advance next run original date to be after the shifted date of this run plus interval
-				current = new Date(actualYear, actualMonth, actualDate + interval);
+				// Advance next run original date based purely on original date + interval
+				current = new Date(curYear, curMonth, curDay + interval);
 			}
 
 			const allRunsWithNew = [...(data.scheduleRuns || []), ...createdRuns];
-			const { updatedRuns, notificationsToCreate } = realignRuns(allRunsWithNew, data.weatherOverrides || {}, rainForecast, locals.user.uid);
+			const { updatedRuns, notificationsToCreate } = realignRuns(allRunsWithNew, data.weatherOverrides || {}, rainForecast, locals.user.uid, !!data.rainSmartEnabled);
 
 			// Write notifications to Firestore
 			if (notificationsToCreate.length > 0) {
@@ -381,7 +388,7 @@ export async function POST({ request, locals }) {
 			};
 
 			const allRuns = data.scheduleRuns || [];
-			const { updatedRuns: runs, notificationsToCreate } = realignRuns(allRuns, overrides, {}, locals.user.uid);
+			const { updatedRuns: runs, notificationsToCreate } = realignRuns(allRuns, overrides, {}, locals.user.uid, !!data.rainSmartEnabled);
 
 			// Write notifications to Firestore
 			if (notificationsToCreate.length > 0) {
@@ -446,6 +453,75 @@ export async function POST({ request, locals }) {
 			});
 		}
 
+		if (action === 'toggle_rain_smart') {
+			const { enabled } = payload;
+			const rainSmartEnabled = !!enabled;
+
+			const allRuns = data.scheduleRuns || [];
+			const { updatedRuns: runs, notificationsToCreate } = realignRuns(allRuns, data.weatherOverrides || {}, {}, locals.user.uid, rainSmartEnabled);
+
+			if (notificationsToCreate.length > 0) {
+				const batch = adminDb.batch();
+				for (const notif of notificationsToCreate) {
+					const notifRef = adminDb.collection('notifications').doc();
+					batch.set(notifRef, notif);
+				}
+				await batch.commit();
+			}
+
+			const newActivity = {
+				id: `act-smart-${Date.now()}`,
+				title: `Smart Rain Delay ${rainSmartEnabled ? 'Enabled' : 'Disabled'}`,
+				desc: rainSmartEnabled ? 'Runs will auto-shift based on weather' : 'Runs will stick to scheduled input dates',
+				icon: rainSmartEnabled ? 'umbrella' : 'wb_sunny',
+				colorClass: rainSmartEnabled ? 'bg-sky-50 text-sky-850' : 'bg-slate-100 text-slate-500'
+			};
+			const updatedActivities = [newActivity, ...(data.activities || [])].slice(0, 10);
+
+			const today = new Date();
+			const curDate = today.getDate();
+			const curMonth = today.getMonth();
+			const curYear = today.getFullYear();
+			
+			const updatedUpcoming = runs
+				.filter(run => {
+					if (run.zone.startsWith('Note:')) return false;
+					if (run.year > curYear) return true;
+					if (run.year === curYear && run.month > curMonth) return true;
+					if (run.year === curYear && run.month === curMonth && run.date >= curDate) return true;
+					return false;
+				})
+				.map(run => ({
+					id: `up-${run.id}`,
+					day: run.date,
+					month: run.month,
+					year: run.year,
+					zone: run.zone,
+					details: run.time
+				}))
+				.sort((a, b) => {
+					const dateA = new Date(a.year ?? curYear, a.month ?? curMonth, a.day);
+					const dateB = new Date(b.year ?? curYear, b.month ?? curMonth, b.day);
+					return dateA - dateB;
+				})
+				.slice(0, 5);
+
+			await docRef.update({ 
+				rainSmartEnabled,
+				scheduleRuns: runs,
+				activities: updatedActivities,
+				upcomingRuns: updatedUpcoming
+			});
+
+			return json({ 
+				success: true, 
+				rainSmartEnabled, 
+				runs, 
+				activities: updatedActivities, 
+				upcomingRuns: updatedUpcoming 
+			});
+		}
+
 		if (action === 'delete_run') {
 			const { runId } = payload;
 			if (!runId) {
@@ -456,13 +532,226 @@ export async function POST({ request, locals }) {
 			const overrides = data.weatherOverrides || {};
 
 			// Realign runs after deletion
-			const { updatedRuns, notificationsToCreate } = realignRuns(runs, overrides, {}, locals.user.uid);
+			const { updatedRuns, notificationsToCreate } = realignRuns(runs, overrides, {}, locals.user.uid, !!data.rainSmartEnabled);
 
 			const today = new Date();
 			const curDate = today.getDate();
 			const curMonth = today.getMonth();
 			const curYear = today.getFullYear();
 
+			const updatedUpcoming = updatedRuns
+				.filter(run => {
+					if (run.zone.startsWith('Note:')) return false;
+					if (run.year > curYear) return true;
+					if (run.year === curYear && run.month > curMonth) return true;
+					if (run.year === curYear && run.month === curMonth && run.date >= curDate) return true;
+					return false;
+				})
+				.map(run => ({
+					id: `up-${run.id}`,
+					day: run.date,
+					month: run.month,
+					year: run.year,
+					zone: run.zone,
+					details: run.time
+				}))
+				.sort((a, b) => {
+					const dateA = new Date(a.year ?? curYear, a.month ?? curMonth, a.day);
+					const dateB = new Date(b.year ?? curYear, b.month ?? curMonth, b.day);
+					return dateA - dateB;
+				})
+				.slice(0, 5);
+
+			await docRef.update({
+				scheduleRuns: updatedRuns,
+				upcomingRuns: updatedUpcoming
+			});
+
+			return json({ success: true, runs: updatedRuns, upcomingRuns: updatedUpcoming });
+		}
+
+		if (action === 'edit_schedule') {
+			const { oldSchedule, newSchedule } = payload;
+			if (!oldSchedule || !newSchedule) {
+				return json({ error: 'Old and new schedule details are required' }, { status: 400 });
+			}
+			const runs = data.scheduleRuns || [];
+			
+			// 1. Separate runs that DO NOT match the old schedule
+			const otherRuns = runs.filter(r => {
+				const rType = r.type || (r.zone?.startsWith('Note:') ? 'Note' : 'Irrigation');
+				return !(r.zone === oldSchedule.zone && 
+						 r.time === oldSchedule.time && 
+						 Number(r.intervalDays || 1) === Number(oldSchedule.intervalDays) && 
+						 rType === oldSchedule.type);
+			});
+
+			// 2. Determine start date for the new schedule
+			let startDateStr = newSchedule.startDateStr || oldSchedule.startDateStr;
+			if (!startDateStr) {
+				const oldRuns = runs.filter(r => {
+					const rType = r.type || (r.zone?.startsWith('Note:') ? 'Note' : 'Irrigation');
+					return r.zone === oldSchedule.zone && 
+						   r.time === oldSchedule.time && 
+						   Number(r.intervalDays || 1) === Number(oldSchedule.intervalDays) && 
+						   rType === oldSchedule.type;
+				});
+				if (oldRuns.length > 0) {
+					oldRuns.sort((a, b) => new Date(a.originalDateStr) - new Date(b.originalDateStr));
+					startDateStr = oldRuns[0].originalDateStr;
+				} else {
+					startDateStr = new Date().toISOString().split('T')[0];
+				}
+			}
+
+			// 3. Generate new runs list
+			const zone = newSchedule.zone;
+			const type = newSchedule.type || 'Irrigation';
+			const interval = Math.max(1, Number(newSchedule.intervalDays || 1));
+			const time = newSchedule.time || '05:00 - 06:00';
+
+			const [startYear, startMonth1, startDay] = startDateStr.split('-').map(Number);
+			const startDate = new Date(startYear, startMonth1 - 1, startDay);
+
+			let endDate;
+			if (zone.startsWith('Note:') || type === 'Note') {
+				endDate = new Date(startDate);
+			} else if (type === 'Fertilizer') {
+				const months = Math.max(1, Number(newSchedule.monthsLimit || 3));
+				endDate = new Date(startYear, startMonth1 - 1 + months, startDay);
+			} else {
+				endDate = new Date(startYear + 1, startMonth1 - 1, startDay);
+			}
+
+			const createdRuns = [];
+			let current = new Date(startDate);
+			const pad = (n) => String(n).padStart(2, '0');
+
+			while (current <= endDate) {
+				const curYear = current.getFullYear();
+				const curMonth = current.getMonth();
+				const curDay = current.getDate();
+				const dateString = `${curYear}-${pad(curMonth + 1)}-${pad(curDay)}`;
+				
+				const overrides = data.weatherOverrides || {};
+				let rainProb = 0;
+				let rained = false;
+
+				if (overrides[dateString]) {
+					rainProb = overrides[dateString].rainProbability;
+					rained = overrides[dateString].didRain;
+				} else {
+					rainProb = 0;
+				}
+
+				const rainSmart = !!data.rainSmartEnabled;
+				const extensionDays = rainSmart ? (rained ? Math.max(1, Math.floor(rainProb / 20)) : Math.floor(rainProb / 20)) : 0;
+				
+				const shiftedDate = new Date(curYear, curMonth, curDay + extensionDays);
+				const actualDate = shiftedDate.getDate();
+				const actualMonth = shiftedDate.getMonth();
+				const actualYear = shiftedDate.getFullYear();
+				const isPostponed = extensionDays > 0;
+
+				let colorClass = 'bg-emerald-50 text-dark-green border-emerald-100/50';
+				if (zone.startsWith('Note:') || type === 'Note') {
+					colorClass = 'bg-amber-50 text-amber-800 border-amber-100/50';
+				} else if (type === 'Fertilizer') {
+					colorClass = 'bg-purple-50 text-purple-800 border-purple-100/50';
+				} else if (isPostponed) {
+					colorClass = 'bg-sky-50 text-sky-855 border-sky-100/50';
+				}
+
+				const runId = `${Date.now()}-${curDay}-${Math.random().toString(36).substring(2, 6)}`;
+				const newRun = {
+					id: runId,
+					originalDateStr: dateString,
+					originalDate: curDay,
+					originalMonth: curMonth,
+					originalYear: curYear,
+					date: actualDate,
+					month: actualMonth,
+					year: actualYear,
+					zone,
+					time: time,
+					rainProbability: rainProb,
+					didRain: rained,
+					extensionDays,
+					colorClass,
+					intervalDays: interval,
+					type: type
+				};
+				createdRuns.push(newRun);
+
+				// Advance next run original date based purely on original date + interval
+				current = new Date(curYear, curMonth, curDay + interval);
+			}
+
+			const allRunsWithNew = [...otherRuns, ...createdRuns];
+			const { updatedRuns, notificationsToCreate } = realignRuns(allRunsWithNew, data.weatherOverrides || {}, {}, locals.user.uid, !!data.rainSmartEnabled);
+
+			if (notificationsToCreate.length > 0) {
+				const batch = adminDb.batch();
+				for (const notif of notificationsToCreate) {
+					const notifRef = adminDb.collection('notifications').doc();
+					batch.set(notifRef, notif);
+				}
+				await batch.commit();
+			}
+
+			const today = new Date();
+			const curDate = today.getDate();
+			const curMonth = today.getMonth();
+			const curYear = today.getFullYear();
+			
+			const updatedUpcoming = updatedRuns
+				.filter(run => {
+					if (run.zone.startsWith('Note:')) return false;
+					if (run.year > curYear) return true;
+					if (run.year === curYear && run.month > curMonth) return true;
+					if (run.year === curYear && run.month === curMonth && run.date >= curDate) return true;
+					return false;
+				})
+				.map(run => ({
+					id: `up-${run.id}`,
+					day: run.date,
+					month: run.month,
+					year: run.year,
+					zone: run.zone,
+					details: run.time
+				}))
+				.sort((a, b) => {
+					const dateA = new Date(a.year ?? curYear, a.month ?? curMonth, a.day);
+					const dateB = new Date(b.year ?? curYear, b.month ?? curMonth, b.day);
+					return dateA - dateB;
+				})
+				.slice(0, 5);
+
+			await docRef.update({
+				scheduleRuns: updatedRuns,
+				upcomingRuns: updatedUpcoming
+			});
+
+			return json({ success: true, runs: updatedRuns, upcomingRuns: updatedUpcoming });
+		}
+
+		if (action === 'delete_schedule') {
+			const { zone, time, intervalDays, type } = payload;
+			let runs = data.scheduleRuns || [];
+			
+			runs = runs.filter(r => {
+				const rType = r.type || (r.zone?.startsWith('Note:') ? 'Note' : 'Irrigation');
+				return !(r.zone === zone && r.time === time && Number(r.intervalDays || 1) === Number(intervalDays) && rType === type);
+			});
+
+			const overrides = data.weatherOverrides || {};
+			const { updatedRuns, notificationsToCreate } = realignRuns(runs, overrides, {}, locals.user.uid, !!data.rainSmartEnabled);
+
+			const today = new Date();
+			const curDate = today.getDate();
+			const curMonth = today.getMonth();
+			const curYear = today.getFullYear();
+			
 			const updatedUpcoming = updatedRuns
 				.filter(run => {
 					if (run.zone.startsWith('Note:')) return false;
@@ -511,7 +800,7 @@ export async function POST({ request, locals }) {
 	}
 }
 
-function realignRuns(runs, weatherOverrides, rainForecast, userId) {
+function realignRuns(runs, weatherOverrides, rainForecast, userId, rainSmartEnabled = false) {
 	const zones = [...new Set(runs.map(r => r.zone))];
 	const updatedRuns = [];
 	const notificationsToCreate = [];
@@ -547,7 +836,7 @@ function realignRuns(runs, weatherOverrides, rainForecast, userId) {
 				rained = run.didRain || false;
 			}
 
-			const weatherShift = rained ? Math.max(1, Math.floor(rainProb / 20)) : Math.floor(rainProb / 20);
+			const weatherShift = rainSmartEnabled ? (rained ? Math.max(1, Math.floor(rainProb / 20)) : Math.floor(rainProb / 20)) : 0;
 			
 			// Standard shifted date based purely on weather of this day
 			let actualShifted = new Date(origYear, origMonth - 1, origDay + weatherShift);
@@ -574,6 +863,8 @@ function realignRuns(runs, weatherOverrides, rainForecast, userId) {
 			let colorClass = 'bg-emerald-50 text-dark-green border-emerald-100/50';
 			if (zone.startsWith('Note:')) {
 				colorClass = 'bg-amber-50 text-amber-800 border-amber-100/50';
+			} else if (run.type === 'Fertilizer') {
+				colorClass = 'bg-purple-50 text-purple-800 border-purple-100/50';
 			} else if (isPostponed) {
 				colorClass = 'bg-sky-50 text-sky-855 border-sky-100/50';
 			}

@@ -25,6 +25,141 @@
 	let newStorageId = $state('');
 	let editStorageId = $state('');
 
+	let dateFilter = $state('All');
+	let customFromDate = $state('');
+	let customToDate = $state('');
+	let searchQuery = $state('');
+	let currentPage = $state(1);
+	const itemsPerPage = 10;
+
+	function isDateInFilter(dateIso, filter) {
+		if (filter === 'All') return true;
+		if (!dateIso) return false;
+
+		const saleDate = new Date(dateIso);
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+
+		const tomorrow = new Date(today);
+		tomorrow.setDate(tomorrow.getDate() + 1);
+
+		switch (filter) {
+			case 'Today': {
+				const start = new Date(today);
+				return saleDate >= start && saleDate < tomorrow;
+			}
+			case 'Yesterday': {
+				const start = new Date(today);
+				start.setDate(start.getDate() - 1);
+				const end = new Date(today);
+				return saleDate >= start && saleDate < end;
+			}
+			case 'This Week': {
+				const start = new Date(today);
+				start.setDate(today.getDate() - today.getDay());
+				return saleDate >= start && saleDate < tomorrow;
+			}
+			case 'Previous Week': {
+				const start = new Date(today);
+				start.setDate(today.getDate() - today.getDay() - 7);
+				const end = new Date(today);
+				end.setDate(today.getDate() - today.getDay());
+				return saleDate >= start && saleDate < end;
+			}
+			case 'This Month': {
+				const start = new Date(today.getFullYear(), today.getMonth(), 1);
+				return saleDate >= start && saleDate < tomorrow;
+			}
+			case 'Previous Month': {
+				const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+				const end = new Date(today.getFullYear(), today.getMonth(), 1);
+				return saleDate >= start && saleDate < end;
+			}
+			case 'This Quarter': {
+				const q = Math.floor(today.getMonth() / 3);
+				const start = new Date(today.getFullYear(), q * 3, 1);
+				return saleDate >= start && saleDate < tomorrow;
+			}
+			case 'Previous Quarter': {
+				const currentQuarter = Math.floor(today.getMonth() / 3);
+				const start = new Date(today.getFullYear(), (currentQuarter - 1) * 3, 1);
+				const end = new Date(today.getFullYear(), currentQuarter * 3, 1);
+				return saleDate >= start && saleDate < end;
+			}
+			case 'This Half Year': {
+				const start = today.getMonth() < 6
+					? new Date(today.getFullYear(), 0, 1)
+					: new Date(today.getFullYear(), 6, 1);
+				return saleDate >= start && saleDate < tomorrow;
+			}
+			case 'Previous Half Year': {
+				let start, end;
+				if (today.getMonth() < 6) {
+					start = new Date(today.getFullYear() - 1, 6, 1);
+					end = new Date(today.getFullYear(), 0, 1);
+				} else {
+					start = new Date(today.getFullYear(), 0, 1);
+					end = new Date(today.getFullYear(), 6, 1);
+				}
+				return saleDate >= start && saleDate < end;
+			}
+			case 'This Year': {
+				const start = new Date(today.getFullYear(), 0, 1);
+				return saleDate >= start && saleDate < tomorrow;
+			}
+			case 'Previous Year': {
+				const start = new Date(today.getFullYear() - 1, 0, 1);
+				const end = new Date(today.getFullYear(), 0, 1);
+				return saleDate >= start && saleDate < end;
+			}
+			case 'Custom Date Range': {
+				if (!customFromDate || !customToDate) return true;
+				const start = new Date(customFromDate + 'T00:00:00');
+				const end = new Date(customToDate + 'T23:59:59');
+				return saleDate >= start && saleDate <= end;
+			}
+			default:
+				return true;
+		}
+	}
+
+	let filteredExpenses = $derived.by(() => {
+		return expenses.filter(e => {
+			const dateMatch = isDateInFilter(e.rawDate || e.date || e.createdAt, dateFilter);
+
+			const q = searchQuery.trim().toLowerCase();
+			const queryMatch = !q || (
+				e.description?.toLowerCase().includes(q) ||
+				e.itemDetails?.itemName?.toLowerCase().includes(q) ||
+				e.category?.toLowerCase().includes(q) ||
+				e.itemDetails?.brand?.toLowerCase().includes(q) ||
+				e.vendor?.toLowerCase().includes(q) ||
+				e.paymentMethod?.toLowerCase().includes(q) ||
+				e.itemDetails?.notes?.toLowerCase().includes(q) ||
+				e.notes?.toLowerCase().includes(q)
+			);
+
+			return dateMatch && queryMatch;
+		});
+	});
+
+	let totalPages = $derived(Math.max(1, Math.ceil(filteredExpenses.length / itemsPerPage)));
+	let paginatedExpenses = $derived(filteredExpenses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage));
+
+	$effect(() => {
+		searchQuery;
+		dateFilter;
+		customFromDate;
+		customToDate;
+		currentPage = 1;
+	});
+
+	$effect(() => {
+		if (currentPage > totalPages) {
+			currentPage = totalPages;
+		}
+	});
+
 	function convertToUnit(amount, fromUnit, toUnit) {
 		if (!amount || isNaN(amount)) return 0;
 		const from = (fromUnit || '').trim().toLowerCase();
@@ -860,12 +995,76 @@
 
 	<!-- Recent Expenses Table -->
 	<div class="bg-white rounded-2xl border border-slate-200/50 shadow-sm overflow-hidden">
-		<div class="p-5 border-b border-slate-100 flex justify-between items-center">
-			<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Recent Expenses Logs</h3>
-			<span class="text-xs font-semibold text-slate-400 bg-slate-50 border border-slate-100 rounded-full px-3 py-0.5">{expenses.length} logs saved</span>
+		<!-- Table Header / Toolbar -->
+		<div class="p-5 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+			<div>
+				<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Recent Expenses Logs</h3>
+				<p class="text-[11px] text-slate-400 mt-0.5">All logged expenses for your farm operations</p>
+			</div>
+			
+			<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+				<!-- Date Filter -->
+				<select
+					bind:value={dateFilter}
+					class="border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-primary-green bg-white text-slate-600 cursor-pointer"
+				>
+					<option value="All">📅 All Dates</option>
+					<option value="Today">Today</option>
+					<option value="Yesterday">Yesterday</option>
+					<option value="This Week">This Week</option>
+					<option value="Previous Week">Previous Week</option>
+					<option value="This Month">This Month</option>
+					<option value="Previous Month">Previous Month</option>
+					<option value="This Quarter">This Quarter</option>
+					<option value="Previous Quarter">Previous Quarter</option>
+					<option value="This Half Year">This Half Year</option>
+					<option value="Previous Half Year">Previous Half Year</option>
+					<option value="This Year">This Year</option>
+					<option value="Previous Year">Previous Year</option>
+					<option value="Custom Date Range">Custom Date Range…</option>
+				</select>
+
+				<!-- Search input -->
+				<div class="relative w-full sm:w-64">
+					<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[16px]">search</span>
+					<input
+						type="text"
+						placeholder="Search expense, vendor, notes…"
+						bind:value={searchQuery}
+						class="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-primary-green bg-slate-50 focus:bg-white transition-colors"
+					/>
+				</div>
+
+				<span class="text-xs font-semibold text-slate-400 bg-slate-50 border border-slate-100 rounded-full px-3 py-1 text-center whitespace-nowrap">
+					{expenses.length} logs saved
+				</span>
+			</div>
 		</div>
-		<div class="w-full">
-			<table class="w-full text-left border-collapse text-xs table-fixed min-w-0">
+
+		<!-- Custom Date Range Pickers -->
+		{#if dateFilter === 'Custom Date Range'}
+			<div class="px-5 py-3 border-b border-slate-100 flex flex-wrap items-center gap-3 bg-slate-50/30" transition:slide={{ duration: 150 }}>
+				<div class="flex items-center gap-1.5 text-xs text-slate-500 font-bold">
+					<span>From:</span>
+					<input
+						type="date"
+						bind:value={customFromDate}
+						class="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:border-primary-green bg-white"
+					/>
+				</div>
+				<div class="flex items-center gap-1.5 text-xs text-slate-500 font-bold">
+					<span>To:</span>
+					<input
+						type="date"
+						bind:value={customToDate}
+						class="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:border-primary-green bg-white"
+					/>
+				</div>
+			</div>
+		{/if}
+
+		<div class="overflow-x-auto">
+			<table class="w-full text-left border-collapse text-xs">
 				<thead>
 					<tr class="bg-slate-50/50 font-bold uppercase tracking-wider text-[10px] text-slate-400 border-b border-slate-100">
 						<th class="p-4 pl-6 w-[22%] sm:w-[15%] hidden sm:table-cell">Date</th>
@@ -889,7 +1088,7 @@
 							</tr>
 						{/each}
 					{/if}
-					{#each expenses as expense (expense.id)}
+					{#each paginatedExpenses as expense (expense.id)}
 						<tr class="hover:bg-slate-50/30 transition-colors">
 							<td class="p-4 pl-6 text-slate-400 hidden sm:table-cell">{expense.date}</td>
 							<td class="p-4 pl-6 sm:pl-4 w-[50%] sm:w-auto">
@@ -971,6 +1170,49 @@
 					{/each}
 				</tbody>
 			</table>
+		</div>
+
+		<!-- Footer / Pagination -->
+		<div class="p-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 text-slate-400 text-xs bg-slate-50/50">
+			<span>
+				{#if filteredExpenses.length > 0}
+					Showing {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, filteredExpenses.length)} of {filteredExpenses.length} records
+				{:else}
+					Showing 0 of 0 records
+				{/if}
+			</span>
+
+			{#if totalPages > 1}
+				<div class="flex items-center gap-1.5 font-bold">
+					<button
+						type="button"
+						disabled={currentPage === 1}
+						onclick={() => currentPage = Math.max(1, currentPage - 1)}
+						class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors font-bold"
+					>
+						&lt; Prev
+					</button>
+
+					{#each Array.from({ length: totalPages }, (_, i) => i + 1) as pageNum}
+						<button
+							type="button"
+							onclick={() => currentPage = pageNum}
+							class="size-8 rounded-lg border transition-colors cursor-pointer {currentPage === pageNum ? 'bg-primary-green text-white border-primary-green' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}"
+						>
+							{pageNum}
+						</button>
+					{/each}
+
+					<button
+						type="button"
+						disabled={currentPage === totalPages}
+						onclick={() => currentPage = Math.min(totalPages, currentPage + 1)}
+						class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors font-bold"
+					>
+						Next &gt;
+					</button>
+				</div>
+			{/if}
 		</div>
 	</div>
 </section>

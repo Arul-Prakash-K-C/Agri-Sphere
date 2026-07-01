@@ -11,48 +11,189 @@
 	let weather = $derived(data.weather || { temp: 32, humidity: 45, windSpeed: 12, soilMoisture: 'Optimal' });
 
 	// Filter state
-	let activeFilter = $state('This Month');
-	let customType = $state('days'); // 'days', 'months', 'years'
-	let customValue = $state(30);
+	let rangeFilter = $state('Months');
+	let xAxisFilter = $state('Weeks');
+	let customXDays = $state(5);
+	let customXMonths = $state(2);
+	let chartLabelsCount = $state(0);
+	let chartWidth = $derived(chartLabelsCount > 12 ? `${chartLabelsCount * 70}px` : '100%');
+
+	let xAxisOptions = $derived.by(() => {
+		if (rangeFilter === 'Months') {
+			return [
+				{ value: 'Weeks', label: 'Weeks' },
+				{ value: 'Days', label: 'Days' },
+				{ value: 'Custom Days', label: 'Custom no. of days' }
+			];
+		} else if (rangeFilter === 'Years') {
+			return [
+				{ value: 'Custom Months', label: 'Custom no. of months' },
+				{ value: 'Quarters', label: 'Quarters' },
+				{ value: 'Weeks', label: 'Weeks' },
+				{ value: 'Days', label: 'Days' },
+				{ value: 'Years', label: 'Years' }
+			];
+		} else if (rangeFilter === 'Days') {
+			return [
+				{ value: 'Days', label: 'Days' },
+				{ value: 'Hours', label: 'Hours' }
+			];
+		} else if (rangeFilter === 'Weeks') {
+			return [
+				{ value: 'Weeks', label: 'Weeks' },
+				{ value: 'Days', label: 'Days' }
+			];
+		} else if (rangeFilter === 'Quarters') {
+			return [
+				{ value: 'Quarters', label: 'Quarters' },
+				{ value: 'Months', label: 'Months' },
+				{ value: 'Weeks', label: 'Weeks' },
+				{ value: 'Days', label: 'Days' }
+			];
+		} else if (rangeFilter === 'Half Years') {
+			return [
+				{ value: 'Half Years', label: 'Half Years' },
+				{ value: 'Quarters', label: 'Quarters' },
+				{ value: 'Months', label: 'Months' },
+				{ value: 'Weeks', label: 'Weeks' },
+				{ value: 'Days', label: 'Days' }
+			];
+		}
+		return [];
+	});
+
+	// Reset xAxisFilter when rangeFilter changes
+	$effect(() => {
+		const options = xAxisOptions;
+		if (options.length > 0) {
+			const hasCurrent = options.some(opt => opt.value === xAxisFilter);
+			if (!hasCurrent) {
+				xAxisFilter = options[0].value;
+			}
+		}
+	});
+
+	function getWeekNumber(d) {
+		const target = new Date(d.valueOf());
+		const dayNr = (d.getDay() + 6) % 7;
+		target.setDate(target.getDate() - dayNr + 3);
+		const firstThursday = target.valueOf();
+		target.setMonth(0, 1);
+		if (target.getDay() !== 4) {
+			target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+		}
+		return 1 + Math.ceil((firstThursday - target) / 604800000);
+	}
+
+	// Periods list generator based on the selected range Filter type
+	let periodsList = $derived.by(() => {
+		const now = new Date();
+		const list = [];
+		if (rangeFilter === 'Days') {
+			for (let i = 0; i < 30; i++) {
+				const d = new Date(now);
+				d.setDate(now.getDate() - i);
+				const dateString = d.toISOString().split('T')[0];
+				const label = d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+				const dStart = new Date(d);
+				dStart.setHours(0, 0, 0, 0);
+				const dEnd = new Date(d);
+				dEnd.setHours(23, 59, 59, 999);
+				list.push({ value: dateString, label, startDate: dStart, endDate: dEnd });
+			}
+		} else if (rangeFilter === 'Weeks') {
+			for (let i = 0; i < 12; i++) {
+				const d = new Date(now);
+				d.setDate(now.getDate() - i * 7);
+				const wNum = getWeekNumber(d);
+				const yr = d.getFullYear();
+				const day = d.getDay();
+				const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+				const wStart = new Date(d);
+				wStart.setDate(diff);
+				wStart.setHours(0, 0, 0, 0);
+				const wEnd = new Date(wStart);
+				wEnd.setDate(wStart.getDate() + 6);
+				wEnd.setHours(23, 59, 59, 999);
+				const label = `Wk ${wNum}, ${yr} (${wStart.toLocaleDateString([], { month: 'short', day: 'numeric' })} - ${wEnd.toLocaleDateString([], { month: 'short', day: 'numeric' })})`;
+				list.push({ value: `${yr}-W${wNum}`, label, startDate: wStart, endDate: wEnd });
+			}
+		} else if (rangeFilter === 'Months') {
+			for (let i = 0; i < 12; i++) {
+				const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+				const mNum = d.getMonth();
+				const yr = d.getFullYear();
+				const label = d.toLocaleDateString([], { month: 'long', year: 'numeric' });
+				const mStart = new Date(yr, mNum, 1);
+				mStart.setHours(0, 0, 0, 0);
+				const mEnd = new Date(yr, mNum + 1, 0, 23, 59, 59, 999);
+				list.push({ value: `${yr}-M${mNum}`, label, startDate: mStart, endDate: mEnd });
+			}
+		} else if (rangeFilter === 'Quarters') {
+			for (let i = 0; i < 8; i++) {
+				const d = new Date(now.getFullYear(), now.getMonth() - i * 3, 1);
+				const q = Math.floor(d.getMonth() / 3) + 1;
+				const yr = d.getFullYear();
+				const label = `Q${q} ${yr}`;
+				const qStart = new Date(yr, (q - 1) * 3, 1);
+				qStart.setHours(0, 0, 0, 0);
+				const qEnd = new Date(yr, q * 3, 0, 23, 59, 59, 999);
+				list.push({ value: `${yr}-Q${q}`, label, startDate: qStart, endDate: qEnd });
+			}
+		} else if (rangeFilter === 'Half Years') {
+			for (let i = 0; i < 6; i++) {
+				const d = new Date(now.getFullYear(), now.getMonth() - i * 6, 1);
+				const h = Math.floor(d.getMonth() / 6) + 1;
+				const yr = d.getFullYear();
+				const label = `H${h} ${yr}`;
+				const hStart = new Date(yr, (h - 1) * 6, 1);
+				hStart.setHours(0, 0, 0, 0);
+				const hEnd = new Date(yr, h * 6, 0, 23, 59, 59, 999);
+				list.push({ value: `${yr}-H${h}`, label, startDate: hStart, endDate: hEnd });
+			}
+		} else if (rangeFilter === 'Years') {
+			for (let i = 0; i < 5; i++) {
+				const yr = now.getFullYear() - i;
+				const label = `${yr}`;
+				const yStart = new Date(yr, 0, 1);
+				yStart.setHours(0, 0, 0, 0);
+				const yEnd = new Date(yr, 11, 31, 23, 59, 59, 999);
+				list.push({ value: `${yr}`, label, startDate: yStart, endDate: yEnd });
+			}
+		}
+		return list;
+	});
+
+	let selectedPeriod = $state('');
+
+	// Reset selectedPeriod when rangeFilter changes
+	$effect(() => {
+		const list = periodsList;
+		if (list.length > 0) {
+			const hasCurrent = list.some(p => p.value === selectedPeriod);
+			if (!hasCurrent) {
+				selectedPeriod = list[0].value;
+			}
+		}
+	});
+
+	let periodRange = $derived.by(() => {
+		const currentPeriod = periodsList.find(p => p.value === selectedPeriod);
+		if (currentPeriod) {
+			return { start: currentPeriod.startDate, end: currentPeriod.endDate };
+		}
+		const start = new Date();
+		start.setMonth(start.getMonth() - 1);
+		return { start, end: new Date() };
+	});
+
+	let startDate = $derived(periodRange.start);
+	let endDate = $derived(periodRange.end);
 
 	function isWithinFilter(dateStr) {
 		if (!dateStr) return false;
 		const itemDate = new Date(dateStr);
-		const now = new Date();
-		
-		if (activeFilter === 'This Week') {
-			const startOfWeek = new Date(now);
-			const day = startOfWeek.getDay();
-			const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
-			startOfWeek.setDate(diff);
-			startOfWeek.setHours(0,0,0,0);
-			return itemDate >= startOfWeek && itemDate <= now;
-		} else if (activeFilter === 'This Month') {
-			return itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
-		} else if (activeFilter === 'This Quarter') {
-			const currentQuarter = Math.floor(now.getMonth() / 3);
-			const itemQuarter = Math.floor(itemDate.getMonth() / 3);
-			return currentQuarter === itemQuarter && itemDate.getFullYear() === now.getFullYear();
-		} else if (activeFilter === 'Half Yearly') {
-			const halfYearAgo = new Date(now);
-			halfYearAgo.setMonth(now.getMonth() - 6);
-			halfYearAgo.setHours(0,0,0,0);
-			return itemDate >= halfYearAgo && itemDate <= now;
-		} else if (activeFilter === 'This Year') {
-			return itemDate.getFullYear() === now.getFullYear();
-		} else if (activeFilter === 'Custom Range') {
-			const customAgo = new Date(now);
-			if (customType === 'days') {
-				customAgo.setDate(now.getDate() - customValue);
-			} else if (customType === 'months') {
-				customAgo.setMonth(now.getMonth() - customValue);
-			} else if (customType === 'years') {
-				customAgo.setFullYear(now.getFullYear() - customValue);
-			}
-			customAgo.setHours(0,0,0,0);
-			return itemDate >= customAgo && itemDate <= now;
-		}
-		return true;
+		return itemDate >= startDate && itemDate <= endDate;
 	}
 
 	// Compute summaries dynamically
@@ -75,214 +216,99 @@
 
 	let financialChartInstance;
 	let cropChartInstance;
+	let allocationChartInstance;
+	let expenseBreakdownChartInstance;
 
 	function getChartData() {
-		const now = new Date();
-		let labels = [];
-		let expenseData = [];
-		let profitData = [];
+		const limit = new Date(endDate);
+		const buckets = [];
+		let current = new Date(startDate);
 
-		if (activeFilter === 'This Week') {
-			labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-			expenseData = [0, 0, 0, 0, 0, 0, 0];
-			profitData = [0, 0, 0, 0, 0, 0, 0];
+		while (current <= limit) {
+			const bucketStart = new Date(current);
+			const bucketEnd = new Date(current);
+			let label = '';
 
-			const startOfWeek = new Date(now);
-			const day = startOfWeek.getDay();
-			const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
-			startOfWeek.setDate(diff);
-			startOfWeek.setHours(0,0,0,0);
-
-			for (let i = 0; i < 7; i++) {
-				const currentDay = new Date(startOfWeek);
-				currentDay.setDate(startOfWeek.getDate() + i);
-				
-				const dayExp = expenses
-					.filter(e => {
-						const ed = new Date(e.rawDate || e.date || e.createdAt);
-						return ed.getDate() === currentDay.getDate() && ed.getMonth() === currentDay.getMonth() && ed.getFullYear() === currentDay.getFullYear();
-					})
-					.reduce((acc, e) => acc + Number(e.amount || 0), 0);
-
-				const daySales = sales
-					.filter(s => {
-						const sd = new Date(s.saleDate || s.createdAt);
-						return (!s.type || s.type === 'Sale') && sd.getDate() === currentDay.getDate() && sd.getMonth() === currentDay.getMonth() && sd.getFullYear() === currentDay.getFullYear();
-					})
-					.reduce((acc, s) => acc + Number(s.totalAmount || 0), 0);
-
-				expenseData[i] = dayExp;
-				profitData[i] = Math.max(0, daySales - dayExp);
+			if (xAxisFilter === 'Hours') {
+				bucketEnd.setHours(current.getHours() + 1);
+				label = bucketStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+				current.setHours(current.getHours() + 1);
+			} else if (xAxisFilter === 'Days') {
+				bucketEnd.setDate(current.getDate() + 1);
+				label = bucketStart.toLocaleDateString([], { month: 'short', day: 'numeric' });
+				current.setDate(current.getDate() + 1);
+			} else if (xAxisFilter === 'Custom Days') {
+				const days = Number(customXDays) || 1;
+				bucketEnd.setDate(current.getDate() + days);
+				label = `${bucketStart.toLocaleDateString([], { month: 'short', day: 'numeric' })} - ${new Date(Math.min(bucketEnd.getTime() - 1, limit.getTime())).toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
+				current.setDate(current.getDate() + days);
+			} else if (xAxisFilter === 'Weeks') {
+				bucketEnd.setDate(current.getDate() + 7);
+				label = `Wk ${getWeekNumber(bucketStart)}`;
+				current.setDate(current.getDate() + 7);
+			} else if (xAxisFilter === 'Months') {
+				bucketEnd.setMonth(current.getMonth() + 1);
+				label = bucketStart.toLocaleDateString([], { month: 'short', year: '2-digit' });
+				current.setMonth(current.getMonth() + 1);
+			} else if (xAxisFilter === 'Custom Months') {
+				const months = Number(customXMonths) || 1;
+				bucketEnd.setMonth(current.getMonth() + months);
+				label = `${bucketStart.toLocaleDateString([], { month: 'short', year: '2-digit' })} - ${new Date(Math.min(bucketEnd.getTime() - 1, limit.getTime())).toLocaleDateString([], { month: 'short', year: '2-digit' })}`;
+				current.setMonth(current.getMonth() + months);
+			} else if (xAxisFilter === 'Quarters') {
+				bucketEnd.setMonth(current.getMonth() + 3);
+				const q = Math.floor(bucketStart.getMonth() / 3) + 1;
+				label = `Q${q} ${bucketStart.getFullYear()}`;
+				current.setMonth(current.getMonth() + 3);
+			} else if (xAxisFilter === 'Half Years') {
+				bucketEnd.setMonth(current.getMonth() + 6);
+				const h = Math.floor(bucketStart.getMonth() / 6) + 1;
+				label = `H${h} ${bucketStart.getFullYear()}`;
+				current.setMonth(current.getMonth() + 6);
+			} else if (xAxisFilter === 'Years') {
+				bucketEnd.setFullYear(current.getFullYear() + 1);
+				label = `${bucketStart.getFullYear()}`;
+				current.setFullYear(current.getFullYear() + 1);
+			} else {
+				bucketEnd.setDate(current.getDate() + 1);
+				label = bucketStart.toLocaleDateString([], { month: 'short', day: 'numeric' });
+				current.setDate(current.getDate() + 1);
 			}
-		} else if (activeFilter === 'This Month') {
-			labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
-			expenseData = [0, 0, 0, 0, 0];
-			profitData = [0, 0, 0, 0, 0];
 
-			for (let i = 0; i < 5; i++) {
-				const startDay = i * 7 + 1;
-				const endDay = Math.min((i + 1) * 7, 31);
+			if (bucketStart > limit) break;
 
-				const weekExp = expenses
-					.filter(e => {
-						const ed = new Date(e.rawDate || e.date || e.createdAt);
-						return ed.getMonth() === now.getMonth() && ed.getFullYear() === now.getFullYear() && ed.getDate() >= startDay && ed.getDate() <= endDay;
-					})
-					.reduce((acc, e) => acc + Number(e.amount || 0), 0);
-
-				const weekSales = sales
-					.filter(s => {
-						const sd = new Date(s.saleDate || s.createdAt);
-						return (!s.type || s.type === 'Sale') && sd.getMonth() === now.getMonth() && sd.getFullYear() === now.getFullYear() && sd.getDate() >= startDay && sd.getDate() <= endDay;
-					})
-					.reduce((acc, s) => acc + Number(s.totalAmount || 0), 0);
-
-				expenseData[i] = weekExp;
-				profitData[i] = Math.max(0, weekSales - weekExp);
-			}
-		} else if (activeFilter === 'This Quarter') {
-			const currentQuarter = Math.floor(now.getMonth() / 3);
-			const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-			
-			for (let i = 0; i < 3; i++) {
-				const targetMonth = currentQuarter * 3 + i;
-				labels.push(monthNames[targetMonth]);
-
-				const monthExp = expenses
-					.filter(e => {
-						const ed = new Date(e.rawDate || e.date || e.createdAt);
-						return ed.getMonth() === targetMonth && ed.getFullYear() === now.getFullYear();
-					})
-					.reduce((acc, e) => acc + Number(e.amount || 0), 0);
-
-				const monthSales = sales
-					.filter(s => {
-						const sd = new Date(s.saleDate || s.createdAt);
-						return (!s.type || s.type === 'Sale') && sd.getMonth() === targetMonth && sd.getFullYear() === now.getFullYear();
-					})
-					.reduce((acc, s) => acc + Number(s.totalAmount || 0), 0);
-
-				expenseData.push(monthExp);
-				profitData.push(Math.max(0, monthSales - monthExp));
-			}
-		} else if (activeFilter === 'Half Yearly') {
-			const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-			for (let i = 5; i >= 0; i--) {
-				const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-				labels.push(monthNames[d.getMonth()]);
-
-				const mExp = expenses
-					.filter(e => {
-						const ed = new Date(e.rawDate || e.date || e.createdAt);
-						return ed.getMonth() === d.getMonth() && ed.getFullYear() === d.getFullYear();
-					})
-					.reduce((acc, e) => acc + Number(e.amount || 0), 0);
-
-				const mSales = sales
-					.filter(s => {
-						const sd = new Date(s.saleDate || s.createdAt);
-						return (!s.type || s.type === 'Sale') && sd.getMonth() === d.getMonth() && sd.getFullYear() === d.getFullYear();
-					})
-					.reduce((acc, s) => acc + Number(s.totalAmount || 0), 0);
-
-				expenseData.push(mExp);
-				profitData.push(Math.max(0, mSales - mExp));
-			}
-		} else if (activeFilter === 'This Year') {
-			const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-			for (let i = 0; i < 12; i++) {
-				labels.push(monthNames[i]);
-
-				const mExp = expenses
-					.filter(e => {
-						const ed = new Date(e.rawDate || e.date || e.createdAt);
-						return ed.getMonth() === i && ed.getFullYear() === now.getFullYear();
-					})
-					.reduce((acc, e) => acc + Number(e.amount || 0), 0);
-
-				const mSales = sales
-					.filter(s => {
-						const sd = new Date(s.saleDate || s.createdAt);
-						return (!s.type || s.type === 'Sale') && sd.getMonth() === i && sd.getFullYear() === now.getFullYear();
-					})
-					.reduce((acc, s) => acc + Number(s.totalAmount || 0), 0);
-
-				expenseData.push(mExp);
-				profitData.push(Math.max(0, mSales - mExp));
-			}
-		} else if (activeFilter === 'Custom Range') {
-			if (customType === 'days') {
-				for (let i = customValue - 1; i >= 0; i--) {
-					const d = new Date();
-					d.setDate(now.getDate() - i);
-					labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-
-					const dayExp = expenses
-						.filter(e => {
-							const ed = new Date(e.rawDate || e.date || e.createdAt);
-							return ed.getDate() === d.getDate() && ed.getMonth() === d.getMonth() && ed.getFullYear() === d.getFullYear();
-						})
-						.reduce((acc, e) => acc + Number(e.amount || 0), 0);
-
-					const daySales = sales
-						.filter(s => {
-							const sd = new Date(s.saleDate || s.createdAt);
-							return (!s.type || s.type === 'Sale') && sd.getDate() === d.getDate() && sd.getMonth() === d.getMonth() && sd.getFullYear() === d.getFullYear();
-						})
-						.reduce((acc, s) => acc + Number(s.totalAmount || 0), 0);
-
-					expenseData.push(dayExp);
-					profitData.push(Math.max(0, daySales - dayExp));
-				}
-			} else if (customType === 'months') {
-				const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-				for (let i = customValue - 1; i >= 0; i--) {
-					const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-					labels.push(`${monthNames[d.getMonth()]} ${d.getFullYear()}`);
-
-					const mExp = expenses
-						.filter(e => {
-							const ed = new Date(e.rawDate || e.date || e.createdAt);
-							return ed.getMonth() === d.getMonth() && ed.getFullYear() === d.getFullYear();
-						})
-						.reduce((acc, e) => acc + Number(e.amount || 0), 0);
-
-					const mSales = sales
-						.filter(s => {
-							const sd = new Date(s.saleDate || s.createdAt);
-							return (!s.type || s.type === 'Sale') && sd.getMonth() === d.getMonth() && sd.getFullYear() === d.getFullYear();
-						})
-						.reduce((acc, s) => acc + Number(s.totalAmount || 0), 0);
-
-					expenseData.push(mExp);
-					profitData.push(Math.max(0, mSales - mExp));
-				}
-			} else if (customType === 'years') {
-				for (let i = customValue - 1; i >= 0; i--) {
-					const targetYear = now.getFullYear() - i;
-					labels.push(String(targetYear));
-
-					const yExp = expenses
-						.filter(e => {
-							const ed = new Date(e.rawDate || e.date || e.createdAt);
-							return ed.getFullYear() === targetYear;
-						})
-						.reduce((acc, e) => acc + Number(e.amount || 0), 0);
-
-					const ySales = sales
-						.filter(s => {
-							const sd = new Date(s.saleDate || s.createdAt);
-							return (!s.type || s.type === 'Sale') && sd.getFullYear() === targetYear;
-						})
-						.reduce((acc, s) => acc + Number(s.totalAmount || 0), 0);
-
-					expenseData.push(yExp);
-					profitData.push(Math.max(0, ySales - yExp));
-				}
-			}
+			buckets.push({
+				start: bucketStart,
+				end: bucketEnd,
+				label,
+				revenue: 0,
+				expense: 0
+			});
 		}
 
-		return { labels, expenseData, profitData };
+		// Aggregate
+		for (const bucket of buckets) {
+			const bExpenses = expenses.filter(e => {
+				const ed = new Date(e.rawDate || e.date || e.createdAt);
+				return ed >= bucket.start && ed < bucket.end;
+			});
+			bucket.expense = bExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+			const bSales = sales.filter(s => {
+				const sd = new Date(s.saleDate || s.createdAt);
+				return (!s.type || s.type === 'Sale') && sd >= bucket.start && sd < bucket.end;
+			});
+			bucket.revenue = bSales.reduce((sum, s) => sum + Number(s.totalAmount || 0), 0);
+		}
+
+		const labels = buckets.map(b => b.label);
+		chartLabelsCount = labels.length;
+
+		return {
+			labels,
+			revenueData: buckets.map(b => b.revenue),
+			expenseData: buckets.map(b => b.expense)
+		};
 	}
 
 	onMount(() => {
@@ -297,11 +323,13 @@
 			clearInterval(interval);
 			financialChartInstance?.destroy();
 			cropChartInstance?.destroy();
+			allocationChartInstance?.destroy();
+			expenseBreakdownChartInstance?.destroy();
 		};
 	});
 
 	$effect(() => {
-		const _deps = [activeFilter, customType, customValue, data];
+		const _deps = [rangeFilter, selectedPeriod, xAxisFilter, customXDays, customXMonths, data];
 		if (typeof Chart !== 'undefined') {
 			initCharts();
 		}
@@ -312,7 +340,7 @@
 		if (ctxFin) {
 			financialChartInstance?.destroy();
 			
-			const { labels, expenseData, profitData } = getChartData();
+			const { labels, revenueData, expenseData } = getChartData();
 
 			financialChartInstance = new Chart(ctxFin, {
 				type: 'bar',
@@ -320,24 +348,20 @@
 					labels: labels,
 					datasets: [
 						{
-							type: 'line',
-							label: 'Expense',
-							data: expenseData,
-							borderColor: '#ba1a1a', // error
-							borderWidth: 2.5,
-							tension: 0.4,
-							pointBackgroundColor: '#ffffff',
-							pointBorderColor: '#ba1a1a',
-							pointRadius: 4,
-							fill: false
+							label: 'Revenue',
+							data: revenueData,
+							backgroundColor: '#10B981', // emerald-500
+							borderRadius: 6,
+							barPercentage: 0.8,
+							categoryPercentage: 0.6
 						},
 						{
-							type: 'bar',
-							label: 'Profit',
-							data: profitData,
-							backgroundColor: '#16A34A', // primary-green
-							borderRadius: 8,
-							barPercentage: 0.55
+							label: 'Expense',
+							data: expenseData,
+							backgroundColor: '#3B82F6', // blue-500
+							borderRadius: 6,
+							barPercentage: 0.8,
+							categoryPercentage: 0.6
 						}
 					]
 				},
@@ -396,6 +420,90 @@
 				}
 			});
 		}
+
+		// Stock Allocation (Sale vs Self Use vs Wastage) Doughnut Chart
+		const ctxAlloc = document.getElementById('allocationChart')?.getContext('2d');
+		if (ctxAlloc) {
+			allocationChartInstance?.destroy();
+			
+			const saleQty = filteredSales.filter(x => !x.type || x.type === 'Sale').reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+			const selfUseQty = filteredSales.filter(x => x.type === 'Self Use').reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+			const wastageQty = filteredSales.filter(x => x.type === 'Wastage').reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+			const hasData = saleQty > 0 || selfUseQty > 0 || wastageQty > 0;
+
+			allocationChartInstance = new Chart(ctxAlloc, {
+				type: 'doughnut',
+				data: {
+					labels: ['Sale', 'Self Use', 'Wastage'],
+					datasets: [{
+						data: hasData ? [saleQty, selfUseQty, wastageQty] : [80, 15, 5],
+						backgroundColor: [
+							'#10B981', // emerald-500
+							'#F59E0B', // amber-500
+							'#EF4444'  // red-500
+						],
+						borderWidth: 0,
+						hoverOffset: 6
+					}]
+				},
+				options: {
+					responsive: true,
+					maintainAspectRatio: false,
+					cutout: '70%',
+					plugins: {
+						legend: {
+							position: 'bottom',
+							labels: { usePointStyle: true, padding: 15, font: { size: 11 } }
+						}
+					}
+				}
+			});
+		}
+
+		// Expense Category Breakdown Pie Chart
+		const ctxExpBreakdown = document.getElementById('expenseBreakdownChart')?.getContext('2d');
+		if (ctxExpBreakdown) {
+			expenseBreakdownChartInstance?.destroy();
+			
+			const categories = ['Seed', 'Fertilizer', 'Chemicals', 'Labor', 'Water', 'Electricity', 'Others'];
+			const categoryTotals = categories.map(cat => {
+				if (cat === 'Others') {
+					return filteredExpenses.filter(e => !categories.slice(0, -1).includes(e.category)).reduce((sum, e) => sum + Number(e.amount || 0), 0);
+				}
+				return filteredExpenses.filter(e => e.category === cat).reduce((sum, e) => sum + Number(e.amount || 0), 0);
+			});
+			const hasData = categoryTotals.some(t => t > 0);
+
+			expenseBreakdownChartInstance = new Chart(ctxExpBreakdown, {
+				type: 'pie',
+				data: {
+					labels: categories,
+					datasets: [{
+						data: hasData ? categoryTotals : [12000, 24000, 8000, 35000, 15000, 10000, 5000],
+						backgroundColor: [
+							'#10B981', // emerald
+							'#3B82F6', // blue
+							'#EC4899', // pink
+							'#F59E0B', // amber
+							'#06B6D4', // cyan
+							'#8B5CF6', // purple
+							'#6B7280'  // gray
+						],
+						borderWidth: 0
+					}]
+				},
+				options: {
+					responsive: true,
+					maintainAspectRatio: false,
+					plugins: {
+						legend: {
+							position: 'bottom',
+							labels: { usePointStyle: true, padding: 12, font: { size: 10 } }
+						}
+					}
+				}
+			});
+		}
 	}
 </script>
 
@@ -412,48 +520,75 @@
 			<p class="text-sm text-slate-500 mt-1">Good morning. Here is what is happening on the farm today.</p>
 		</div>
 		<div class="flex flex-wrap items-center gap-3">
-			{#if activeFilter === 'Custom Range'}
-				<div class="flex items-center gap-2 bg-white/60 border border-slate-200 rounded-2xl px-3 py-1.5 shadow-xs">
-					<input
-						type="number"
-						bind:value={customValue}
-						min="1"
-						class="w-12 text-xs font-bold focus:outline-none bg-transparent"
-					/>
-					<select
-						bind:value={customType}
-						class="text-xs font-bold text-slate-500 focus:outline-none bg-transparent"
-					>
-						<option value="days">Days</option>
-						<option value="months">Months</option>
-						<option value="years">Years</option>
-					</select>
-				</div>
-			{/if}
+			<!-- Range Filter -->
 			<div class="relative min-w-[140px]">
 				<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[16px] text-dark-green">calendar_month</span>
 				<select
-					bind:value={activeFilter}
+					bind:value={rangeFilter}
 					class="w-full pl-9 pr-8 py-2 bg-white/80 border border-slate-200 rounded-2xl text-xs font-bold text-dark-green focus:outline-none focus:border-primary-green appearance-none cursor-pointer shadow-xs"
 				>
-					<option value="This Week">This Week</option>
-					<option value="This Month">This Month</option>
-					<option value="This Quarter">This Quarter</option>
-					<option value="Half Yearly">Half Yearly</option>
-					<option value="This Year">This Year</option>
-					<option value="Custom Range">Custom Range</option>
+					<option value="Days">Days Range</option>
+					<option value="Weeks">Weeks Range</option>
+					<option value="Months">Months Range</option>
+					<option value="Quarters">Quarters Range</option>
+					<option value="Half Years">Half Years Range</option>
+					<option value="Years">Years Range</option>
 				</select>
 			</div>
-			<ExportReportButton 
-				reportType="dashboard_summary" 
-				dataList={crops} 
-				reportOptions={[
-					{ value: 'dashboard_summary', label: 'Dashboard Summary' },
-					{ value: 'analytics', label: 'Analytics Report' }
-				]}
-				extraData={{ crops, expenses, inventory, sales }}
-				customClass="!rounded-2xl bg-gradient-to-br from-primary-green to-dark-green !text-white !border-0 px-5 py-2 shadow-md shadow-primary-green/20 hover:shadow-primary-green/30 cursor-pointer flex items-center gap-1.5"
-			/>
+
+			<!-- Specific Period Selector -->
+			<div class="relative min-w-[160px]">
+				<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[16px] text-dark-green">event</span>
+				<select
+					bind:value={selectedPeriod}
+					class="w-full pl-9 pr-8 py-2 bg-white/80 border border-slate-200 rounded-2xl text-xs font-bold text-dark-green focus:outline-none focus:border-primary-green appearance-none cursor-pointer shadow-xs"
+				>
+					{#each periodsList as period}
+						<option value={period.value}>{period.label}</option>
+					{/each}
+				</select>
+			</div>
+
+			<!-- X-Axis Filter -->
+			<div class="relative min-w-[140px]">
+				<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[16px] text-dark-green">bar_chart</span>
+				<select
+					bind:value={xAxisFilter}
+					class="w-full pl-9 pr-8 py-2 bg-white/80 border border-slate-200 rounded-2xl text-xs font-bold text-dark-green focus:outline-none focus:border-primary-green appearance-none cursor-pointer shadow-xs"
+				>
+					{#each xAxisOptions as opt}
+						<option value={opt.value}>{opt.label}</option>
+					{/each}
+				</select>
+			</div>
+
+			<!-- Custom inputs for grouping -->
+			{#if xAxisFilter === 'Custom Days'}
+				<div class="flex items-center gap-2 bg-white/60 border border-slate-200 rounded-2xl px-3 py-1.5 shadow-xs">
+					<span class="text-xs font-bold text-slate-500">Days:</span>
+					<input
+						type="number"
+						bind:value={customXDays}
+						min="1"
+						class="w-12 text-xs font-bold focus:outline-none bg-transparent"
+					/>
+				</div>
+			{/if}
+			{#if xAxisFilter === 'Custom Months'}
+				<div class="flex items-center gap-2 bg-white/60 border border-slate-200 rounded-2xl px-3 py-1.5 shadow-xs">
+					<span class="text-xs font-bold text-slate-500">Months:</span>
+					<input
+						type="number"
+						bind:value={customXMonths}
+						min="1"
+						class="w-12 text-xs font-bold focus:outline-none bg-transparent"
+					/>
+				</div>
+			{/if}
+			<button class="bg-gradient-to-br from-primary-green to-dark-green text-white px-5 py-2 rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/30 cursor-pointer">
+				<span class="material-symbols-outlined text-[18px]">download</span>
+				<span>Export Report</span>
+			</button>
 		</div>
 	</div>
 
@@ -520,7 +655,7 @@
 			</div>
 			<div>
 				<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-					{activeFilter === 'This Month' ? 'Monthly Profit' : 'Period Profit'}
+					{rangeFilter === 'Months' ? 'Monthly Profit' : 'Period Profit'}
 				</p>
 				<h3 class="text-2xl font-extrabold {periodProfit < 0 ? 'text-red-600' : 'text-primary-green'} mt-1">
 					{formatCurrency(periodProfit)}
@@ -538,12 +673,14 @@
 			<div class="flex justify-between items-center mb-4">
 				<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Financial Overview</h3>
 				<div class="flex gap-4 text-xs font-semibold text-slate-500">
-					<span class="flex items-center"><span class="size-2.5 rounded-full bg-primary-green mr-1.5"></span> Profit</span>
-					<span class="flex items-center"><span class="size-2.5 rounded-full bg-red-600 mr-1.5"></span> Expense</span>
+					<span class="flex items-center"><span class="size-2.5 rounded-full bg-emerald-500 mr-1.5"></span> Revenue</span>
+					<span class="flex items-center"><span class="size-2.5 rounded-full bg-blue-500 mr-1.5"></span> Expense</span>
 				</div>
 			</div>
-			<div class="flex-grow relative">
-				<canvas id="financialChart"></canvas>
+			<div class="flex-grow relative overflow-x-auto w-full scrollbar-thin">
+				<div class="h-full" style="width: {chartWidth}; min-width: 100%;">
+					<canvas id="financialChart"></canvas>
+				</div>
 			</div>
 		</div>
 
@@ -552,6 +689,27 @@
 			<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">Crop Yield Share</h3>
 			<div class="flex-grow relative">
 				<canvas id="cropChart"></canvas>
+			</div>
+		</div>
+
+	</div>
+
+	<!-- Analysis Grid -->
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+		
+		<!-- Stock Allocation (Sale vs Self Use vs Wastage) -->
+		<div class="glass-card rounded-2xl p-6 flex flex-col h-96">
+			<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">Stock Allocation (Usage)</h3>
+			<div class="flex-grow relative">
+				<canvas id="allocationChart"></canvas>
+			</div>
+		</div>
+
+		<!-- Expense Breakdown -->
+		<div class="glass-card rounded-2xl p-6 flex flex-col h-96">
+			<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">Expense Category Breakdown</h3>
+			<div class="flex-grow relative">
+				<canvas id="expenseBreakdownChart"></canvas>
 			</div>
 		</div>
 
@@ -643,3 +801,21 @@
 	</div>
 
 </section>
+
+<style>
+	/* Custom scrollbar styling for the chart overflow container */
+	.scrollbar-thin::-webkit-scrollbar {
+		height: 6px;
+	}
+	.scrollbar-thin::-webkit-scrollbar-track {
+		background: rgba(241, 245, 249, 0.5);
+		border-radius: 8px;
+	}
+	.scrollbar-thin::-webkit-scrollbar-thumb {
+		background: rgba(16, 185, 129, 0.3);
+		border-radius: 8px;
+	}
+	.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+		background: rgba(16, 185, 129, 0.5);
+	}
+</style>
