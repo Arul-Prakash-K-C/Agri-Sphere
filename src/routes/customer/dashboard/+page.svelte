@@ -512,6 +512,7 @@
 
 <svelte:head>
 	<title>Customer Dashboard - AgriConnect</title>
+	<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 </svelte:head>
 
 <!-- Main Container -->

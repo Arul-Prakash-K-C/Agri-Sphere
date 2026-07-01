@@ -162,8 +162,6 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<!-- Chart.js — deferred to avoid render blocking -->
-	<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 </svelte:head>
 
 <!-- Global container -->
@@ -174,7 +172,7 @@
 		<!-- Desktop Left Sidebar -->
 		<aside class="glass-sidebar w-64 h-screen fixed left-0 top-0 z-40 hidden md:flex flex-col p-6 space-y-6">
 			<div class="flex items-center gap-3 mb-2">
-				<img src="/logo.png" alt="AgriConnect Logo" class="size-10 object-contain rounded-full border border-emerald-100/50 shadow-sm" />
+				<img src="/logo.webp" alt="AgriConnect Logo" class="size-10 object-contain rounded-full border border-emerald-100/50 shadow-sm" />
 				<div>
 					<h1 class="font-bold text-lg tracking-tight text-slate-800 leading-none">AgriConnect</h1>
 					<span class="text-[10px] text-dark-green font-semibold uppercase tracking-wider mt-1 block">Smart AgriTech</span>
@@ -232,7 +230,7 @@
 			<header class="bg-white/75 backdrop-blur-md sticky top-0 w-full z-30 border-b border-emerald-100/50 px-6 py-4 flex justify-between items-center">
 				<div>
 					<h2 class="font-extrabold text-slate-800 text-base md:hidden flex items-center gap-2.5">
-						<img src="/logo.png" alt="AgriConnect Logo" class="size-8 object-contain rounded-full border border-emerald-100/50 shadow-sm" />
+						<img src="/logo.webp" alt="AgriConnect Logo" class="size-8 object-contain rounded-full border border-emerald-100/50 shadow-sm" />
 						AgriConnect
 					</h2>
 				</div>
@@ -926,7 +924,7 @@
 			<header class="border-b border-emerald-100 bg-white/80 backdrop-blur-md sticky top-0 z-50">
 				<div class="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
 					<a href="/" class="flex items-center gap-3 group">
-						<img src="/logo.png" alt="AgriConnect Logo" class="size-10 object-contain rounded-full border border-emerald-100/50 shadow-sm transition-all duration-300 group-hover:scale-105" width="40" height="40" decoding="async" />
+						<img src="/logo.webp" alt="AgriConnect Logo" class="size-10 object-contain rounded-full border border-emerald-100/50 shadow-sm transition-all duration-300 group-hover:scale-105" width="40" height="40" decoding="async" />
 						<span>
 							<span class="block text-lg font-bold tracking-tight text-slate-800">AgriConnect</span>
 							<span class="block text-xs text-dark-green font-medium -mt-0.5">Smart AgriTech Platform</span>
