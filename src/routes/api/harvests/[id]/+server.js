@@ -107,6 +107,16 @@ export async function PATCH({ params, request, locals }) {
 		await syncInventoryForFarmer(locals.user.uid);
 
 		const updatedDoc = await docRef.get();
+
+		await adminDb.collection('notifications').add({
+			title: 'Harvest Log Updated',
+			message: `Harvest log for "${updatedDoc.data().cropName}" has been updated.`,
+			read: false,
+			type: 'harvest',
+			userId: locals.user.uid,
+			createdAt: new Date().toISOString()
+		});
+
 		return json({ id: updatedDoc.id, ...updatedDoc.data() });
 	} catch (error) {
 		console.error('Error updating harvest log:', error);
@@ -153,6 +163,15 @@ export async function DELETE({ params, locals }) {
 
 		await docRef.delete();
 		await syncInventoryForFarmer(locals.user.uid);
+
+		await adminDb.collection('notifications').add({
+			title: 'Harvest Log Deleted',
+			message: `Harvest log for "${harvestDoc.data().cropName}" has been deleted.`,
+			read: false,
+			type: 'harvest',
+			userId: locals.user.uid,
+			createdAt: new Date().toISOString()
+		});
 
 		return json({ success: true, message: 'Harvest log deleted successfully' });
 	} catch (error) {

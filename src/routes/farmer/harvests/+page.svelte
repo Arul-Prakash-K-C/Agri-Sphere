@@ -1,5 +1,6 @@
 <script>
 	import { fade, slide } from 'svelte/transition';
+	import { showConfirm, showSuccess, showError } from '$lib/modal.svelte.js';
 
 	let { data } = $props();
 
@@ -173,7 +174,6 @@
 
 	// Modal visibility
 	let showFormModal    = $state(false);
-	let showDeleteDialog = $state(false);
 	let showDropdown     = $state(false);
 
 	// Form mode: 'add' | 'edit'
@@ -181,9 +181,6 @@
 
 	// The harvest being edited
 	let editingHarvest = $state(null);
-
-	// The harvest pending deletion
-	let harvestToDelete = $state(null);
 	// ─── Form fields ──────────────────────────────────────────────────────────
 	let cropNameInput    = $state('');
 	let selectedCropId   = $state('');
@@ -276,20 +273,36 @@
 		error            = '';
 	}
 
-	function confirmDelete(harvest) {
-		harvestToDelete  = harvest;
-		showDeleteDialog = true;
+	async function confirmDelete(harvest) {
+		const confirmed = await showConfirm({
+			title: 'Delete Harvest Log?',
+			message: `Are you sure you want to delete the harvest log of ${harvest.quantity} ${harvest.unit} of "${harvest.cropName}"? This action cannot be undone.`,
+			confirmText: 'Delete',
+			confirmColor: 'bg-red-600 hover:bg-red-700 text-white'
+		});
+		if (!confirmed) return;
+
+		try {
+			const res = await fetch('/api/harvests/' + harvest.id, {
+				method: 'DELETE'
+			});
+
+			if (!res.ok) {
+				const d = await res.json();
+				throw new Error(d.error || 'Failed to delete harvest');
+			}
+
+			harvests = harvests.filter(h => h.id !== harvest.id);
+			showSuccess('Harvest log deleted successfully.');
+		} catch (err) {
+			showError(err.message);
+		}
 	}
 
 	function closeFormModal() {
 		showFormModal  = false;
 		editingHarvest = null;
 		resetForm();
-	}
-
-	function closeDeleteDialog() {
-		showDeleteDialog = false;
-		harvestToDelete  = null;
 	}
 
 	function resetForm() {
@@ -468,29 +481,7 @@
 		}
 	}
 
-	// ─── Delete harvest ───────────────────────────────────────────────────────
-	async function handleDeleteHarvest() {
-		if (!harvestToDelete) return;
-		deleteLoading = true;
 
-		try {
-			const res = await fetch('/api/harvests/' + harvestToDelete.id, {
-				method: 'DELETE'
-			});
-
-			if (!res.ok) {
-				const d = await res.json();
-				throw new Error(d.error || 'Failed to delete harvest');
-			}
-
-			harvests = harvests.filter(h => h.id !== harvestToDelete.id);
-			closeDeleteDialog();
-		} catch (err) {
-			alert(err.message);
-		} finally {
-			deleteLoading = false;
-		}
-	}
 
 	// ─── Helpers ──────────────────────────────────────────────────────────────
 	function formatDate(dateStr) {
@@ -833,59 +824,7 @@
 		</div>
 	{/if}
 
-	<!-- ── Delete Confirmation Dialog ─────────────────────────────────────── -->
-	{#if showDeleteDialog}
-		<div
-			transition:fade={{ duration: 150 }}
-			class="fixed inset-0 bg-slate-950/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-			role="alertdialog"
-			aria-modal="true"
-			aria-label="Confirm harvest deletion"
-		>
-			<div
-				transition:slide={{ duration: 200 }}
-				class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-sm p-6 space-y-4"
-			>
-				<div class="flex items-start gap-4">
-					<div class="size-11 rounded-2xl bg-red-50 flex items-center justify-center shrink-0">
-						<span class="material-symbols-outlined text-red-600 text-xl">delete_forever</span>
-					</div>
-					<div>
-						<h3 class="font-extrabold text-slate-800 text-sm">Delete Harvest Log?</h3>
-						<p class="text-xs text-slate-500 mt-1 leading-relaxed">
-							This will permanently delete the harvest log for
-							<strong class="text-slate-700">{harvestToDelete?.cropName}</strong>
-							({harvestToDelete?.harvestDate}) and remove the linked inventory record.
-						</p>
-					</div>
-				</div>
-				<div class="flex gap-3">
-					<button
-						type="button"
-						onclick={closeDeleteDialog}
-						class="btn-secondary flex-1 py-2.5 text-xs"
-						disabled={deleteLoading}
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						onclick={handleDeleteHarvest}
-						disabled={deleteLoading}
-						class="flex-1 py-2.5 text-xs font-bold rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
-					>
-						{#if deleteLoading}
-							<span class="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
-							Deleting…
-						{:else}
-							<span class="material-symbols-outlined text-[15px]">delete</span>
-							Delete Log
-						{/if}
-					</button>
-				</div>
-			</div>
-		</div>
-	{/if}
+
 
 	<!-- ── Harvest Table ────────────────────────────────────────────────────── -->
 	<div class="bg-white rounded-2xl border border-slate-200/50 shadow-sm overflow-hidden">

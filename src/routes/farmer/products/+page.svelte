@@ -1,6 +1,7 @@
 <script>
 	import { fade, slide } from 'svelte/transition';
 	import Modal from '$lib/components/Modal.svelte';
+	import { showConfirm, showSuccess, showError } from '$lib/modal.svelte.js';
 
 	let { data } = $props();
 
@@ -195,13 +196,19 @@
 			const updated = await res.json();
 			products = products.map(p => p.id === product.id ? updated : p);
 		} catch (err) {
-			alert(err.message);
+			showError(err.message);
 		}
 	}
 
 	async function handleDeleteProduct(id, event) {
 		if (event) event.stopPropagation();
-		if (!confirm('Are you sure you want to remove this product listing?')) return;
+		const confirmed = await showConfirm({
+			title: 'Remove Product Listing?',
+			message: 'Are you sure you want to remove this product listing? This action cannot be undone.',
+			confirmText: 'Remove',
+			confirmColor: 'bg-red-600 hover:bg-red-700 text-white'
+		});
+		if (!confirmed) return;
 		try {
 			const res = await fetch(`/api/products/${id}`, {
 				method: 'DELETE'
@@ -213,8 +220,9 @@
 			}
 
 			products = products.filter(p => p.id !== id);
+			showSuccess('Product listing removed successfully.');
 		} catch (err) {
-			alert(err.message);
+			showError(err.message);
 		}
 	}
 </script>

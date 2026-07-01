@@ -47,7 +47,7 @@ export async function handle({ event, resolve }) {
 
 	const role = profile?.role;
 
-	const isProtectedRoute = path.startsWith('/admin') || path.startsWith('/farmer') || path.startsWith('/customer');
+	const isProtectedRoute = path.startsWith('/admin') || path.startsWith('/farmer') || path.startsWith('/customer') || path.startsWith('/settings');
 
 	if (isProtectedRoute) {
 		if (!user || !profile) {

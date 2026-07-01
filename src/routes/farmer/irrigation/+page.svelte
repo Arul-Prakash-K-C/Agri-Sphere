@@ -2,6 +2,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import { onMount } from 'svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import { showConfirm, showSuccess, showError, showAlert } from '$lib/modal.svelte.js';
 
 	let { data } = $props();
 
@@ -292,7 +293,11 @@
 
 	function detectBrowserLocation() {
 		if (!navigator.geolocation) {
-			alert("Geolocation is not supported by your browser.");
+			showAlert({
+				title: 'Geolocation Unsupported',
+				message: 'Geolocation is not supported by your browser.',
+				type: 'warning'
+			});
 			return;
 		}
 
@@ -309,7 +314,7 @@
 			},
 			(err) => {
 				console.error('Geolocation error:', err);
-				alert(`Failed to detect location: ${err.message}`);
+				showError(`Failed to detect location: ${err.message}`);
 				detectingLocation = false;
 			},
 			{ enableHighAccuracy: true, timeout: 10000 }
@@ -549,7 +554,13 @@
 	}
 
 	async function handleDeleteSchedule(schedule) {
-		if (!confirm('Are you sure you want to delete this entire schedule series?')) return;
+		const confirmed = await showConfirm({
+			title: 'Delete Schedule Series?',
+			message: 'Are you sure you want to delete this entire schedule series?',
+			confirmText: 'Delete',
+			confirmColor: 'bg-red-600 hover:bg-red-700 text-white'
+		});
+		if (!confirmed) return;
 		loading = true;
 		error = '';
 		try {
@@ -574,8 +585,9 @@
 			scheduleRuns = result.runs || [];
 			if (result.activities) activities = result.activities;
 			if (result.upcomingRuns) upcomingRuns = result.upcomingRuns;
+			showSuccess('Schedule series deleted successfully.');
 		} catch (err) {
-			error = err.message;
+			showError(err.message);
 		} finally {
 			loading = false;
 		}
@@ -622,7 +634,13 @@
 	}
 
 	async function deleteRun(runId) {
-		if (!confirm('Are you sure you want to delete this scheduled item?')) return;
+		const confirmed = await showConfirm({
+			title: 'Delete Scheduled Item?',
+			message: 'Are you sure you want to delete this scheduled item?',
+			confirmText: 'Delete',
+			confirmColor: 'bg-red-600 hover:bg-red-700 text-white'
+		});
+		if (!confirmed) return;
 		loading = true;
 		error = '';
 
@@ -644,15 +662,22 @@
 			const result = await res.json();
 			scheduleRuns = result.runs || [];
 			if (result.upcomingRuns) upcomingRuns = result.upcomingRuns;
+			showSuccess('Scheduled item deleted successfully.');
 		} catch (err) {
-			error = err.message;
+			showError(err.message);
 		} finally {
 			loading = false;
 		}
 	}
 
 	async function clearAll() {
-		if (!confirm('Are you sure you want to clear ALL scheduled irrigation events, notes, and weather adjustments? This cannot be undone.')) return;
+		const confirmed = await showConfirm({
+			title: 'Clear All Irrigation Schedules?',
+			message: 'Are you sure you want to clear ALL scheduled irrigation events, notes, and weather adjustments? This cannot be undone.',
+			confirmText: 'Clear All',
+			confirmColor: 'bg-red-600 hover:bg-red-700 text-white'
+		});
+		if (!confirmed) return;
 		loading = true;
 		error = '';
 
@@ -676,8 +701,9 @@
 			activities = result.activities || [];
 			weatherOverrides = {};
 			manageModalActive = false;
+			showSuccess('All irrigation schedules cleared.');
 		} catch (err) {
-			error = err.message;
+			showError(err.message);
 		} finally {
 			loading = false;
 		}

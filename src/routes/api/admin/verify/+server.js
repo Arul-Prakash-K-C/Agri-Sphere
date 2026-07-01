@@ -45,6 +45,18 @@ export async function POST({ request, locals }) {
 
 		await userRef.update(updatePayload);
 
+		// Generate notification for the user
+		await adminDb.collection('notifications').add({
+			title: status === 'Verified' ? 'Profile Verified Successfully!' : 'Profile Verification Rejected',
+			message: status === 'Verified' 
+				? 'Congratulations! Your profile has been approved. You now have full access to marketplace listings and reports.' 
+				: `Your profile verification was rejected. Reason: ${rejectionReason || 'No reason provided'}. Please edit your details and resubmit.`,
+			read: false,
+			type: 'system',
+			userId: userId,
+			createdAt: new Date().toISOString()
+		});
+
 		// Record admin action to system logs
 		await adminDb.collection('system_logs').add({
 			title: `Profile ${status}: ${userData.fullName || 'User'}`,

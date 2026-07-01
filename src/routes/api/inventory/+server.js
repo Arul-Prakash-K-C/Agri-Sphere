@@ -163,6 +163,15 @@ export async function POST({ request, locals }) {
 				});
 			}
 
+			await adminDb.collection('notifications').add({
+				title: 'Inventory Stock Updated',
+				message: `Stock updated for "${docSnap.data().name}": Total ${finalTotal}, Sold/Used ${finalSoldUsed}.`,
+				read: false,
+				type: 'inventory',
+				userId: locals.user.uid,
+				createdAt: new Date().toISOString()
+			});
+
 			return json({ success: true, itemId, ...updateObj });
 		}
 

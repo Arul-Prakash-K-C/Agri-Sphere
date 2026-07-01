@@ -1,6 +1,7 @@
 <script>
 	import { fade, slide } from 'svelte/transition';
 	import { invalidateAll } from '$app/navigation';
+	import { showConfirm, showSuccess, showError } from '$lib/modal.svelte.js';
 
 	let { data } = $props();
 
@@ -254,7 +255,13 @@
 	}
 
 	async function handleDeleteStorage(id) {
-		if (!confirm('Are you sure you want to delete this storage? Linked inventory items will no longer be tracked under this storage.')) return;
+		const confirmed = await showConfirm({
+			title: 'Delete Storage Location?',
+			message: 'Are you sure you want to delete this storage? Linked inventory items will no longer be tracked under this storage.',
+			confirmText: 'Delete',
+			confirmColor: 'bg-red-600 hover:bg-red-700 text-white'
+		});
+		if (!confirmed) return;
 		loading = true;
 		error = '';
 
@@ -269,8 +276,9 @@
 			}
 
 			storages = storages.filter(s => s.id !== id);
+			showSuccess('Storage location deleted successfully.');
 		} catch (err) {
-			alert(err.message);
+			showError(err.message);
 		} finally {
 			loading = false;
 		}

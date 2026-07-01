@@ -1,6 +1,7 @@
 <script>
 	import { fade, slide } from 'svelte/transition';
 	import { invalidateAll } from '$app/navigation';
+	import { showConfirm, showSuccess, showError } from '$lib/modal.svelte.js';
 
 	const { data } = $props();
 
@@ -285,7 +286,13 @@
 	}
 
 	async function handleDelete(sale) {
-		if (!confirm(`Delete allocation of ${sale.quantity} ${sale.unit} of "${sale.itemName}"? This will restore the stock.`)) return;
+		const confirmed = await showConfirm({
+			title: 'Delete Allocation?',
+			message: `Delete allocation of ${sale.quantity} ${sale.unit} of "${sale.itemName}"? This will restore the stock.`,
+			confirmText: 'Delete',
+			confirmColor: 'bg-red-600 hover:bg-red-700 text-white'
+		});
+		if (!confirmed) return;
 
 		loading = true;
 		try {
@@ -294,9 +301,10 @@
 				const d = await res.json();
 				throw new Error(d.error || 'Failed to delete sale');
 			}
+			showSuccess('Sale allocation deleted successfully.');
 			await invalidateAll();
 		} catch (err) {
-			alert(err.message);
+			showError(err.message);
 		} finally {
 			loading = false;
 		}

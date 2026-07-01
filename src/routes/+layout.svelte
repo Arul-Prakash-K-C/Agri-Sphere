@@ -68,12 +68,18 @@
 	let showNotifications = $state(false);
 	let unreadCount = $derived(notifications.filter(n => !n.read).length);
 
+	let notificationInterval;
 	$effect(() => {
 		if (authState.user) {
 			fetchNotifications();
+			notificationInterval = setInterval(fetchNotifications, 5000);
 		} else {
 			notifications = [];
+			if (notificationInterval) clearInterval(notificationInterval);
 		}
+		return () => {
+			if (notificationInterval) clearInterval(notificationInterval);
+		};
 	});
 
 	async function fetchNotifications() {
@@ -99,6 +105,34 @@
 			}
 		} catch (e) {
 			console.error('Error marking notification as read:', e);
+		}
+	}
+
+	async function markAllAsRead() {
+		try {
+			const res = await fetch('/api/notifications', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ all: true })
+			});
+			if (res.ok) {
+				notifications = notifications.map(n => ({ ...n, read: true }));
+			}
+		} catch (e) {
+			console.error('Error marking all notifications as read:', e);
+		}
+	}
+
+	async function deleteNotification(id) {
+		try {
+			const res = await fetch(`/api/notifications?id=${id}`, {
+				method: 'DELETE'
+			});
+			if (res.ok) {
+				notifications = notifications.filter(n => n.id !== id);
+			}
+		} catch (e) {
+			console.error('Error deleting notification:', e);
 		}
 	}
 
@@ -188,15 +222,6 @@
 						<p class="text-[9px] text-slate-400 truncate mt-1">{authState.profile.email}</p>
 					</div>
 				</div>
-
-				<button
-					type="button"
-					onclick={handleLogout}
-					class="w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-semibold text-red-600 hover:bg-red-50 transition-all-custom text-left mt-2"
-				>
-					<span class="material-symbols-outlined text-[20px]">logout</span>
-					<span>Logout</span>
-				</button>
 			</div>
 		</aside>
 
@@ -216,28 +241,6 @@
 				
 				<!-- Utility buttons -->
 				<div class="flex items-center gap-3">
-					<!-- Search bar (desktop) -->
-					<!-- Listens to inputs to dynamically filter results across page routes or redirects -->
-					<div class="relative hidden sm:block">
-						<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-						<input 
-							type="text" 
-							placeholder="Search resources..." 
-							value={page.url.searchParams.get('search') || ''}
-							oninput={(e) => {
-								const val = e.target.value;
-								const url = new URL(window.location.href);
-								if (val.trim()) {
-									url.searchParams.set('search', val);
-								} else {
-									url.searchParams.delete('search');
-								}
-								// Replace state or navigate to search
-								goto(url.toString(), { replaceState: true, keepFocus: true });
-							}}
-							class="bg-slate-100/80 border-none rounded-full py-1.5 pl-9 pr-4 text-xs font-medium focus:ring-2 focus:ring-primary-green focus:bg-white w-48 transition-all duration-300 focus:w-56 outline-none"
-						/>
-					</div>
 
 					<div class="relative">
 						<button 
@@ -254,9 +257,14 @@
 							<!-- Notifications Dropdown Dialog -->
 							<div class="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-4 space-y-3 text-xs text-slate-700 animate-fade-in">
 								<div class="flex justify-between items-center border-b border-slate-100 pb-2">
-									<span class="font-extrabold text-slate-800">Notifications</span>
+									<div class="flex items-center gap-1.5">
+										<span class="font-extrabold text-slate-800">Notifications</span>
+										{#if unreadCount > 0}
+											<span class="bg-red-50 text-red-600 px-2 py-0.5 rounded-full text-[10px] font-bold">{unreadCount} New</span>
+										{/if}
+									</div>
 									{#if unreadCount > 0}
-										<span class="bg-red-50 text-red-600 px-2 py-0.5 rounded-full text-[10px] font-bold">{unreadCount} New</span>
+										<button onclick={markAllAsRead} class="text-[9px] text-slate-500 hover:text-primary-green hover:underline font-bold cursor-pointer">Mark all read</button>
 									{/if}
 								</div>
 								<div class="max-h-60 overflow-y-auto space-y-2.5 pr-1">
@@ -264,9 +272,12 @@
 										<div class={['p-2.5 rounded-xl border flex flex-col gap-1 transition-colors', item.read ? 'bg-slate-50 border-slate-100 text-slate-450 font-normal' : 'bg-emerald-50/30 border-emerald-100/50 text-slate-850 font-bold'].join(' ')}>
 											<div class="flex justify-between items-start gap-2">
 												<span class="font-black truncate text-[11px] text-slate-800">{item.title}</span>
-												{#if !item.read}
-													<button onclick={() => markAsRead(item.id)} class="text-[9px] text-primary-green hover:underline shrink-0 font-bold cursor-pointer">Mark read</button>
-												{/if}
+												<div class="flex items-center gap-2 shrink-0">
+													{#if !item.read}
+														<button onclick={() => markAsRead(item.id)} class="text-[9px] text-primary-green hover:underline font-bold cursor-pointer">Mark read</button>
+													{/if}
+													<button onclick={() => deleteNotification(item.id)} class="text-[9px] text-red-500 hover:text-red-700 hover:underline font-bold cursor-pointer" title="Delete notification">Delete</button>
+												</div>
 											</div>
 											<p class="text-[10px] leading-relaxed text-slate-500 font-medium">{item.message}</p>
 										</div>
@@ -281,9 +292,9 @@
 						{/if}
 					</div>
 
-					<button class="text-slate-500 hover:text-primary-green hover:bg-emerald-50 p-2 rounded-2xl transition-all scale-95 active:scale-90">
+					<a href="/settings" class="text-slate-500 hover:text-primary-green hover:bg-emerald-50 p-2 rounded-2xl transition-all scale-95 active:scale-90 flex items-center justify-center" title="Account Settings">
 						<span class="material-symbols-outlined text-[22px]">settings</span>
-					</button>
+					</a>
 				</div>
 			</header>
 
@@ -898,14 +909,16 @@
 					{/each}
 				{/if}
 
-				<!-- Logout Button -->
-				<button
-					type="button"
-					onclick={handleLogout}
-					class="flex flex-col items-center gap-0.5 text-xs font-bold text-red-500"
+				<!-- Settings Link -->
+				<a
+					href="/settings"
+					class={[
+						'flex flex-col items-center gap-0.5 text-xs font-bold transition-colors duration-200',
+						page.url.pathname === '/settings' ? 'text-primary-green' : 'text-slate-500'
+					].filter(Boolean).join(' ')}
 				>
-					<span class="material-symbols-outlined text-[22px]">logout</span>
-				</button>
+					<span class="material-symbols-outlined text-[22px]">settings</span>
+				</a>
 			</nav>
 		</div>
 
@@ -950,8 +963,14 @@
 		bind:show={modalState.show}
 		type={modalState.type}
 		title={modalState.title}
+		icon={modalState.icon}
 		confirmText={modalState.confirmText}
 		cancelText={modalState.cancelText}
+		confirmColor={modalState.confirmColor}
+		cancelColor={modalState.cancelColor}
+		showCancel={modalState.showCancel}
+		showClose={modalState.showClose}
+		loading={modalState.loading}
 		onConfirm={modalState.onConfirm}
 		onCancel={modalState.onCancel}
 	>

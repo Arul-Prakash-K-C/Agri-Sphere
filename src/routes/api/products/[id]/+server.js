@@ -100,6 +100,15 @@ export async function PATCH({ params, request, locals }) {
 				.catch(err => console.error('Error notifying availability subscribers:', err));
 		}
 
+		await adminDb.collection('notifications').add({
+			title: 'Product Updated',
+			message: `Product "${updatedDoc.data().name}" has been updated.`,
+			read: false,
+			type: 'marketplace',
+			userId: locals.user.uid,
+			createdAt: new Date().toISOString()
+		});
+
 		return json({ id: updatedDoc.id, ...updatedDoc.data() });
 	} catch (error) {
 		console.error('Error updating product listing:', error);
@@ -164,6 +173,16 @@ export async function DELETE({ params, locals }) {
 		}
 
 		await docRef.delete();
+
+		await adminDb.collection('notifications').add({
+			title: 'Product Deleted',
+			message: `Product "${productDoc.data().name}" has been deleted.`,
+			read: false,
+			type: 'marketplace',
+			userId: locals.user.uid,
+			createdAt: new Date().toISOString()
+		});
+
 		return json({ success: true, message: 'Product listing deleted successfully' });
 	} catch (error) {
 		console.error('Error deleting product listing:', error);

@@ -2,6 +2,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import { generateReportPdf } from '$lib/pdf/reportGenerator';
 	import { authState } from '$lib/auth.svelte.js';
+	import { showWarning } from '$lib/modal.svelte.js';
 
 	let { 
 		reportType = 'crops', 
@@ -102,7 +103,7 @@
 		let currentEnd = endDate;
 
 		if (datePreset !== 'all' && (!currentStart || !currentEnd)) {
-			alert('Please select valid start and end dates.');
+			showWarning('Please select valid start and end dates.', 'Invalid Date Range');
 			return;
 		}
 

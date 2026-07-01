@@ -1,7 +1,7 @@
 <script>
 	import { fade, slide } from 'svelte/transition';
 	import { invalidateAll } from '$app/navigation';
-	import Modal from '$lib/components/Modal.svelte';
+	import { showConfirm, showSuccess, showError } from '$lib/modal.svelte.js';
 
 	let { data } = $props();
 
@@ -13,11 +13,7 @@
 	let customImage = $state('');
 	let customImageName = $state('');
 	let specimenType = $state('Leaf');
-
-	// Custom confirmation dialog state
-	let showDeleteModal = $state(false);
-	let scanToDelete = $state(null);
-	let deleteLoading = $state(false);
+	
 	
 	let selectedLeaf = $derived({
 		id: 'custom',
@@ -133,7 +129,7 @@
 			} catch (err) {
 				console.error('Scan error:', err);
 				scanning = false;
-				alert(err.message);
+				showError(err.message);
 			}
 		}, 1500);
 	}
@@ -171,37 +167,31 @@
 		};
 	}
 
-	function confirmDeleteScan(scan) {
-		scanToDelete = scan;
-		showDeleteModal = true;
-	}
+	async function confirmDeleteScan(scan) {
+		const confirmed = await showConfirm({
+			title: 'Delete Scan Report?',
+			message: `This will permanently delete the AI diagnostic scan report for ${scan.crop} (${scan.pathogen}).`,
+			confirmText: 'Delete Scan',
+			confirmColor: 'bg-red-600 hover:bg-red-700 text-white'
+		});
+		if (!confirmed) return;
 
-	function closeDeleteModal() {
-		showDeleteModal = false;
-		scanToDelete = null;
-	}
-
-	async function deleteScan() {
-		if (!scanToDelete) return;
-		deleteLoading = true;
 		try {
-			const res = await fetch(`/api/disease-detection?id=${scanToDelete.id}`, {
+			const res = await fetch(`/api/disease-detection?id=${scan.id}`, {
 				method: 'DELETE'
 			});
 			if (!res.ok) {
 				const err = await res.json();
 				throw new Error(err.error || 'Failed to delete scan');
 			}
-			recentScans = recentScans.filter(s => s.id !== scanToDelete.id);
-			if (currentDiagnosis && currentDiagnosis.id === scanToDelete.id) {
+			recentScans = recentScans.filter(s => s.id !== scan.id);
+			if (currentDiagnosis && currentDiagnosis.id === scan.id) {
 				handleReset();
 			}
-			closeDeleteModal();
+			showSuccess('Scan report deleted successfully.');
 			await invalidateAll();
 		} catch (err) {
-			alert(err.message);
-		} finally {
-			deleteLoading = false;
+			showError(err.message);
 		}
 	}
 </script>
@@ -495,43 +485,7 @@
 		</div>
 
 	</div>
-	<!-- Custom Delete Confirmation Dialog Modal -->
-	<Modal
-		bind:show={showDeleteModal}
-		size="sm"
-		title="Delete Scan Report?"
-	>
-		<p class="text-xs font-semibold text-slate-550 leading-relaxed">
-			This will permanently delete the AI diagnostic scan report for
-			<strong class="text-slate-700">{scanToDelete?.crop}</strong>
-			({scanToDelete?.pathogen}).
-		</p>
-
-		{#snippet footer()}
-			<button
-				type="button"
-				onclick={closeDeleteModal}
-				class="btn-secondary flex-1 py-2.5 text-xs cursor-pointer"
-				disabled={deleteLoading}
-			>
-				Cancel
-			</button>
-			<button
-				type="button"
-				onclick={deleteScan}
-				disabled={deleteLoading}
-				class="flex-1 py-2.5 text-xs font-bold rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer shadow-sm"
-			>
-				{#if deleteLoading}
-					<span class="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
-					Deleting…
-				{:else}
-					<span class="material-symbols-outlined text-[15px]">delete</span>
-					Delete Scan
-				{/if}
-			</button>
-		{/snippet}
-	</Modal>
+	</div>
 </section>
 
 <style>
