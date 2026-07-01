@@ -134,6 +134,15 @@ export async function POST({ request, locals }) {
 			updatedAt: new Date().toISOString()
 		}).catch(err => console.error('Error seeding initial price history:', err));
 
+		await adminDb.collection('notifications').add({
+			title: 'Product Listed',
+			message: `Product "${name}" has been listed in the marketplace for ₹${price}/${unit}.`,
+			read: false,
+			type: 'marketplace',
+			userId: locals.user.uid,
+			createdAt: new Date().toISOString()
+		});
+
 		return json({ id: docRef.id, ...newProduct }, { status: 201 });
 	} catch (error) {
 		console.error('Error creating product:', error);

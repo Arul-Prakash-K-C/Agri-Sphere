@@ -64,6 +64,16 @@ export async function POST({ request, locals }) {
 		};
 
 		const docRef = await adminDb.collection('crops').add(newCrop);
+
+		await adminDb.collection('notifications').add({
+			title: 'New Crop Registered',
+			message: `Crop "${name}" has been registered in "${location}" (${acres} Acres).`,
+			read: false,
+			type: 'crop',
+			userId: locals.user.uid,
+			createdAt: new Date().toISOString()
+		});
+
 		return json({ id: docRef.id, ...newCrop }, { status: 201 });
 	} catch (error) {
 		console.error('Error creating crop:', error);

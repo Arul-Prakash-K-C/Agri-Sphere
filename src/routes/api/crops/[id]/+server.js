@@ -77,6 +77,15 @@ export async function PATCH({ params, request, locals }) {
 		await docRef.update(updatePayload);
 		const updatedDoc = await docRef.get();
 
+		await adminDb.collection('notifications').add({
+			title: 'Crop Updated',
+			message: `Crop "${updatedDoc.data().name}" has been updated.`,
+			read: false,
+			type: 'crop',
+			userId: locals.user.uid,
+			createdAt: new Date().toISOString()
+		});
+
 		return json({ id: updatedDoc.id, ...updatedDoc.data() });
 	} catch (error) {
 		console.error('Error updating crop:', error);
@@ -107,6 +116,16 @@ export async function DELETE({ params, locals }) {
 		}
 
 		await docRef.delete();
+
+		await adminDb.collection('notifications').add({
+			title: 'Crop Deleted',
+			message: `Crop "${cropDoc.data().name}" has been deleted.`,
+			read: false,
+			type: 'crop',
+			userId: locals.user.uid,
+			createdAt: new Date().toISOString()
+		});
+
 		return json({ success: true, message: 'Crop deleted successfully' });
 	} catch (error) {
 		console.error('Error deleting crop:', error);

@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import Modal from '$lib/components/Modal.svelte';
+	import { showConfirm, showSuccess, showError } from '$lib/modal.svelte.js';
 
 	let { data } = $props();
 
@@ -427,7 +428,13 @@
 	}
 
 	async function handleDeleteExpense(id, amount) {
-		if (!confirm('Are you sure you want to delete this expense?')) return;
+		const confirmed = await showConfirm({
+			title: 'Delete Expense?',
+			message: 'Are you sure you want to delete this expense? This action cannot be undone.',
+			confirmText: 'Delete',
+			confirmColor: 'bg-red-600 hover:bg-red-700 text-white'
+		});
+		if (!confirmed) return;
 		try {
 			const res = await fetch(`/api/expenses/${id}`, {
 				method: 'DELETE'
@@ -442,8 +449,9 @@
 			if (chartInstance) {
 				initChart();
 			}
+			showSuccess('Expense deleted successfully.');
 		} catch (err) {
-			alert(err.message);
+			showError(err.message);
 		}
 	}
 

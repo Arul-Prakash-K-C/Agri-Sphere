@@ -1,6 +1,7 @@
 <script>
 	import { fade, slide } from "svelte/transition";
 	import Modal from "$lib/components/Modal.svelte";
+	import { showConfirm, showSuccess, showError } from "$lib/modal.svelte.js";
 
 	let { data } = $props();
 
@@ -120,7 +121,13 @@
 	}
 
 	async function handleDeleteCrop(id) {
-		if (!confirm("Are you sure you want to delete this crop?")) return;
+		const confirmed = await showConfirm({
+			title: "Delete Crop?",
+			message: "Are you sure you want to delete this crop? This cannot be undone.",
+			confirmText: "Delete",
+			confirmColor: "bg-red-600 hover:bg-red-700 text-white"
+		});
+		if (!confirmed) return;
 		try {
 			const res = await fetch(`/api/crops/${id}`, {
 				method: "DELETE",
@@ -132,8 +139,9 @@
 			}
 
 			crops = crops.filter((c) => c.id !== id);
+			showSuccess("Crop deleted successfully.");
 		} catch (err) {
-			alert(err.message);
+			showError(err.message);
 		}
 	}
 

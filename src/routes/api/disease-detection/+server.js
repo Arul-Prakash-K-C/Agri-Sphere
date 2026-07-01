@@ -229,6 +229,16 @@ Format the response as a single, clean JSON block:
 		};
 
 		const docRef = await adminDb.collection('disease_scans').add(newScan);
+
+		await adminDb.collection('notifications').add({
+			title: 'Leaf Diagnostic Completed',
+			message: `Diagnostic scan finished for ${newScan.crop}. Result: ${newScan.pathogen} (${newScan.severity} Severity).`,
+			read: false,
+			type: 'disease',
+			userId: locals.user.uid,
+			createdAt: new Date().toISOString()
+		});
+
 		return json({ id: docRef.id, ...newScan });
 	} catch (error) {
 		console.error('Error saving diagnosis:', error);
