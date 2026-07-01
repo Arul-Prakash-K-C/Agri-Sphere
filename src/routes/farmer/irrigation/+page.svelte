@@ -522,7 +522,7 @@
 			{#if scheduleRuns.length > 0}
 				<button 
 					onclick={clearAll}
-					class="border border-red-200 text-red-650 hover:bg-red-50/50 font-bold text-xs px-4 py-3 rounded-full flex items-center justify-center gap-1.5 transition-all whitespace-nowrap cursor-pointer"
+					class="border border-red-200 text-red-600 hover:bg-red-50/50 font-bold text-xs px-4 py-3 rounded-full flex items-center justify-center gap-1.5 transition-all whitespace-nowrap cursor-pointer"
 					title="Clear all events and weather overrides"
 				>
 					<span class="material-symbols-outlined text-[16px]">delete_sweep</span>

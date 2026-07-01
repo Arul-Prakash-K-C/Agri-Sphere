@@ -522,7 +522,7 @@
 				<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
 					{activeFilter === 'This Month' ? 'Monthly Profit' : 'Period Profit'}
 				</p>
-				<h3 class="text-2xl font-extrabold {periodProfit < 0 ? 'text-red-650' : 'text-primary-green'} mt-1">
+				<h3 class="text-2xl font-extrabold {periodProfit < 0 ? 'text-red-600' : 'text-primary-green'} mt-1">
 					{formatCurrency(periodProfit)}
 				</h3>
 			</div>

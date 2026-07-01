@@ -256,7 +256,7 @@
 								<div class="flex justify-between items-center border-b border-slate-100 pb-2">
 									<span class="font-extrabold text-slate-800">Notifications</span>
 									{#if unreadCount > 0}
-										<span class="bg-red-50 text-red-650 px-2 py-0.5 rounded-full text-[10px] font-bold">{unreadCount} New</span>
+										<span class="bg-red-50 text-red-600 px-2 py-0.5 rounded-full text-[10px] font-bold">{unreadCount} New</span>
 									{/if}
 								</div>
 								<div class="max-h-60 overflow-y-auto space-y-2.5 pr-1">

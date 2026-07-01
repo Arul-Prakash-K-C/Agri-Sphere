@@ -478,7 +478,7 @@
 							<button
 								onclick={() => requestVerificationUpdate(selectedUser.id, 'Rejected', rejectionReason)}
 								disabled={!rejectionReason.trim() || actionLoading}
-								class="px-4 py-1.5 bg-red-650 hover:bg-red-700 text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+								class="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50"
 							>
 								Confirm Reject
 							</button>
@@ -572,7 +572,7 @@
 		title={resultTitle}
 	>
 		<div class="text-center py-2 space-y-4">
-			<div class="mx-auto size-12 rounded-full flex items-center justify-center {isSuccessResult ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-650'}">
+			<div class="mx-auto size-12 rounded-full flex items-center justify-center {isSuccessResult ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}">
 				<span class="material-symbols-outlined text-2xl">{isSuccessResult ? 'check_circle' : 'error'}</span>
 			</div>
 			<p class="text-xs text-slate-500 leading-relaxed font-semibold">{resultMessage}</p>

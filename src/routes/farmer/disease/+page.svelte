@@ -265,7 +265,7 @@
 					ondrop={handleDrop}
 					role="button"
 					tabindex="0"
-					class="flex-grow border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 flex flex-col items-center justify-center p-6 relative overflow-hidden group hover:border-primary-green hover:bg-slate-50 transition-all cursor-pointer"
+					class="h-80 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 flex flex-col items-center justify-center p-6 relative overflow-hidden group hover:border-primary-green hover:bg-slate-50 transition-all cursor-pointer"
 				>
 					{#if !imageLoaded}
 						<!-- Upload prompt -->
@@ -332,6 +332,46 @@
 							<span>Scan Image</span>
 						{/if}
 					</button>
+				</div>
+			</div>
+
+			<!-- Recent Scans Mini list -->
+			<div class="glass-card rounded-2xl p-5 bg-white space-y-4 shadow-sm border border-slate-200/50">
+				<h3 class="font-extrabold text-slate-800 text-xs uppercase tracking-wider">Recent Leaf Diagnostic Scans</h3>
+				
+				<div class="divide-y divide-slate-100">
+					{#each recentScans as scan (scan.id)}
+						<div class="flex justify-between items-center py-3 first:pt-0 last:pb-0 gap-4">
+							<div class="flex items-center gap-3 min-w-0 flex-1">
+								<div class="w-10 h-10 rounded-lg overflow-hidden border border-slate-100 flex-shrink-0 bg-slate-100">
+									<img src={scan.image} alt={scan.crop} class="w-full h-full object-cover" />
+								</div>
+								<div class="min-w-0 flex-1">
+									<p class="text-xs font-bold text-slate-800 truncate">{scan.crop}</p>
+									<span class={['inline-block px-1.5 py-0.5 rounded text-[9px] font-bold border mt-0.5 truncate max-w-full', scan.statusColor].filter(Boolean).join(' ')}>
+										{scan.pathogen}
+									</span>
+								</div>
+							</div>
+							<div class="flex items-center gap-2 flex-shrink-0">
+								<span class="text-[9px] text-slate-400 font-semibold mr-1">{scan.time}</span>
+								<button 
+									onclick={() => previewScan(scan)}
+									title="Preview Scan Report"
+									class="p-1 text-slate-400 hover:text-primary-green hover:bg-emerald-50 rounded-lg transition-colors flex items-center justify-center cursor-pointer"
+								>
+									<span class="material-symbols-outlined text-[16px]">visibility</span>
+								</button>
+								<button 
+									onclick={() => confirmDeleteScan(scan)}
+									title="Delete Scan Report"
+									class="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center justify-center cursor-pointer"
+								>
+									<span class="material-symbols-outlined text-[16px]">delete</span>
+								</button>
+							</div>
+						</div>
+					{/each}
 				</div>
 			</div>
 		</div>
@@ -454,47 +494,6 @@
 			{/if}
 		</div>
 
-			<!-- Recent Scans Mini list -->
-			<div class="glass-card rounded-2xl p-5 bg-white space-y-4 shadow-sm border border-slate-200/50">
-				<h3 class="font-extrabold text-slate-800 text-xs uppercase tracking-wider">Recent Leaf Diagnostic Scans</h3>
-				
-				<div class="divide-y divide-slate-100">
-					{#each recentScans as scan (scan.id)}
-						<div class="flex justify-between items-center py-3 first:pt-0 last:pb-0 gap-4">
-							<div class="flex items-center gap-3 min-w-0 flex-1">
-								<div class="w-10 h-10 rounded-lg overflow-hidden border border-slate-100 flex-shrink-0 bg-slate-100">
-									<img src={scan.image} alt={scan.crop} class="w-full h-full object-cover" />
-								</div>
-								<div class="min-w-0 flex-1">
-									<p class="text-xs font-bold text-slate-800 truncate">{scan.crop}</p>
-									<span class={['inline-block px-1.5 py-0.5 rounded text-[9px] font-bold border mt-0.5 truncate max-w-full', scan.statusColor].filter(Boolean).join(' ')}>
-										{scan.pathogen}
-									</span>
-								</div>
-							</div>
-							<div class="flex items-center gap-2 flex-shrink-0">
-								<span class="text-[9px] text-slate-400 font-semibold mr-1">{scan.time}</span>
-								<button 
-									onclick={() => previewScan(scan)}
-									title="Preview Scan Report"
-									class="p-1 text-slate-400 hover:text-primary-green hover:bg-emerald-50 rounded-lg transition-colors flex items-center justify-center cursor-pointer"
-								>
-									<span class="material-symbols-outlined text-[16px]">visibility</span>
-								</button>
-								<button 
-									onclick={() => confirmDeleteScan(scan)}
-									title="Delete Scan Report"
-									class="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center justify-center cursor-pointer"
-								>
-									<span class="material-symbols-outlined text-[16px]">delete</span>
-								</button>
-							</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-		</div>
-
 	</div>
 	<!-- Custom Delete Confirmation Dialog Modal -->
 	<Modal
@@ -521,7 +520,7 @@
 				type="button"
 				onclick={deleteScan}
 				disabled={deleteLoading}
-				class="flex-1 py-2.5 text-xs font-bold rounded-lg bg-red-650 text-white hover:bg-red-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer shadow-sm"
+				class="flex-1 py-2.5 text-xs font-bold rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer shadow-sm"
 			>
 				{#if deleteLoading}
 					<span class="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>

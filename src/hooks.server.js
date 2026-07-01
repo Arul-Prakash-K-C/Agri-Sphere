@@ -21,8 +21,8 @@ export async function handle({ event, resolve }) {
 
 	if (sessionCookie) {
 		try {
-			// Verify session cookie securely
-			const decodedClaims = await adminAuth.verifySessionCookie(sessionCookie, true);
+			// Verify session cookie securely (using local signature verification without blocking network calls to Firebase)
+			const decodedClaims = await adminAuth.verifySessionCookie(sessionCookie, false);
 			user = decodedClaims;
 
 			// Fetch the user's profile from Firestore to get their role securely
