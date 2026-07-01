@@ -753,18 +753,7 @@
 			</h1>
 			<p class="text-sm text-slate-500 mt-1">Monitor and schedule water distribution zones.</p>
 		</div>
-		<div class="flex items-center gap-3">
-			{#if scheduleRuns.length > 0}
-				<button 
-					onclick={clearAll}
-					class="border border-red-200 text-red-600 hover:bg-red-50/50 font-bold text-xs px-4 py-3 rounded-full flex items-center justify-center gap-1.5 transition-all whitespace-nowrap cursor-pointer"
-					title="Clear all events and weather overrides"
-				>
-					<span class="material-symbols-outlined text-[16px]">delete_sweep</span>
-					<span>Clear All</span>
-				</button>
-			{/if}
-		<div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+		<div class="flex flex-wrap items-center gap-3 w-full lg:w-auto mt-2 lg:mt-0 font-semibold text-slate-700 font-bold">
 			<!-- Location Monitor & Smart Rain Delay Header Widget -->
 			<div class="flex flex-wrap items-center gap-4 bg-white border border-slate-200/60 rounded-2xl p-2 px-3 shadow-xs">
 				<!-- Monitor Location Input -->
@@ -815,6 +804,17 @@
 				</div>
 			</div>
 
+			{#if scheduleRuns.length > 0}
+				<button 
+					onclick={clearAll}
+					class="border border-red-200 text-red-650 hover:bg-red-50/50 font-bold text-xs px-4 py-3 rounded-full flex items-center justify-center gap-1.5 transition-all whitespace-nowrap cursor-pointer"
+					title="Clear all events and weather overrides"
+				>
+					<span class="material-symbols-outlined text-[16px]">delete_sweep</span>
+					<span>Clear All</span>
+				</button>
+			{/if}
+
 			<button 
 				onclick={() => manageModalActive = true}
 				class="border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-[11px] px-4 py-2.5 rounded-full flex items-center justify-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shadow-xs"
@@ -823,6 +823,7 @@
 				<span class="material-symbols-outlined text-[16px] text-primary-green">settings_suggest</span>
 				<span>Manage Schedules</span>
 			</button>
+
 			<button 
 				onclick={() => openAddModalForDate(1)}
 				class="bg-gradient-to-br from-primary-green to-dark-green text-white font-bold text-[11px] px-4 py-2.5 rounded-full flex items-center justify-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/45 hover:-translate-y-0.5 transition-all whitespace-nowrap cursor-pointer"

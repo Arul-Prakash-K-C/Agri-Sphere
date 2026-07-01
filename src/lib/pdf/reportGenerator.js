@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { robotoRegular, robotoBold } from './embeddedFonts.js';
 
 // Reusable colors
 const PRIMARY_GREEN = [22, 163, 74];
@@ -8,60 +9,16 @@ const LIGHT_GREEN = [220, 252, 231];
 const TEXT_DARK = [31, 41, 55];
 const TEXT_LIGHT = [107, 114, 128];
 
-// State variables for dynamic font loading
-let fontRegularBase64 = null;
-let fontBoldBase64 = null;
 export let useRupeeSymbol = true;
 
 /**
- * Converts array buffer to base64 string
- */
-function arrayBufferToBase64(buffer) {
-	let binary = '';
-	const bytes = new Uint8Array(buffer);
-	const len = bytes.byteLength;
-	for (let i = 0; i < len; i++) {
-		binary += String.fromCharCode(bytes[i]);
-	}
-	return btoa(binary);
-}
-
-/**
- * Loads the Unicode-compatible font (Roboto) dynamically from CDNJS
- * fallback to helvetica with 'Rs.' symbol if offline or failure.
+ * Loads the Unicode-compatible font (Roboto) from embedded base64 assets
  */
 async function loadFonts(doc) {
-	if (fontRegularBase64 && fontBoldBase64) {
-		try {
-			doc.addFileToVFS('Roboto-Regular.ttf', fontRegularBase64);
-			doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
-			doc.addFileToVFS('Roboto-Bold.ttf', fontBoldBase64);
-			doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
-			useRupeeSymbol = true;
-			return true;
-		} catch (err) {
-			console.error('Error adding fonts from cache:', err);
-		}
-	}
 	try {
-		const [regRes, boldRes] = await Promise.all([
-			fetch('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf'),
-			fetch('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf')
-		]);
-		
-		if (!regRes.ok || !boldRes.ok) throw new Error('Failed to fetch font files');
-		
-		const [regBuf, boldBuf] = await Promise.all([
-			regRes.arrayBuffer(),
-			boldRes.arrayBuffer()
-		]);
-		
-		fontRegularBase64 = arrayBufferToBase64(regBuf);
-		fontBoldBase64 = arrayBufferToBase64(boldBuf);
-		
-		doc.addFileToVFS('Roboto-Regular.ttf', fontRegularBase64);
+		doc.addFileToVFS('Roboto-Regular.ttf', robotoRegular);
 		doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
-		doc.addFileToVFS('Roboto-Bold.ttf', fontBoldBase64);
+		doc.addFileToVFS('Roboto-Bold.ttf', robotoBold);
 		doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
 		useRupeeSymbol = true;
 		return true;
@@ -92,7 +49,7 @@ function drawLogo(doc, x, y) {
 export function formatCurrency(amount) {
 	if (amount === undefined || amount === null || isNaN(Number(amount))) {
 		const symbol = useRupeeSymbol ? '₹' : 'Rs.';
-		return `${symbol} 0.00`;
+		return `${symbol}0.00`;
 	}
 	const formattedVal = new Intl.NumberFormat('en-IN', {
 		minimumFractionDigits: 2,
@@ -100,7 +57,7 @@ export function formatCurrency(amount) {
 	}).format(amount);
 	
 	const symbol = useRupeeSymbol ? '₹' : 'Rs.';
-	return `${symbol} ${formattedVal}`;
+	return `${symbol}${formattedVal}`;
 }
 
 /**
@@ -392,7 +349,47 @@ function renderDashboardSummary(doc, data, startY, options) {
 		{ title: 'Net Profit', value: formatCurrency((summaryStats.revenue || 0) - (summaryStats.expenses || 0)) }
 	];
 	
-	let currentY = drawSummaryCards(doc, cards, startY);
+	// Draw 2x2 layout of KPI cards
+	const pageWidth = doc.internal.pageSize.width;
+	const margin = 15;
+	const usableWidth = pageWidth - (margin * 2); // 180mm
+	
+	const cardWidth = (usableWidth - 8) / 2; // 86mm each
+	const cardHeight = 24;
+	
+	cards.forEach((card, index) => {
+		const col = index % 2;
+		const row = Math.floor(index / 2);
+		const cardX = margin + col * (cardWidth + 8);
+		const cardY = startY + row * (cardHeight + 6);
+		
+		// Background fill
+		doc.setFillColor(248, 250, 252); // slate-50
+		doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 2, 2, 'F');
+		
+		// Border stroke
+		doc.setDrawColor(226, 232, 240); // slate-200
+		doc.setLineWidth(0.4);
+		doc.roundedRect(cardX, cardY, cardWidth, cardHeight, 2, 2, 'D');
+		
+		// Left green accent border
+		doc.setFillColor(22, 163, 74); // primary green
+		doc.rect(cardX, cardY, 3, cardHeight, 'F');
+		
+		// Title
+		doc.setTextColor(100, 116, 139); // slate-500
+		doc.setFont(fontName, 'bold');
+		doc.setFontSize(8.5);
+		doc.text(card.title.toUpperCase(), cardX + 9, cardY + 8);
+		
+		// Value
+		doc.setTextColor(15, 23, 42); // slate-900
+		doc.setFont(fontName, 'bold');
+		doc.setFontSize(14);
+		doc.text(String(card.value), cardX + 9, cardY + 18);
+	});
+	
+	let currentY = startY + (cardHeight * 2) + 6 + 10;
 	
 	// Add Section: Recent Activity
 	doc.setTextColor(31, 41, 55);
@@ -404,6 +401,7 @@ function renderDashboardSummary(doc, data, startY, options) {
 	autoTable(doc, {
 		...getTableOptions(),
 		startY: currentY,
+		showHead: 'every',
 		head: [['Metric Category', 'Total Volume/Count', 'Financial Impact', 'Status']],
 		body: [
 			['Crop Production', `${summaryStats.cropsCount || 0} Crops Planted`, 'N/A', 'Active Field Operations'],
@@ -414,7 +412,10 @@ function renderDashboardSummary(doc, data, startY, options) {
 			['Financial Inflow', 'Produce Sales Listed', formatCurrency(summaryStats.revenue || 0), 'Settled']
 		],
 		columnStyles: {
-			2: { halign: 'right' }
+			0: { cellWidth: 50 },
+			1: { cellWidth: 40, halign: 'right' },
+			2: { cellWidth: 45, halign: 'right' },
+			3: { cellWidth: 45 }
 		}
 	});
 }

@@ -168,7 +168,7 @@
 <!-- Export Button -->
 <button 
 	onclick={() => showModal = true} 
-	class="btn-secondary flex items-center gap-1.5 px-3 py-2 text-xs md:text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 cursor-pointer {customClass}"
+	class={customClass || "btn-secondary flex items-center gap-1.5 px-3 py-2 text-xs md:text-sm font-semibold shadow-sm transition-all hover:-translate-y-0.5 cursor-pointer"}
 >
 	<span class="material-symbols-outlined text-base">picture_as_pdf</span>
 	<span>Export PDF</span>

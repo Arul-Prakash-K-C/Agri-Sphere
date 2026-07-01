@@ -204,6 +204,16 @@
 	let totalRevenue = $derived(filteredSales.filter(x => !x.type || x.type === 'Sale').reduce((sum, item) => sum + Number(item.totalAmount || 0), 0));
 	let totalStock = $derived(inventory.reduce((sum, item) => sum + Number(item.total || item.quantity || 0) - Number(item.soldUsed || 0), 0));
 	let periodProfit = $derived(totalRevenue - totalExpenses);
+
+	let hasAllocData = $derived(
+		filteredSales.filter(x => !x.type || x.type === 'Sale').reduce((sum, item) => sum + Number(item.quantity || 0), 0) > 0 ||
+		filteredSales.filter(x => x.type === 'Self Use').reduce((sum, item) => sum + Number(item.quantity || 0), 0) > 0 ||
+		filteredSales.filter(x => x.type === 'Wastage').reduce((sum, item) => sum + Number(item.quantity || 0), 0) > 0
+	);
+
+	let hasExpenseData = $derived(
+		filteredExpenses.some(e => Number(e.amount || 0) > 0)
+	);
 	
 	// Format currency
 	function formatCurrency(val) {
@@ -394,9 +404,9 @@
 			cropChartInstance = new Chart(ctxCrop, {
 				type: 'doughnut',
 				data: {
-					labels: cropNames.length > 0 ? cropNames : ['Wheat', 'Rice', 'Barley', 'Maize'],
+					labels: cropNames,
 					datasets: [{
-						data: cropAcres.length > 0 ? cropAcres : [40, 30, 18, 12],
+						data: cropAcres,
 						backgroundColor: [
 							'#15803D', // dark-green
 							'#16A34A', // primary-green
@@ -429,14 +439,13 @@
 			const saleQty = filteredSales.filter(x => !x.type || x.type === 'Sale').reduce((sum, item) => sum + Number(item.quantity || 0), 0);
 			const selfUseQty = filteredSales.filter(x => x.type === 'Self Use').reduce((sum, item) => sum + Number(item.quantity || 0), 0);
 			const wastageQty = filteredSales.filter(x => x.type === 'Wastage').reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-			const hasData = saleQty > 0 || selfUseQty > 0 || wastageQty > 0;
 
 			allocationChartInstance = new Chart(ctxAlloc, {
 				type: 'doughnut',
 				data: {
 					labels: ['Sale', 'Self Use', 'Wastage'],
 					datasets: [{
-						data: hasData ? [saleQty, selfUseQty, wastageQty] : [80, 15, 5],
+						data: [saleQty, selfUseQty, wastageQty],
 						backgroundColor: [
 							'#10B981', // emerald-500
 							'#F59E0B', // amber-500
@@ -472,14 +481,13 @@
 				}
 				return filteredExpenses.filter(e => e.category === cat).reduce((sum, e) => sum + Number(e.amount || 0), 0);
 			});
-			const hasData = categoryTotals.some(t => t > 0);
 
 			expenseBreakdownChartInstance = new Chart(ctxExpBreakdown, {
 				type: 'pie',
 				data: {
 					labels: categories,
 					datasets: [{
-						data: hasData ? categoryTotals : [12000, 24000, 8000, 35000, 15000, 10000, 5000],
+						data: categoryTotals,
 						backgroundColor: [
 							'#10B981', // emerald
 							'#3B82F6', // blue
@@ -585,10 +593,23 @@
 					/>
 				</div>
 			{/if}
-			<button class="bg-gradient-to-br from-primary-green to-dark-green text-white px-5 py-2 rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/30 cursor-pointer">
-				<span class="material-symbols-outlined text-[18px]">download</span>
-				<span>Export Report</span>
-			</button>
+			<ExportReportButton 
+				reportType="dashboard_summary" 
+				reportOptions={[
+					{ value: 'dashboard_summary', label: 'Dashboard Summary' },
+					{ value: 'analytics', label: 'Financial & Resource Analytics' }
+				]}
+				dataList={crops}
+				extraData={{
+					crops,
+					expenses,
+					inventory,
+					sales,
+					disease: data.disease || [],
+					harvests: data.harvests || []
+				}}
+				class="bg-gradient-to-br from-primary-green to-dark-green text-white px-5 py-2 rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/30 cursor-pointer border-0"
+			/>
 		</div>
 	</div>
 
@@ -688,7 +709,13 @@
 		<div class="lg:col-span-1 glass-card rounded-2xl p-6 flex flex-col h-96">
 			<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">Crop Yield Share</h3>
 			<div class="flex-grow relative">
-				<canvas id="cropChart"></canvas>
+				{#if crops.length === 0}
+					<div class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 text-xs font-semibold">
+						<span class="material-symbols-outlined text-[32px] mb-1.5 text-slate-350">psychology</span>
+						<span>No crop varieties planted yet</span>
+					</div>
+				{/if}
+				<canvas id="cropChart" class={crops.length === 0 ? 'hidden' : ''}></canvas>
 			</div>
 		</div>
 
@@ -701,7 +728,13 @@
 		<div class="glass-card rounded-2xl p-6 flex flex-col h-96">
 			<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">Stock Allocation (Usage)</h3>
 			<div class="flex-grow relative">
-				<canvas id="allocationChart"></canvas>
+				{#if !hasAllocData}
+					<div class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 text-xs font-semibold">
+						<span class="material-symbols-outlined text-[32px] mb-1.5 text-slate-350">donut_large</span>
+						<span>No stock allocations recorded</span>
+					</div>
+				{/if}
+				<canvas id="allocationChart" class={!hasAllocData ? 'hidden' : ''}></canvas>
 			</div>
 		</div>
 
@@ -709,7 +742,13 @@
 		<div class="glass-card rounded-2xl p-6 flex flex-col h-96">
 			<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">Expense Category Breakdown</h3>
 			<div class="flex-grow relative">
-				<canvas id="expenseBreakdownChart"></canvas>
+				{#if !hasExpenseData}
+					<div class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 text-xs font-semibold">
+						<span class="material-symbols-outlined text-[32px] mb-1.5 text-slate-350">pie_chart</span>
+						<span>No expenses logged</span>
+					</div>
+				{/if}
+				<canvas id="expenseBreakdownChart" class={!hasExpenseData ? 'hidden' : ''}></canvas>
 			</div>
 		</div>
 
