@@ -14,7 +14,7 @@
 	} = $props();
 
 	let showModal = $state(false);
-	let selectedReportType = $state(reportType);
+	let selectedReportType = $state('');
 	let datePreset = $state('all'); // 'all', '7days', '30days', 'month', 'quarter', 'year', 'custom'
 	let startDate = $state('');
 	let endDate = $state('');

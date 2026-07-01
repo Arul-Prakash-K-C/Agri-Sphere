@@ -9,6 +9,7 @@
 	let upcomingRuns = $state([]);
 	let activities = $state([]);
 	let weatherOverrides = $state({});
+	let rainSmartEnabled = $state(false);
 
 	// Sync data on page load or update
 	$effect(() => {
@@ -16,7 +17,40 @@
 		upcomingRuns = data.upcomingRuns || [];
 		activities = data.activities || [];
 		weatherOverrides = data.weatherOverrides || {};
+		rainSmartEnabled = data.rainSmartEnabled || false;
 	});
+
+	async function handleToggleRainSmart() {
+		loading = true;
+		error = '';
+		try {
+			const res = await fetch('/api/irrigation', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					action: 'toggle_rain_smart',
+					payload: { enabled: rainSmartEnabled }
+				})
+			});
+
+			if (!res.ok) {
+				const resData = await res.json();
+				throw new Error(resData.error || 'Failed to toggle Rain-Smart mode');
+			}
+
+			const result = await res.json();
+			rainSmartEnabled = result.rainSmartEnabled;
+			scheduleRuns = result.runs || [];
+			if (result.activities) activities = result.activities;
+			if (result.upcomingRuns) upcomingRuns = result.upcomingRuns;
+		} catch (err) {
+			error = err.message;
+			rainSmartEnabled = !rainSmartEnabled;
+		} finally {
+			loading = false;
+		}
+	}
+
 	let showAddModal = $state(false);
 
 	// Calendar Navigation
@@ -56,7 +90,8 @@
 	let remainingCells = $derived((7 - ((firstDayIndex + totalDaysInMonth) % 7)) % 7);
 
 	// Form values for new run or note
-	let isCustomNote = $state(false);
+	let scheduledType = $state('Irrigation'); // 'Irrigation' | 'Fertilizer' | 'Note'
+	let filterType = $state('All'); // 'All' | 'Irrigation' | 'Fertilizer' | 'Note'
 	let customNoteText = $state('');
 	let newZone = $state('Dragon Fruit');
 	let newStartDateStr = $state('');
@@ -64,6 +99,17 @@
 	let newIntervalDays = $state(1);
 	let clickedDay = $state(1);
 	let newTime = $state('05:00 - 06:00');
+	let fertilizerMonths = $state(3);
+
+	// Editing states
+	let editModalActive = $state(false);
+	let manageModalActive = $state(false);
+	let editingSchedule = $state(null);
+	let editZone = $state('');
+	let editTime = $state('');
+	let editIntervalDays = $state(1);
+	let editType = $state('Irrigation');
+	let editStartDateStr = $state('');
 
 	const pad = (n) => String(n).padStart(2, '0');
 
@@ -72,14 +118,20 @@
 	let weatherPrecipitationToday = $state(0);
 	let dailyPrecipitation = $state({});
 
-	let locationSearchInput = $state(data.profile?.address || 'Napa Valley');
-	let activeWeatherAddress = $state(data.profile?.address || 'Napa Valley');
+	let locationSearchInput = $state('');
+	let activeWeatherAddress = $state('');
 	let detectingLocation = $state(false);
 
 	let overrideRainProbability = $state(0);
 	let overrideDidRain = $state(false);
 	let modalActiveTab = $state('event'); // 'event' | 'weather'
 	let weatherLoading = $state(false);
+
+	// Sync weather location search input and active address on load or update
+	$effect(() => {
+		locationSearchInput = data.profile?.address || 'Napa Valley';
+		activeWeatherAddress = data.profile?.address || 'Napa Valley';
+	});
 
 	let activeRainToday = $derived(
 		weatherOverrides[`${todayYear}-${pad(todayMonth + 1)}-${pad(todayDate)}`] 
@@ -277,7 +329,7 @@
 		newStartDateStr = dateStr;
 		newEndDateStr = dateStr;
 		newIntervalDays = 1;
-		isCustomNote = false;
+		scheduledType = 'Irrigation';
 		customNoteText = '';
 		newZone = 'Dragon Fruit';
 		newTime = '05:00 - 06:00';
@@ -301,8 +353,8 @@
 		loading = true;
 		error = '';
 
-		const displayZone = isCustomNote ? `Note: ${customNoteText}` : newZone;
-		const displayTime = isCustomNote && !newTime ? 'All Day' : (newTime || '05:00 - 06:00');
+		const displayZone = scheduledType === 'Note' ? `Note: ${customNoteText}` : newZone;
+		const displayTime = scheduledType === 'Note' && !newTime ? 'All Day' : (newTime || '05:00 - 06:00');
 		const clickedDateStr = `${currentYear}-${pad(currentMonth + 1)}-${pad(clickedDay)}`;
 
 		try {
@@ -316,7 +368,9 @@
 						startDateStr: clickedDateStr,
 						intervalDays: Number(newIntervalDays),
 						time: displayTime,
-						location: activeWeatherAddress
+						location: activeWeatherAddress,
+						type: scheduledType,
+						monthsLimit: scheduledType === 'Fertilizer' ? Number(fertilizerMonths) : undefined
 					}
 				})
 			});
@@ -332,14 +386,194 @@
 			if (result.upcomingRuns) upcomingRuns = result.upcomingRuns;
 
 			// Clear form & close
-			isCustomNote = false;
+			scheduledType = 'Irrigation';
 			customNoteText = '';
 			newZone = 'Dragon Fruit';
 			newStartDateStr = '';
 			newEndDateStr = '';
 			newIntervalDays = 1;
 			newTime = '05:00 - 06:00';
+			fertilizerMonths = 3;
 			showAddModal = false;
+		} catch (err) {
+			error = err.message;
+		} finally {
+			loading = false;
+		}
+	}
+
+	let uniqueSchedules = $derived.by(() => {
+		const map = new Map();
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+
+		for (const run of scheduleRuns) {
+			const rType = run.type || (run.zone?.startsWith('Note:') ? 'Note' : 'Irrigation');
+			const key = `${run.zone}-${run.intervalDays}-${run.time}-${rType}`;
+			
+			const runDate = new Date(run.year, run.month, run.date);
+			
+			if (!map.has(key)) {
+				map.set(key, {
+					zone: run.zone,
+					intervalDays: run.intervalDays || 1,
+					time: run.time || '05:00 - 06:00',
+					type: rType,
+					startDateStr: run.originalDateStr,
+					nextRunDate: runDate >= today ? runDate : null,
+					id: run.id
+				});
+			} else {
+				const existing = map.get(key);
+				if (new Date(run.originalDateStr) < new Date(existing.startDateStr)) {
+					existing.startDateStr = run.originalDateStr;
+					existing.id = run.id;
+				}
+				if (runDate >= today) {
+					if (!existing.nextRunDate || runDate < existing.nextRunDate) {
+						existing.nextRunDate = runDate;
+					}
+				}
+			}
+		}
+		
+		const list = Array.from(map.values());
+		for (const item of list) {
+			if (item.nextRunDate) {
+				item.nextRunStr = item.nextRunDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+			} else {
+				item.nextRunStr = 'None';
+			}
+			if (item.startDateStr) {
+				const [y, m, d] = item.startDateStr.split('-').map(Number);
+				item.startDateFormatted = new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+			} else {
+				item.startDateFormatted = '—';
+			}
+		}
+		return list;
+	});
+
+	let computedUpcomingRuns = $derived.by(() => {
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+
+		// Filter runs that occur today or in the future
+		const futureRuns = scheduleRuns.filter(run => {
+			const runDate = new Date(run.year, run.month, run.date);
+			return runDate >= today;
+		});
+
+		// Sort by nearest date first
+		futureRuns.sort((a, b) => {
+			const dateA = new Date(a.year, a.month, a.date);
+			const dateB = new Date(b.year, b.month, b.date);
+			return dateA - dateB;
+		});
+
+		// Get the next 5 runs
+		return futureRuns.slice(0, 5).map(run => {
+			const runDate = new Date(run.year, run.month, run.date);
+			const diffTime = runDate.getTime() - today.getTime();
+			const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+			
+			const rType = run.type || (run.zone?.startsWith('Note:') ? 'Note' : 'Irrigation');
+			
+			return {
+				id: run.id,
+				zone: run.zone,
+				type: rType,
+				dateStr: runDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+				daysRemaining,
+				time: run.time || '05:00 - 06:00',
+				isToday: daysRemaining === 0
+			};
+		});
+	});
+
+	function openEditModal(schedule) {
+		editingSchedule = schedule;
+		editZone = schedule.zone;
+		editTime = schedule.time;
+		editIntervalDays = schedule.intervalDays;
+		editType = schedule.type;
+		editStartDateStr = schedule.startDateStr || '';
+		error = '';
+		editModalActive = true;
+	}
+
+	async function handleEditSchedule(event) {
+		event.preventDefault();
+		if (!editingSchedule) return;
+		loading = true;
+		error = '';
+		try {
+			const res = await fetch('/api/irrigation', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					action: 'edit_schedule',
+					payload: {
+						oldSchedule: {
+							zone: editingSchedule.zone,
+							time: editingSchedule.time,
+							intervalDays: editingSchedule.intervalDays,
+							type: editingSchedule.type,
+							startDateStr: editingSchedule.startDateStr
+						},
+						newSchedule: {
+							zone: editZone,
+							time: editTime,
+							intervalDays: Number(editIntervalDays),
+							type: editType,
+							startDateStr: editStartDateStr
+						}
+					}
+				})
+			});
+			if (!res.ok) {
+				const resData = await res.json();
+				throw new Error(resData.error || 'Failed to edit schedule');
+			}
+			const result = await res.json();
+			scheduleRuns = result.runs || [];
+			if (result.activities) activities = result.activities;
+			if (result.upcomingRuns) upcomingRuns = result.upcomingRuns;
+			editModalActive = false;
+			editingSchedule = null;
+		} catch (err) {
+			error = err.message;
+		} finally {
+			loading = false;
+		}
+	}
+
+	async function handleDeleteSchedule(schedule) {
+		if (!confirm('Are you sure you want to delete this entire schedule series?')) return;
+		loading = true;
+		error = '';
+		try {
+			const res = await fetch('/api/irrigation', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					action: 'delete_schedule',
+					payload: {
+						zone: schedule.zone,
+						time: schedule.time,
+						intervalDays: schedule.intervalDays,
+						type: schedule.type
+					}
+				})
+			});
+			if (!res.ok) {
+				const resData = await res.json();
+				throw new Error(resData.error || 'Failed to delete schedule series');
+			}
+			const result = await res.json();
+			scheduleRuns = result.runs || [];
+			if (result.activities) activities = result.activities;
+			if (result.upcomingRuns) upcomingRuns = result.upcomingRuns;
 		} catch (err) {
 			error = err.message;
 		} finally {
@@ -441,6 +675,7 @@
 			upcomingRuns = result.upcomingRuns || [];
 			activities = result.activities || [];
 			weatherOverrides = {};
+			manageModalActive = false;
 		} catch (err) {
 			error = err.message;
 		} finally {
@@ -511,30 +746,90 @@
 
 <section class="max-w-[1440px] mx-auto space-y-6">
 	<!-- Page Header & Actions -->
-	<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
+	<div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
 		<div>
 			<h1 class="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
 				<span class="text-primary-green">💧</span> Irrigation Control
 			</h1>
 			<p class="text-sm text-slate-500 mt-1">Monitor and schedule water distribution zones.</p>
 		</div>
-		<div class="flex items-center gap-3">
+		<div class="flex flex-wrap items-center gap-3 w-full lg:w-auto mt-2 lg:mt-0 font-semibold text-slate-700 font-bold">
+			<!-- Location Monitor & Smart Rain Delay Header Widget -->
+			<div class="flex flex-wrap items-center gap-4 bg-white border border-slate-200/60 rounded-2xl p-2 px-3 shadow-xs">
+				<!-- Monitor Location Input -->
+				<div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 min-w-[200px]">
+					<span class="material-symbols-outlined text-[15px] text-slate-400">location_on</span>
+					<input 
+						type="text" 
+						placeholder="Search location..." 
+						bind:value={locationSearchInput}
+						onkeydown={(e) => e.key === 'Enter' && updateLocationWeather(locationSearchInput)}
+						class="w-full bg-transparent text-[11px] font-semibold text-slate-700 placeholder-slate-400 focus:outline-none"
+					/>
+					<button 
+						onclick={() => updateLocationWeather(locationSearchInput)}
+						class="px-1.5 py-0.5 bg-primary-green text-white text-[8px] font-black rounded hover:bg-dark-green transition-all cursor-pointer shrink-0"
+					>
+						GO
+					</button>
+					<button 
+						type="button"
+						onclick={detectBrowserLocation}
+						disabled={detectingLocation}
+						class="text-slate-400 hover:text-primary-green transition-all cursor-pointer shrink-0"
+						title="Auto-detect current location"
+					>
+						{#if detectingLocation}
+							<span class="material-symbols-outlined text-[13px] animate-spin">sync</span>
+						{:else}
+							<span class="material-symbols-outlined text-[13px]">my_location</span>
+						{/if}
+					</button>
+				</div>
+
+				<!-- Divider -->
+				<div class="h-5 w-px bg-slate-200 hidden sm:block"></div>
+
+				<!-- Smart Rain Delay Toggle -->
+				<div class="flex items-center gap-2">
+					<span class="material-symbols-outlined text-[16px] text-primary-green">umbrella</span>
+					<div class="text-left leading-none">
+						<span class="block text-[9px] font-black text-slate-800">Smart Rain Delay</span>
+						<span class="text-[8px] text-slate-400 font-semibold">{rainSmartEnabled ? 'Enabled' : 'Disabled'}</span>
+					</div>
+					<label class="relative inline-flex items-center cursor-pointer select-none ml-1">
+						<input type="checkbox" bind:checked={rainSmartEnabled} onchange={handleToggleRainSmart} class="sr-only peer" />
+						<div class="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-primary-green"></div>
+					</label>
+				</div>
+			</div>
+
 			{#if scheduleRuns.length > 0}
 				<button 
 					onclick={clearAll}
-					class="border border-red-200 text-red-600 hover:bg-red-50/50 font-bold text-xs px-4 py-3 rounded-full flex items-center justify-center gap-1.5 transition-all whitespace-nowrap cursor-pointer"
+					class="border border-red-200 text-red-650 hover:bg-red-50/50 font-bold text-xs px-4 py-3 rounded-full flex items-center justify-center gap-1.5 transition-all whitespace-nowrap cursor-pointer"
 					title="Clear all events and weather overrides"
 				>
 					<span class="material-symbols-outlined text-[16px]">delete_sweep</span>
 					<span>Clear All</span>
 				</button>
 			{/if}
+
+			<button 
+				onclick={() => manageModalActive = true}
+				class="border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-[11px] px-4 py-2.5 rounded-full flex items-center justify-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shadow-xs"
+				title="Manage active repeating schedules"
+			>
+				<span class="material-symbols-outlined text-[16px] text-primary-green">settings_suggest</span>
+				<span>Manage Schedules</span>
+			</button>
+
 			<button 
 				onclick={() => openAddModalForDate(1)}
-				class="bg-gradient-to-br from-primary-green to-dark-green text-white font-bold text-xs px-5 py-3 rounded-full flex items-center justify-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/45 hover:-translate-y-0.5 transition-all whitespace-nowrap cursor-pointer"
+				class="bg-gradient-to-br from-primary-green to-dark-green text-white font-bold text-[11px] px-4 py-2.5 rounded-full flex items-center justify-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/45 hover:-translate-y-0.5 transition-all whitespace-nowrap cursor-pointer"
 			>
-				<span class="material-symbols-outlined text-[18px]">calendar_today</span>
-				<span>Schedule New Run / Note</span>
+				<span class="material-symbols-outlined text-[16px]">calendar_today</span>
+				<span>Schedule New Run</span>
 			</button>
 		</div>
 	</div>
@@ -543,7 +838,7 @@
 	<Modal 
 		bind:show={showAddModal} 
 		size="md" 
-		title={modalActiveTab === 'weather' ? `Adjust Weather (${monthNames[currentMonth].substring(0, 3)} ${clickedDay})` : (isCustomNote ? `Add Note for ${monthNames[currentMonth].substring(0, 3)} ${clickedDay}` : `Schedule Irrigation (starts ${monthNames[currentMonth].substring(0, 3)} ${clickedDay})`)}
+		title={modalActiveTab === 'weather' ? `Adjust Weather (${monthNames[currentMonth].substring(0, 3)} ${clickedDay})` : (scheduledType === 'Note' ? `Add Note for ${monthNames[currentMonth].substring(0, 3)} ${clickedDay}` : `Schedule ${scheduledType} (starts ${monthNames[currentMonth].substring(0, 3)} ${clickedDay})`)}
 		onSubmit={modalActiveTab === 'event' ? handleAddRun : handleSaveWeatherOverride}
 	>
 		<!-- Modal Tabs -->
@@ -571,18 +866,25 @@
 				<!-- Event Type Toggle -->
 				<div class="space-y-1">
 					<span class="block mb-1 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Event Type</span>
-					<div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
+					<div class="grid grid-cols-3 gap-2 bg-slate-100 p-1 rounded-xl">
 						<button 
 							type="button" 
-							onclick={() => { isCustomNote = false; newTime = '05:00 - 06:00'; }} 
-							class={['py-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer', !isCustomNote ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'].filter(Boolean).join(' ')}
+							onclick={() => { scheduledType = 'Irrigation'; newTime = '05:00 - 06:00'; }} 
+							class={['py-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer', scheduledType === 'Irrigation' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'].filter(Boolean).join(' ')}
 						>
-							Watering Zone
+							Irrigation
 						</button>
 						<button 
 							type="button" 
-							onclick={() => { isCustomNote = true; newTime = ''; }} 
-							class={['py-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer', isCustomNote ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'].filter(Boolean).join(' ')}
+							onclick={() => { scheduledType = 'Fertilizer'; newTime = '05:00 - 06:00'; }} 
+							class={['py-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer', scheduledType === 'Fertilizer' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'].filter(Boolean).join(' ')}
+						>
+							Fertilizer
+						</button>
+						<button 
+							type="button" 
+							onclick={() => { scheduledType = 'Note'; newTime = ''; }} 
+							class={['py-2 rounded-lg text-[10px] font-bold transition-all cursor-pointer', scheduledType === 'Note' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'].filter(Boolean).join(' ')}
 						>
 							Custom Note
 						</button>
@@ -598,9 +900,9 @@
 					<span class="font-black text-slate-800 text-right truncate max-w-[200px]" title={weatherLocation}>{weatherLocation}</span>
 				</div>
 
-				{#if !isCustomNote}
+				{#if scheduledType !== 'Note'}
 					<label class="block">
-						<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Crop / Zone Name</span>
+						<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">{scheduledType} Crop / Zone Name</span>
 						<input type="text" bind:value={newZone} required placeholder="e.g. Dragon Fruit, North Orchard" class="input-field w-full text-xs" />
 					</label>
 				{:else}
@@ -613,12 +915,19 @@
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<label class="block">
 						<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Interval (Days)</span>
-						<input type="number" min="1" bind:value={newIntervalDays} required={!isCustomNote} disabled={isCustomNote} placeholder="e.g. 1 (every day)" class="input-field w-full text-xs" />
+						<input type="number" min="1" bind:value={newIntervalDays} required={scheduledType !== 'Note'} disabled={scheduledType === 'Note'} placeholder="e.g. 1 (every day)" class="input-field w-full text-xs" />
 					</label>
-					<label class="block">
-						<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Time Block</span>
-						<input type="text" bind:value={newTime} required={!isCustomNote} placeholder={isCustomNote ? "e.g. All Day (optional)" : "e.g. 05:00 - 06:00"} class="input-field w-full text-xs" />
-					</label>
+					{#if scheduledType === 'Fertilizer'}
+						<label class="block">
+							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Range (Months)</span>
+							<input type="number" min="1" max="12" bind:value={fertilizerMonths} required placeholder="e.g. 3" class="input-field w-full text-xs" />
+						</label>
+					{:else}
+						<label class="block">
+							<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Time Block</span>
+							<input type="text" bind:value={newTime} required={scheduledType !== 'Note'} placeholder={scheduledType === 'Note' ? "e.g. All Day (optional)" : "e.g. 05:00 - 06:00"} class="input-field w-full text-xs" />
+						</label>
+					{/if}
 				</div>
 
 				{#if error}
@@ -712,7 +1021,18 @@
 		<div class="lg:col-span-8 space-y-6">
 			<div class="glass-card rounded-2xl overflow-hidden bg-white">
 				<div class="p-6 border-b border-slate-100 flex items-center justify-between">
-					<h3 class="font-extrabold text-slate-850 text-base">{monthNames[currentMonth]} {currentYear}</h3>
+					<div class="flex items-center gap-4">
+						<h3 class="font-extrabold text-slate-800 text-base">{monthNames[currentMonth]} {currentYear}</h3>
+						<select 
+							bind:value={filterType}
+							class="text-[10px] font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-primary-green cursor-pointer"
+						>
+							<option value="All">All Activities</option>
+							<option value="Irrigation">Irrigation Only</option>
+							<option value="Fertilizer">Fertilizer Only</option>
+							<option value="Note">Notes Only</option>
+						</select>
+					</div>
 					<div class="flex gap-2">
 						<button onclick={prevMonth} class="size-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer" title="Previous Month">
 							<span class="material-symbols-outlined text-base">chevron_left</span>
@@ -745,7 +1065,11 @@
 							{@const cellRuns = scheduleRuns.filter(r => 
 								r.date === dateNumber && 
 								Number(r.month ?? 9) === currentMonth && 
-								Number(r.year ?? 2023) === currentYear
+								Number(r.year ?? 2023) === currentYear &&
+								(filterType === 'All' || 
+								 (filterType === 'Irrigation' && (r.type === 'Irrigation' || !r.type)) || 
+								 (filterType === 'Fertilizer' && r.type === 'Fertilizer') || 
+								 (filterType === 'Note' && (r.type === 'Note' || r.zone?.startsWith('Note:'))))
 							)}
 							
 							<div 
@@ -805,9 +1129,8 @@
 												<!-- Content Overlaid -->
 												<div class="relative p-1.5 flex flex-col justify-between h-full min-h-[44px] z-10">
 													<div class="flex items-center justify-between gap-1">
-														<span class="font-black truncate flex items-center gap-1">
-															<span class="text-[11px] shrink-0">{getCropEmoji(run.zone)}</span>
-															<span class="truncate">{run.zone}</span>
+														<span class="font-black truncate">
+															{run.zone}
 														</span>
 														{#if run.extensionDays > 0}
 															<span class="text-[8px] flex items-center cursor-help shrink-0" title="Shifted +{run.extensionDays}d due to {run.rainProbability}% rain forecast.">☔</span>
@@ -847,50 +1170,6 @@
 
 		<!-- Right Panel: Upcoming Runs and Weather Widget (4 cols) -->
 		<div class="lg:col-span-4 space-y-6">
-			<!-- Location Selector -->
-			<div class="glass-card rounded-2xl p-6 bg-white space-y-4 shadow-sm border border-slate-100">
-				<div class="flex items-center justify-between">
-					<h3 class="font-extrabold text-slate-800 text-sm flex items-center gap-1.5">
-						<span class="material-symbols-outlined text-primary-green text-[18px]">location_on</span>
-						<span>Select Monitor Location</span>
-					</h3>
-				</div>
-				<div class="flex gap-2">
-					<div class="relative flex-1">
-						<input 
-							type="text" 
-							placeholder="Search city, farm zone or region..." 
-							bind:value={locationSearchInput}
-							onkeydown={(e) => e.key === 'Enter' && updateLocationWeather(locationSearchInput)}
-							class="w-full pl-9 pr-12 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-green focus:border-primary-green transition-all"
-						/>
-						<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[16px]">search</span>
-						<button 
-							onclick={() => updateLocationWeather(locationSearchInput)}
-							class="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-primary-green text-white text-[10px] font-bold rounded-lg hover:bg-dark-green transition-all cursor-pointer"
-						>
-							GO
-						</button>
-					</div>
-					<button 
-						type="button"
-						onclick={detectBrowserLocation}
-						disabled={detectingLocation}
-						class="px-3 bg-emerald-50 hover:bg-emerald-100 text-primary-green border border-emerald-200/50 rounded-xl flex items-center justify-center shrink-0 transition-all cursor-pointer group"
-						title="Auto-detect current location"
-					>
-						{#if detectingLocation}
-							<span class="material-symbols-outlined text-[18px] animate-spin text-primary-green">sync</span>
-						{:else}
-							<span class="material-symbols-outlined text-[18px] text-primary-green group-hover:scale-110 transition-transform">my_location</span>
-						{/if}
-					</button>
-				</div>
-				<p class="text-[10px] text-slate-400 font-semibold leading-relaxed">
-					Enter a zone or region to instantly monitor its rainfall forecast and schedule watering accordingly.
-				</p>
-			</div>
-
 			<!-- Weather Widget Card overlaying field imagery -->
 			<div class="relative h-60 rounded-2xl overflow-hidden glass-card group border-0 shadow-sm">
 				<div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105" style='background-image: url("https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=500&q=80");'></div>
@@ -942,26 +1221,201 @@
 							<div class="skeleton h-14 w-full rounded-2xl"></div>
 						</div>
 					{:else}
-						{#each upcomingRuns as run (run.id)}
-							<div class="flex gap-4 items-center">
-								<div class="size-12 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col items-center justify-center shrink-0 relative">
-									<p class="text-[9px] font-black text-slate-400 leading-none">{monthNames[run.month !== undefined ? run.month : currentMonth].substring(0, 3).toUpperCase()}</p>
-									<p class="text-base font-black text-slate-800 leading-none mt-1">{run.day}</p>
-									<span class="absolute -bottom-1 -right-1 size-5 bg-white rounded-full flex items-center justify-center text-[10px] border border-slate-100 shadow-sm" title={run.zone}>
-										{getCropEmoji(run.zone)}
-									</span>
+						{#if computedUpcomingRuns.length === 0}
+							<p class="text-xs text-slate-400 font-semibold text-center py-6">No upcoming activities</p>
+						{:else}
+							{#each computedUpcomingRuns as run (run.id)}
+								<div class={['flex gap-3.5 items-center p-2.5 rounded-2xl transition-all border border-transparent', run.isToday ? 'bg-primary-green/5 border-primary-green/10 shadow-xs' : ''].filter(Boolean).join(' ')}>
+									<div class="size-10 rounded-xl bg-slate-50 border border-slate-150 flex flex-col items-center justify-center shrink-0 relative">
+										<span class="text-slate-700 text-xs font-black leading-none">
+											{run.dateStr.split(' ')[1].replace(',', '')}
+										</span>
+										<span class="text-[7.5px] font-bold text-slate-400 uppercase tracking-wider leading-none mt-0.5">
+											{run.dateStr.split(' ')[0]}
+										</span>
+										<span class="absolute -bottom-1.5 -right-1.5 size-5 bg-white rounded-full flex items-center justify-center text-[10.5px] border border-slate-150 shadow-xs" title={run.zone}>
+											{getCropEmoji(run.zone)}
+										</span>
+									</div>
+									<div class="flex-1 min-w-0">
+										<div class="flex items-center gap-1.5">
+											<span class="px-1.5 py-0.2 rounded text-[7.5px] font-black uppercase text-white" style="background-color: {run.type === 'Fertilizer' ? '#8B5CF6' : (run.type === 'Note' ? '#F59E0B' : '#10B981')}">
+												{run.type}
+											</span>
+											<p class="text-[11.5px] font-bold text-slate-800 truncate leading-snug">
+												{run.zone.startsWith('Note:') ? run.zone.substring(5).trim() : run.zone}
+											</p>
+										</div>
+										<p class="text-[9.5px] text-slate-400 font-semibold mt-0.5 flex items-center gap-1">
+											<span class="material-symbols-outlined text-[10px] text-slate-350">schedule</span>
+											<span>{run.time}</span>
+										</p>
+									</div>
+									<div class="text-right shrink-0">
+										{#if run.isToday}
+											<span class="px-2 py-0.5 bg-emerald-100 text-dark-green text-[8px] font-black rounded-full uppercase tracking-wider animate-pulse">Today</span>
+										{:else}
+											<span class="text-[9px] text-slate-450 font-bold bg-slate-100 border border-slate-200/50 px-2 py-0.5 rounded-md">{run.daysRemaining}d left</span>
+										{/if}
+									</div>
 								</div>
-								<div>
-									<p class="text-xs font-bold text-slate-855 leading-tight">{run.zone}</p>
-									<p class="text-[10px] text-slate-400 font-semibold mt-1">{run.details}</p>
-								</div>
-							</div>
-						{/each}
+							{/each}
+						{/if}
 					{/if}
 				</div>
 			</div>
 		</div>
 
 	</div>
+
+	<!-- Edit Schedule Modal -->
+	<Modal 
+		bind:show={editModalActive} 
+		size="md" 
+		title={`Edit Schedule Series`}
+		onSubmit={handleEditSchedule}
+	>
+		{#if editingSchedule}
+			<div class="space-y-4 text-xs font-semibold text-slate-700">
+				<!-- Event Type -->
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Event Type</span>
+					<select bind:value={editType} class="input-field w-full text-xs">
+						<option value="Irrigation">Irrigation</option>
+						<option value="Fertilizer">Fertilizer</option>
+						<option value="Note">Note</option>
+					</select>
+				</label>
+
+				<!-- Crop / Zone Name -->
+				<label class="block">
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
+						{editType === 'Note' ? 'Note Description' : 'Crop / Zone Name'}
+					</span>
+					<input type="text" bind:value={editZone} required placeholder="e.g. Dragon Fruit" class="input-field w-full text-xs" />
+				</label>
+
+				<div class="grid grid-cols-2 gap-4">
+					<label class="block col-span-2">
+						<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Start Date</span>
+						<input type="date" bind:value={editStartDateStr} required class="input-field w-full text-xs" />
+					</label>
+					<label class="block">
+						<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Interval (Days)</span>
+						<input type="number" min="1" bind:value={editIntervalDays} required={editType !== 'Note'} disabled={editType === 'Note'} class="input-field w-full text-xs" />
+					</label>
+					<label class="block">
+						<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Time Block</span>
+						<input type="text" bind:value={editTime} required={editType !== 'Note'} class="input-field w-full text-xs" />
+					</label>
+				</div>
+
+				{#if error}
+					<div class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+						⚠️ {error}
+					</div>
+				{/if}
+			</div>
+		{/if}
+
+		{#snippet footer()}
+			<button type="button" onclick={() => editModalActive = false} class="btn-secondary flex-1 py-3 text-xs cursor-pointer">Cancel</button>
+			<button type="submit" disabled={loading} class="btn-primary flex-1 py-3 text-xs cursor-pointer">
+				{loading ? 'Saving...' : 'Save Changes'}
+			</button>
+		{/snippet}
+	</Modal>
+
+	<!-- Manage Schedules Modal -->
+	<Modal 
+		bind:show={manageModalActive} 
+		size="lg" 
+		title="Manage Repeating Schedules & Activities"
+	>
+		<div class="space-y-4 text-xs font-semibold text-slate-700">
+			<div class="flex items-center justify-between border-b border-slate-100 pb-3">
+				<p class="text-slate-400 font-semibold leading-relaxed">
+					Review, edit, or delete repeating schedules series currently configured for your farm.
+				</p>
+				{#if scheduleRuns.length > 0}
+					<button 
+						onclick={clearAll}
+						class="border border-red-200 text-red-650 hover:bg-red-50/50 font-bold text-[10px] px-3 py-1.5 rounded-xl flex items-center justify-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0"
+						title="Clear all events and weather overrides"
+					>
+						<span class="material-symbols-outlined text-[12px]">delete_sweep</span>
+						<span>Clear All Data</span>
+					</button>
+				{/if}
+			</div>
+
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto pr-1 scrollbar-thin">
+				{#if uniqueSchedules.length === 0}
+					<div class="col-span-full text-center py-8 text-slate-400 font-semibold">
+						No active schedules configured yet. Click "Schedule New Run" in the header to get started.
+					</div>
+				{:else}
+					{#each uniqueSchedules as sched}
+						<div class="flex flex-col justify-between p-4.5 rounded-2xl border border-slate-200/60 bg-white hover:border-primary-green/30 transition-all text-xs font-bold shadow-xs hover:shadow-md hover:shadow-slate-100/50 space-y-3.5 relative">
+							<!-- Header: Category and Actions -->
+							<div class="flex items-start justify-between gap-3">
+								<span class="px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase text-white tracking-wider" style="background-color: {sched.type === 'Fertilizer' ? '#8B5CF6' : (sched.type === 'Note' ? '#F59E0B' : '#10B981')}">
+									{sched.type || 'Irrigation'}
+								</span>
+								
+								<div class="flex items-center gap-1.5">
+									<button 
+										onclick={() => { manageModalActive = false; openEditModal(sched); }}
+										class="size-7 rounded-xl flex items-center justify-center bg-slate-50 text-slate-500 hover:bg-emerald-50 hover:text-primary-green transition-all cursor-pointer border border-slate-100 hover:border-emerald-100"
+										title="Edit schedule series"
+									>
+										<span class="material-symbols-outlined text-[15px]">edit</span>
+									</button>
+									<button 
+										onclick={() => handleDeleteSchedule(sched)}
+										class="size-7 rounded-xl flex items-center justify-center bg-slate-50 text-slate-500 hover:bg-red-50 hover:text-red-500 transition-all cursor-pointer border border-slate-100 hover:border-red-100"
+										title="Delete schedule series"
+									>
+										<span class="material-symbols-outlined text-[15px]">delete</span>
+									</button>
+								</div>
+							</div>
+
+							<!-- Body: Activity Name -->
+							<div>
+								<h4 class="text-[13px] font-black text-slate-900 leading-tight truncate">
+									{sched.zone.startsWith('Note:') ? sched.zone.substring(5).trim() : sched.zone}
+								</h4>
+								<p class="text-slate-400 font-semibold text-[10px] flex items-center gap-1 mt-1 leading-none">
+									<span class="material-symbols-outlined text-[12px] text-slate-350">schedule</span>
+									<span>Time: {sched.time}</span>
+								</p>
+							</div>
+
+							<!-- Details Grid -->
+							<div class="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 text-[10px] font-semibold text-slate-500">
+								<div>
+									<span class="block text-[8px] font-bold uppercase tracking-wider text-slate-405">Interval</span>
+									<span class="block mt-0.5 text-slate-700 font-black truncate">Every {sched.intervalDays}d</span>
+								</div>
+								<div>
+									<span class="block text-[8px] font-bold uppercase tracking-wider text-slate-405">Start Date</span>
+									<span class="block mt-0.5 text-slate-700 font-black truncate">{sched.startDateFormatted}</span>
+								</div>
+								<div>
+									<span class="block text-[8px] font-bold uppercase tracking-wider text-slate-405">Next Run</span>
+									<span class="block mt-0.5 text-primary-green font-black truncate">{sched.nextRunStr}</span>
+								</div>
+							</div>
+						</div>
+					{/each}
+				{/if}
+			</div>
+		</div>
+
+		{#snippet footer()}
+			<button type="button" onclick={() => manageModalActive = false} class="btn-secondary w-full py-3 text-xs cursor-pointer">Close Manager</button>
+		{/snippet}
+	</Modal>
 </section>
 
