@@ -364,7 +364,7 @@
 									"py-2 px-1 text-[10px] font-bold rounded-xl border text-center transition-all duration-200 cursor-pointer",
 									selectedMonths.includes(month)
 										? "bg-primary-green text-white border-primary-green shadow-sm"
-										: "bg-white text-slate-600 border-slate-200 hover:border-slate-300",
+										: "bg-white dark:bg-slate-800/40 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300",
 								]
 									.filter(Boolean)
 									.join(" ")}
@@ -410,7 +410,7 @@
 			<div class="space-y-2.5">
 				<span class="block mb-1 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Crop Image (Optional)</span>
 				<div
-					class="flex rounded-xl bg-slate-100 p-1 border border-slate-200/50"
+					class="flex rounded-xl bg-slate-100 dark:bg-slate-800/40 p-1 border border-slate-200/50 dark:border-slate-700"
 				>
 					<button
 						type="button"
@@ -420,8 +420,8 @@
 						class={[
 							"flex-1 py-1.5 text-center text-[10px] font-bold rounded-lg transition-all cursor-pointer",
 							imageInputType === "url"
-								? "bg-white text-slate-800 shadow-sm"
-								: "text-slate-500 hover:text-slate-800",
+								? "bg-white dark:bg-[#1e1e1e] text-slate-800 dark:text-white shadow-sm"
+								: "text-slate-500 hover:text-slate-800 dark:hover:text-white",
 						]
 							.filter(Boolean)
 							.join(" ")}
@@ -436,8 +436,8 @@
 						class={[
 							"flex-1 py-1.5 text-center text-[10px] font-bold rounded-lg transition-all cursor-pointer",
 							imageInputType === "file"
-								? "bg-white text-slate-800 shadow-sm"
-								: "text-slate-500 hover:text-slate-800",
+								? "bg-white dark:bg-[#1e1e1e] text-slate-800 dark:text-white shadow-sm"
+								: "text-slate-500 hover:text-slate-800 dark:hover:text-white",
 						]
 							.filter(Boolean)
 							.join(" ")}
