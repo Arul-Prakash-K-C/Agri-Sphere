@@ -219,7 +219,7 @@ export async function POST({ request, locals }) {
 				}
 
 				const rainSmart = !!data.rainSmartEnabled;
-				const extensionDays = rainSmart ? (rained ? Math.max(1, Math.floor(rainProb / 20)) : Math.floor(rainProb / 20)) : 0;
+				const extensionDays = rainSmart && rained ? Math.max(1, Math.floor(rainProb / 20)) : 0;
 				
 				// Safely shift dates using a new Date object to handle month boundaries
 				const shiftedDate = new Date(curYear, curMonth, curDay + extensionDays);
@@ -234,7 +234,7 @@ export async function POST({ request, locals }) {
 				} else if (type === 'Fertilizer') {
 					colorClass = 'bg-purple-50 text-purple-800 border-purple-100/50';
 				} else if (isPostponed) {
-					colorClass = 'bg-sky-50 text-sky-855 border-sky-100/50';
+					colorClass = 'bg-sky-50 text-sky-800 border-sky-100/50';
 				}
 
 				const runId = `${Date.now()}-${curDay}-${Math.random().toString(36).substring(2, 6)}`;
@@ -276,7 +276,8 @@ export async function POST({ request, locals }) {
 			}
 			
 			// Build activity logs for the created runs
-			const newActivities = createdRuns.map(run => {
+			const newActivities = createdRuns.map(origRun => {
+				const run = updatedRuns.find(r => r.id === origRun.id) || origRun;
 				const isNote = run.zone.startsWith('Note:');
 				const displayTitle = isNote ? 'Note Created' : `${run.zone} Scheduled`;
 				const displayDesc = isNote 
@@ -327,7 +328,7 @@ export async function POST({ request, locals }) {
 				upcomingRuns: updatedUpcoming
 			});
 
-			return json({ success: true, runs: createdRuns, activities: updatedActivities, upcomingRuns: updatedUpcoming });
+			return json({ success: true, runs: updatedRuns, activities: updatedActivities, upcomingRuns: updatedUpcoming });
 		}
 
 		if (action === 'update_valves') {
@@ -373,7 +374,7 @@ export async function POST({ request, locals }) {
 			return json({ success: true, valves, activities: updatedActivities });
 		}
 		if (action === 'override_weather') {
-			const { dateString, rainProbability, didRain } = payload;
+			const { dateString, rainProbability, didRain, postponeDays } = payload;
 			if (!dateString) {
 				return json({ error: 'Date is required' }, { status: 400 });
 			}
@@ -384,7 +385,8 @@ export async function POST({ request, locals }) {
 			
 			overrides[dateString] = {
 				rainProbability: prob,
-				didRain: rained
+				didRain: rained,
+				postponeDays: Number(postponeDays || 0)
 			};
 
 			const allRuns = data.scheduleRuns || [];
@@ -457,68 +459,26 @@ export async function POST({ request, locals }) {
 			const { enabled } = payload;
 			const rainSmartEnabled = !!enabled;
 
-			const allRuns = data.scheduleRuns || [];
-			const { updatedRuns: runs, notificationsToCreate } = realignRuns(allRuns, data.weatherOverrides || {}, {}, locals.user.uid, rainSmartEnabled);
-
-			if (notificationsToCreate.length > 0) {
-				const batch = adminDb.batch();
-				for (const notif of notificationsToCreate) {
-					const notifRef = adminDb.collection('notifications').doc();
-					batch.set(notifRef, notif);
-				}
-				await batch.commit();
-			}
-
 			const newActivity = {
 				id: `act-smart-${Date.now()}`,
-				title: `Smart Rain Delay ${rainSmartEnabled ? 'Enabled' : 'Disabled'}`,
-				desc: rainSmartEnabled ? 'Runs will auto-shift based on weather' : 'Runs will stick to scheduled input dates',
+				title: `View Weather ${rainSmartEnabled ? 'Enabled' : 'Disabled'}`,
+				desc: rainSmartEnabled ? 'Weather probabilities and overlays visible on calendar' : 'Weather overlays hidden from calendar',
 				icon: rainSmartEnabled ? 'umbrella' : 'wb_sunny',
 				colorClass: rainSmartEnabled ? 'bg-sky-50 text-sky-850' : 'bg-slate-100 text-slate-500'
 			};
 			const updatedActivities = [newActivity, ...(data.activities || [])].slice(0, 10);
 
-			const today = new Date();
-			const curDate = today.getDate();
-			const curMonth = today.getMonth();
-			const curYear = today.getFullYear();
-			
-			const updatedUpcoming = runs
-				.filter(run => {
-					if (run.zone.startsWith('Note:')) return false;
-					if (run.year > curYear) return true;
-					if (run.year === curYear && run.month > curMonth) return true;
-					if (run.year === curYear && run.month === curMonth && run.date >= curDate) return true;
-					return false;
-				})
-				.map(run => ({
-					id: `up-${run.id}`,
-					day: run.date,
-					month: run.month,
-					year: run.year,
-					zone: run.zone,
-					details: run.time
-				}))
-				.sort((a, b) => {
-					const dateA = new Date(a.year ?? curYear, a.month ?? curMonth, a.day);
-					const dateB = new Date(b.year ?? curYear, b.month ?? curMonth, b.day);
-					return dateA - dateB;
-				})
-				.slice(0, 5);
-
 			await docRef.update({ 
 				rainSmartEnabled,
-				scheduleRuns: runs,
-				activities: updatedActivities,
-				upcomingRuns: updatedUpcoming
+				activities: updatedActivities
 			});
 
 			return json({ 
 				success: true, 
 				rainSmartEnabled, 
-				runs, 
+				runs: data.scheduleRuns || [], 
 				activities: updatedActivities, 
-				upcomingRuns: updatedUpcoming 
+				upcomingRuns: data.upcomingRuns || [] 
 			});
 		}
 
@@ -645,7 +605,7 @@ export async function POST({ request, locals }) {
 				}
 
 				const rainSmart = !!data.rainSmartEnabled;
-				const extensionDays = rainSmart ? (rained ? Math.max(1, Math.floor(rainProb / 20)) : Math.floor(rainProb / 20)) : 0;
+				const extensionDays = rainSmart && rained ? Math.max(1, Math.floor(rainProb / 20)) : 0;
 				
 				const shiftedDate = new Date(curYear, curMonth, curDay + extensionDays);
 				const actualDate = shiftedDate.getDate();
@@ -659,7 +619,7 @@ export async function POST({ request, locals }) {
 				} else if (type === 'Fertilizer') {
 					colorClass = 'bg-purple-50 text-purple-800 border-purple-100/50';
 				} else if (isPostponed) {
-					colorClass = 'bg-sky-50 text-sky-855 border-sky-100/50';
+					colorClass = 'bg-sky-50 text-sky-800 border-sky-100/50';
 				}
 
 				const runId = `${Date.now()}-${curDay}-${Math.random().toString(36).substring(2, 6)}`;
@@ -800,64 +760,148 @@ export async function POST({ request, locals }) {
 	}
 }
 
+function getLocalDate(run) {
+	if (run.originalDateStr) {
+		const [y, m, d] = run.originalDateStr.split('-').map(Number);
+		return new Date(y, m - 1, d);
+	}
+	return new Date(run.originalYear, run.originalMonth, run.originalDate);
+}
+
 function realignRuns(runs, weatherOverrides, rainForecast, userId, rainSmartEnabled = false) {
 	const zones = [...new Set(runs.map(r => r.zone))];
 	const updatedRuns = [];
 	const notificationsToCreate = [];
+
+	const today = new Date();
+	today.setHours(0, 0, 0, 0);
+
+	const overrides = weatherOverrides || {};
+	const sortedEvents = Object.keys(overrides)
+		.map(dateStr => ({ dateStr, ...overrides[dateStr] }))
+		.filter(ev => ev && ev.didRain)
+		.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
 
 	for (const zone of zones) {
 		const zoneRuns = runs.filter(r => r.zone === zone);
 		
 		// Sort chronologically by original date
 		zoneRuns.sort((a, b) => {
-			const ad = a.originalDateStr ? new Date(a.originalDateStr) : new Date(a.originalYear, a.originalMonth, a.originalDate);
-			const bd = b.originalDateStr ? new Date(b.originalDateStr) : new Date(b.originalYear, b.originalMonth, b.originalDate);
+			const ad = getLocalDate(a);
+			const bd = getLocalDate(b);
 			return ad - bd;
 		});
 
-		let prevActualDateObj = null;
-
-		for (let i = 0; i < zoneRuns.length; i++) {
-			const run = zoneRuns[i];
+		// Initialize currentDateObj and other properties for all runs
+		for (const run of zoneRuns) {
 			const dateString = run.originalDateStr;
 			const [origYear, origMonth, origDay] = dateString.split('-').map(Number);
+			const origDateObj = new Date(origYear, origMonth - 1, origDay);
 			
-			const overrides = weatherOverrides || {};
-			let rainProb = 0;
-			let rained = false;
+			const isPastRun = origDateObj < today;
+			run.isPastRun = isPastRun;
+			run.originalDateObj = origDateObj;
 
-			if (overrides[dateString]) {
-				rainProb = overrides[dateString].rainProbability;
-				rained = overrides[dateString].didRain;
-			} else if (rainForecast && rainForecast[dateString] !== undefined) {
-				rainProb = rainForecast[dateString];
+			if (isPastRun) {
+				if (run.year !== undefined && run.month !== undefined && run.date !== undefined && run.year !== null && run.month !== null && run.date !== null) {
+					run.currentDateObj = new Date(run.year, run.month, run.date);
+				} else {
+					run.currentDateObj = new Date(origYear, origMonth - 1, origDay);
+				}
+				run.rained = run.didRain || false;
+				run.rainProb = run.rainProbability || 0;
+				run.directShift = run.extensionDays || 0;
+				run.postponedFromDateStr = run.postponedFromDateStr || null;
 			} else {
-				rainProb = run.rainProbability || 0;
-				rained = run.didRain || false;
+				run.currentDateObj = new Date(origYear, origMonth - 1, origDay);
+				run.rained = false;
+				run.rainProb = 0;
+				run.directShift = 0;
+				run.postponedFromDateStr = null;
 			}
+		}
 
-			const weatherShift = rainSmartEnabled ? (rained ? Math.max(1, Math.floor(rainProb / 20)) : Math.floor(rainProb / 20)) : 0;
+		// Apply rain events chronologically
+		for (const event of sortedEvents) {
+			const [ey, em, ed] = event.dateStr.split('-').map(Number);
+			const eventDate = new Date(ey, em - 1, ed);
 			
-			// Standard shifted date based purely on weather of this day
-			let actualShifted = new Date(origYear, origMonth - 1, origDay + weatherShift);
-
-			// If there is a previous run, ensure interval is respected (skip interval - 1 days)
-			if (prevActualDateObj) {
-				const interval = Math.max(1, Number(run.intervalDays || 1));
-				const minDateObj = new Date(prevActualDateObj.getFullYear(), prevActualDateObj.getMonth(), prevActualDateObj.getDate() + interval);
-				if (actualShifted < minDateObj) {
-					actualShifted = minDateObj;
+			// Only apply rain events that are today or in the future
+			if (eventDate < today) continue;
+			
+			const postpone = event.postponeDays || Math.max(1, Math.floor((event.rainProbability || 0) / 20));
+			
+			// Find the first future run scheduled on or after eventDate
+			let firstFutureRunIndex = -1;
+			for (let i = 0; i < zoneRuns.length; i++) {
+				const r = zoneRuns[i];
+				if (!r.isPastRun && r.currentDateObj >= eventDate) {
+					firstFutureRunIndex = i;
+					break;
 				}
 			}
+			
+			if (firstFutureRunIndex !== -1) {
+				const targetRun = zoneRuns[firstFutureRunIndex];
+				
+				// Set postponedFromDateStr if not already set (record the date it was scheduled on BEFORE this postponement)
+				if (!targetRun.postponedFromDateStr) {
+					const pad2 = (n) => String(n).padStart(2, '0');
+					targetRun.postponedFromDateStr = `${targetRun.currentDateObj.getFullYear()}-${pad2(targetRun.currentDateObj.getMonth() + 1)}-${pad2(targetRun.currentDateObj.getDate())}`;
+				}
+				
+				targetRun.directShift += postpone;
+				targetRun.rained = true;
+				targetRun.rainProb = Math.max(targetRun.rainProb, event.rainProbability || 0);
+				targetRun.currentDateObj.setDate(targetRun.currentDateObj.getDate() + postpone);
+				
+				// Realign subsequent runs to preserve crop interval
+				for (let j = firstFutureRunIndex + 1; j < zoneRuns.length; j++) {
+					const currRun = zoneRuns[j];
+					if (currRun.isPastRun) continue;
+					
+					const prevRun = zoneRuns[j - 1];
+					const interval = Math.max(1, Number(currRun.intervalDays || 1));
+					const minDateObj = new Date(prevRun.currentDateObj.getFullYear(), prevRun.currentDateObj.getMonth(), prevRun.currentDateObj.getDate() + interval);
+					
+					if (currRun.currentDateObj < minDateObj) {
+						currRun.currentDateObj = minDateObj;
+					}
+				}
+			}
+		}
 
-			// Calculate final shifted extension days from the original scheduled date
-			const origDateObj = new Date(origYear, origMonth - 1, origDay);
-			const diffTime = actualShifted.getTime() - origDateObj.getTime();
-			const finalExtensionDays = Math.max(0, Math.round(diffTime / (1000 * 60 * 60 * 24)));
+		// Update rain probability for remaining non-postponed days using forecast/overrides
+		for (const run of zoneRuns) {
+			if (run.isPastRun) continue;
+			
+			const pad2 = (n) => String(n).padStart(2, '0');
+			const actualDateStr = `${run.currentDateObj.getFullYear()}-${pad2(run.currentDateObj.getMonth() + 1)}-${pad2(run.currentDateObj.getDate())}`;
+			
+			if (overrides[actualDateStr]) {
+				run.rainProb = Math.max(run.rainProb, overrides[actualDateStr].rainProbability || 0);
+			} else if (rainForecast && rainForecast[actualDateStr] !== undefined) {
+				run.rainProb = Math.max(run.rainProb, rainForecast[actualDateStr]);
+			} else {
+				// Fallback to original day's forecast if no specific forecast for the shifted day
+				const origDateStr = run.originalDateStr;
+				if (overrides[origDateStr]) {
+					run.rainProb = Math.max(run.rainProb, overrides[origDateStr].rainProbability || 0);
+				} else if (rainForecast && rainForecast[origDateStr] !== undefined) {
+					run.rainProb = Math.max(run.rainProb, rainForecast[origDateStr]);
+				} else {
+					run.rainProb = Math.max(run.rainProb, run.rainProbability || 0);
+				}
+			}
+		}
 
-			const actualDate = actualShifted.getDate();
-			const actualMonth = actualShifted.getMonth();
-			const actualYear = actualShifted.getFullYear();
+		// Map back to output runs format
+		for (let i = 0; i < zoneRuns.length; i++) {
+			const run = zoneRuns[i];
+			const actualDate = run.currentDateObj.getDate();
+			const actualMonth = run.currentDateObj.getMonth();
+			const actualYear = run.currentDateObj.getFullYear();
+			const finalExtensionDays = run.directShift;
 			const isPostponed = finalExtensionDays > 0;
 
 			let colorClass = 'bg-emerald-50 text-dark-green border-emerald-100/50';
@@ -866,18 +910,18 @@ function realignRuns(runs, weatherOverrides, rainForecast, userId, rainSmartEnab
 			} else if (run.type === 'Fertilizer') {
 				colorClass = 'bg-purple-50 text-purple-800 border-purple-100/50';
 			} else if (isPostponed) {
-				colorClass = 'bg-sky-50 text-sky-855 border-sky-100/50';
+				colorClass = 'bg-sky-50 text-sky-800 border-sky-100/50';
 			}
 
 			const wasPostponedBefore = run.extensionDays > 0;
 			
-			// If a new postponement occurs or has been extended, schedule a database notification
-			if (isPostponed && (!wasPostponedBefore || run.extensionDays !== finalExtensionDays) && !zone.startsWith('Note:')) {
+			// Schedule database notification
+			if (!run.isPastRun && isPostponed && (!wasPostponedBefore || run.extensionDays !== finalExtensionDays) && !zone.startsWith('Note:')) {
 				const pad2 = (n) => String(n).padStart(2, '0');
 				const nextWaterDateStr = `${actualYear}-${pad2(actualMonth + 1)}-${pad2(actualDate)}`;
 				notificationsToCreate.push({
 					title: 'Watering Postponed (Rain-Smart)',
-					message: `${zone} watering (originally scheduled for ${dateString}) has been postponed by ${finalExtensionDays} day(s) due to ${rainProb}% rain chance. Rescheduled to ${nextWaterDateStr}.`,
+					message: `${zone} watering (originally scheduled for ${run.originalDateStr}) has been postponed by ${finalExtensionDays} day(s) due to ${run.rainProb}% rain chance. Rescheduled to ${nextWaterDateStr}.`,
 					read: false,
 					type: 'irrigation',
 					userId,
@@ -886,18 +930,26 @@ function realignRuns(runs, weatherOverrides, rainForecast, userId, rainSmartEnab
 			}
 
 			zoneRuns[i] = {
-				...run,
+				id: run.id,
+				zone: run.zone,
+				originalDateStr: run.originalDateStr,
+				originalDate: run.originalDate,
+				originalMonth: run.originalMonth,
+				originalYear: run.originalYear,
+				intervalDays: run.intervalDays,
+				time: run.time,
+				type: run.type,
 				date: actualDate,
 				month: actualMonth,
 				year: actualYear,
-				rainProbability: rainProb,
-				didRain: rained,
+				rainProbability: run.rainProb,
+				didRain: run.rained,
 				extensionDays: finalExtensionDays,
+				postponedFromDateStr: run.postponedFromDateStr,
 				colorClass
 			};
-
-			prevActualDateObj = actualShifted;
 		}
+		
 		updatedRuns.push(...zoneRuns);
 	}
 
