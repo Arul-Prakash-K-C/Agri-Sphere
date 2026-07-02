@@ -96,14 +96,7 @@ export async function PATCH({ params, request, locals }) {
 			await syncInventoryForFarmer(locals.user.uid);
 		}
 
-		await adminDb.collection('notifications').add({
-			title: 'Expense Updated',
-			message: `Expense of category "${updatedDoc.data().category}" has been updated.`,
-			read: false,
-			type: 'expense',
-			userId: locals.user.uid,
-			createdAt: new Date().toISOString()
-		});
+		// Removed notification creation
 
 		return json({ id: updatedDoc.id, ...updatedDoc.data() });
 	} catch (error) {
@@ -151,15 +144,6 @@ export async function DELETE({ params, locals }) {
 
 		await docRef.delete();
 		await syncInventoryForFarmer(locals.user.uid);
-
-		await adminDb.collection('notifications').add({
-			title: 'Expense Deleted',
-			message: `Expense of category "${expenseDoc.data().category}" has been deleted.`,
-			read: false,
-			type: 'expense',
-			userId: locals.user.uid,
-			createdAt: new Date().toISOString()
-		});
 
 		return json({ success: true, message: 'Expense deleted successfully' });
 	} catch (error) {

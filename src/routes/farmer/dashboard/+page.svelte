@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import ExportReportButton from '$lib/components/ExportReportButton.svelte';
+	import { formatCurrencyGlobal } from '$lib/preferences.svelte.js';
 
 	let { data } = $props();
 
@@ -217,11 +218,7 @@
 	
 	// Format currency
 	function formatCurrency(val) {
-		return new Intl.NumberFormat('en-IN', {
-			style: 'currency',
-			currency: 'INR',
-			maximumFractionDigits: 0
-		}).format(val);
+		return formatCurrencyGlobal(val, 0);
 	}
 
 	let financialChartInstance;
@@ -808,7 +805,7 @@
 				<div class="flex justify-between items-start">
 					<div>
 						<h3 class="font-extrabold text-base text-white">Farm Conditions</h3>
-						<p class="text-[10px] text-white/80 mt-0.5">Central Valley Fields</p>
+						<p class="text-[10px] text-white/80 mt-0.5">{weather.locationName || 'Central Valley Fields'}</p>
 					</div>
 					<span class="material-symbols-outlined text-yellow-300 text-[28px] filled">light_mode</span>
 				</div>

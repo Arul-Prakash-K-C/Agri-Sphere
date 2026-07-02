@@ -12,13 +12,13 @@ export async function GET({ locals }) {
 
 	try {
 		if (role === 'farmer') {
-			// Query Farmer Crops, Expenses, Inventory, Settings, and Sales concurrently
-			const [cropsSnapshot, expensesSnapshot, inventorySnapshot, settingsDoc, salesSnapshot] = await Promise.all([
+			const [cropsSnapshot, expensesSnapshot, inventorySnapshot, settingsDoc, salesSnapshot, irrigationDoc] = await Promise.all([
 				adminDb.collection('crops').where('farmerId', '==', uid).get(),
 				adminDb.collection('expenses').where('farmerId', '==', uid).get(),
 				adminDb.collection('inventory').where('farmerId', '==', uid).get(),
 				adminDb.collection('inventory_settings').doc(uid).get(),
-				adminDb.collection('sales').where('farmerId', '==', uid).get()
+				adminDb.collection('sales').where('farmerId', '==', uid).get(),
+				adminDb.collection('irrigation').doc(uid).get()
 			]);
 
 			let crops = cropsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -33,18 +33,80 @@ export async function GET({ locals }) {
 				await adminDb.collection('inventory_settings').doc(uid).set(settings);
 			}
 
+			let targetLocation = locals.profile?.address || 'Napa Valley';
+			if (irrigationDoc.exists && irrigationDoc.data().location) {
+				targetLocation = irrigationDoc.data().location;
+			}
+
+			let lat = 38.2975;
+			let lon = -122.2869;
+			let locationName = 'Napa Valley';
+
+			const coordRegex = /^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/;
+			const match = targetLocation.trim().match(coordRegex);
+
+			if (match) {
+				lat = parseFloat(match[1]);
+				lon = parseFloat(match[2]);
+				locationName = `Coordinates (${lat.toFixed(2)}, ${lon.toFixed(2)})`;
+			} else {
+				try {
+					const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(targetLocation)}&count=1&language=en&format=json`);
+					if (geoRes.ok) {
+						const geoData = await geoRes.json();
+						if (geoData.results && geoData.results[0]) {
+							const result = geoData.results[0];
+							lat = result.latitude;
+							lon = result.longitude;
+							locationName = result.name || targetLocation;
+						}
+					}
+				} catch (e) {
+					console.error('Server geocoding error in dashboard:', e);
+				}
+			}
+
+			let weatherDataReturn = {
+				temp: 32,
+				humidity: 45,
+				windSpeed: 12,
+				soilMoisture: 'Optimal',
+				locationName
+			};
+
+			try {
+				const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m&timezone=auto`);
+				if (weatherRes.ok) {
+					const weatherData = await weatherRes.json();
+					if (weatherData.current) {
+						// Convert Celsius to Celsius (since frontend display expects Celsius but Open-Meteo returns Celsius by default)
+						const tempCelsius = Math.round(weatherData.current.temperature_2m);
+						const humidity = Math.round(weatherData.current.relative_humidity_2m);
+						const windSpeed = Math.round(weatherData.current.wind_speed_10m);
+						let soilMoisture = 'Optimal';
+						if (humidity > 70) soilMoisture = 'Wet';
+						else if (humidity < 35) soilMoisture = 'Dry';
+
+						weatherDataReturn = {
+							temp: tempCelsius,
+							humidity,
+							windSpeed,
+							soilMoisture,
+							locationName
+						};
+					}
+				}
+			} catch (e) {
+				console.error('Server weather fetch error in dashboard:', e);
+			}
+
 			return json({
 				crops,
 				expenses,
 				inventory,
 				sales,
 				settings,
-				weather: {
-					temp: 32,
-					humidity: 45,
-					windSpeed: 12,
-					soilMoisture: 'Optimal'
-				}
+				weather: weatherDataReturn
 			});
 		}
 

@@ -108,6 +108,240 @@ textarea {
 	background-color: #ffffff;
 }
 
+/* Neutral Charcoal/Dark Gray Dark Mode Styles */
+:root.dark {
+	--color-background-green: #121212;
+	--color-surface: #1e1e1e;
+	--color-surface-dim: #2d2d2d;
+	--color-surface-bright: #2d2d2d;
+	--color-surface-container-lowest: #1e1e1e;
+	--color-surface-container-low: #282828;
+	--color-surface-container: #2e2e2e;
+	--color-surface-container-high: #383838;
+	--color-surface-container-highest: #404040;
+	--color-outline: #8e8e8e;
+	--color-outline-variant: #4a4a4a;
+	--color-primary-green: #22c55e;
+	--color-dark-green: #16a34a;
+	--color-light-green: #1b3a24;
+}
+
+:root.dark body {
+	background-color: #121212;
+	color: #e5e7eb;
+}
+
+:root.dark .glass-card {
+	background: rgba(30, 30, 30, 0.8) !important;
+	border-color: rgba(74, 74, 74, 0.5) !important;
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+	color: #f3f4f6 !important;
+}
+
+:root.dark .glass-card:hover {
+	border-color: rgba(34, 197, 94, 0.4) !important;
+	box-shadow: 0 10px 30px rgba(34, 197, 94, 0.15) !important;
+}
+
+:root.dark .glass-sidebar {
+	background: rgba(26, 26, 26, 0.9) !important;
+	border-color: rgba(74, 74, 74, 0.5) !important;
+}
+
+:root.dark input,
+:root.dark select,
+:root.dark textarea,
+:root.dark .input-field {
+	background-color: #282828 !important;
+	color: #ffffff !important;
+	border-color: #4a4a4a !important;
+}
+
+:root.dark input:focus,
+:root.dark select:focus,
+:root.dark textarea:focus,
+:root.dark .input-field:focus {
+	border-color: #22c55e !important;
+	background-color: #1e1e1e !important;
+}
+
+:root.dark .text-slate-800,
+:root.dark .text-slate-900,
+:root.dark h1,
+:root.dark h2,
+:root.dark h3,
+:root.dark h4,
+:root.dark h5,
+:root.dark h6 {
+	color: #ffffff !important;
+}
+
+:root.dark .text-slate-700,
+:root.dark .text-slate-600 {
+	color: #d1d5db !important;
+}
+
+/* Sidebar Navigation Hover Overrides */
+:root.dark aside a:hover,
+:root.dark nav a:hover {
+	background-color: #2a2a2a !important;
+	color: #ffffff !important;
+}
+
+:root.dark .text-slate-500,
+:root.dark .text-slate-400 {
+	color: #9ca3af !important;
+}
+
+:root.dark .bg-white {
+	background-color: #1e1e1e !important;
+}
+
+:root.dark .bg-slate-50,
+:root.dark .bg-slate-100 {
+	background-color: #282828 !important;
+}
+
+:root.dark .border-slate-100,
+:root.dark .border-slate-200,
+:root.dark .border-slate-200\/50,
+:root.dark .border-emerald-100,
+:root.dark .border-emerald-100\/50 {
+	border-color: #2e2e2e !important;
+}
+
+:root.dark .skeleton {
+	background-color: #2d2d2d !important;
+}
+
+/* Dark Mode Table Styling Fixes */
+:root.dark table {
+	background-color: #1e1e1e !important;
+	color: #e5e7eb !important;
+}
+
+:root.dark th {
+	background-color: #2e2e2e !important;
+	color: #ffffff !important;
+}
+
+:root.dark td {
+	border-color: #2d2d2d !important;
+	color: #e5e7eb !important;
+}
+
+/* Table Hover Effect Fix: Charcoal hover instead of white background to prevent text hiding */
+:root.dark tr:hover td,
+:root.dark tbody tr:hover {
+	background-color: #2d2d2d !important;
+}
+
+/* Calendar and Table Headers/Footers overrides */
+:root.dark .bg-slate-200,
+:root.dark .bg-slate-350,
+:root.dark thead,
+:root.dark tfoot,
+:root.dark .bg-gray-100,
+:root.dark .bg-gray-200 {
+	background-color: #2e2e2e !important;
+	color: #ffffff !important;
+}
+
+:root.dark .border-t,
+:root.dark .border-b,
+:root.dark .divide-y > * {
+	border-color: #2d2d2d !important;
+}
+
+/* Global table wrapper / entries wrapper dark overrides */
+:root.dark .bg-slate-50,
+:root.dark .bg-slate-100,
+:root.dark .bg-gray-50,
+:root.dark .bg-slate-50\/50 {
+	background-color: #1e1e1e !important;
+}
+
+:root.dark .text-slate-450,
+:root.dark .text-slate-400 {
+	color: #9ca3af !important;
+}
+
+/* Bento card badge background fixes for dark mode */
+:root.dark .bg-emerald-50,
+:root.dark .bg-emerald-100 {
+	background-color: #1b3a24 !important;
+	color: #22c55e !important;
+}
+
+:root.dark .bg-red-50 {
+	background-color: #3b1818 !important;
+	color: #ef4444 !important;
+}
+
+:root.dark .bg-amber-50 {
+	background-color: #3d2a13 !important;
+	color: #f59e0b !important;
+}
+
+:root.dark .bg-slate-100 {
+	background-color: #2e2e2e !important;
+	color: #d1d5db !important;
+}
+
+:root.dark .bg-blue-50 {
+	background-color: #1b2a47 !important;
+	color: #3b82f6 !important;
+}
+
+:root.dark header {
+	background-color: #1e1e1e !important;
+	border-color: #2d2d2d !important;
+}
+
+/* Buyer / Customer Dashboard Overrides */
+:root.dark section.max-w-\[1440px\],
+:root.dark section.max-w-\[1440px\] div.bg-\[\#F8FAF5\] {
+	background-color: #121212 !important;
+}
+
+:root.dark section.max-w-\[1440px\] .bg-white,
+:root.dark section.max-w-\[1440px\] div.bg-white {
+	background-color: #1e1e1e !important;
+	border-color: #2d2d2d !important;
+	color: #ffffff !important;
+}
+
+:root.dark section.max-w-\[1440px\] .text-slate-800,
+:root.dark section.max-w-\[1440px\] .text-slate-500,
+:root.dark section.max-w-\[1440px\] p {
+	color: #d1d5db !important;
+}
+
+:root.dark section.max-w-\[1440px\] button.hover\:bg-slate-50:hover {
+	background-color: #2a2a2a !important;
+}
+
+/* Compare and Wishlist Card Buttons Dark Mode Overrides */
+:root.dark .bg-white\/80 {
+	background-color: rgba(30, 30, 30, 0.8) !important;
+	border-color: #4a4a4a !important;
+	color: #9ca3af !important;
+}
+
+:root.dark .border-slate-200 {
+	border-color: #4a4a4a !important;
+}
+
+:root.dark .bg-white\/80:hover {
+	background-color: #2a2a2a !important;
+	color: #ffffff !important;
+}
+
+:root.dark section.max-w-\[1440px\] select {
+	background-color: #2e2e2e !important;
+	border-color: #2d2d2d !important;
+}
+
 /* Animations helper */
 @keyframes fadeIn {
 	from {

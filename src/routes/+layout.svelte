@@ -8,7 +8,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import { logout } from '$lib/firebase-data';
 	import Modal from '$lib/components/Modal.svelte';
-	import { modalState } from '$lib/modal.svelte.js';
+	import { modalState, showWarning } from '$lib/modal.svelte.js';
 
 	let { children, data } = $props();
 
@@ -50,11 +50,16 @@
 
 		// customer
 		return [
-			{ href: '/customer/dashboard', label: 'Dashboard', icon: 'dashboard' }
+			{ href: '/customer/dashboard?tab=marketplace', label: 'Dashboard', icon: 'dashboard' },
+			{ href: '/customer/dashboard?tab=wishlist', label: 'Wishlist', icon: 'favorite' },
+			{ href: '/customer/dashboard?tab=favorites', label: 'Favorite Farmers', icon: 'star' }
 		];
 	});
 
+	import { loadPreferences } from '$lib/preferences.svelte.js';
+
 	onMount(() => {
+		loadPreferences();
 		startAuthListener();
 	});
 
@@ -63,81 +68,36 @@
 		goto('/login');
 	}
 
-	// Notifications state
+	// Notifications state (disabled)
 	let notifications = $state([]);
 	let showNotifications = $state(false);
-	let unreadCount = $derived(notifications.filter(n => !n.read).length);
+	let unreadCount = $derived(0);
 
 	let notificationInterval;
 	$effect(() => {
-		if (authState.user) {
-			fetchNotifications();
-			notificationInterval = setInterval(fetchNotifications, 5000);
-		} else {
-			notifications = [];
-			if (notificationInterval) clearInterval(notificationInterval);
-		}
-		return () => {
-			if (notificationInterval) clearInterval(notificationInterval);
-		};
+		// Notifications disabled: do not poll or fetch.
+		notifications = [];
 	});
 
 	async function fetchNotifications() {
-		try {
-			const res = await fetch('/api/notifications');
-			if (res.ok) {
-				notifications = await res.json();
-			}
-		} catch (e) {
-			console.error('Error fetching notifications:', e);
-		}
+		// Disabled
+		notifications = [];
 	}
 
 	async function markAsRead(id) {
-		try {
-			const res = await fetch('/api/notifications', {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ id, read: true })
-			});
-			if (res.ok) {
-				notifications = notifications.map(n => n.id === id ? { ...n, read: true } : n);
-			}
-		} catch (e) {
-			console.error('Error marking notification as read:', e);
-		}
+		// Disabled
 	}
 
 	async function markAllAsRead() {
-		try {
-			const res = await fetch('/api/notifications', {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ all: true })
-			});
-			if (res.ok) {
-				notifications = notifications.map(n => ({ ...n, read: true }));
-			}
-		} catch (e) {
-			console.error('Error marking all notifications as read:', e);
-		}
+		// Disabled
 	}
 
 	async function deleteNotification(id) {
-		try {
-			const res = await fetch(`/api/notifications?id=${id}`, {
-				method: 'DELETE'
-			});
-			if (res.ok) {
-				notifications = notifications.filter(n => n.id !== id);
-			}
-		} catch (e) {
-			console.error('Error deleting notification:', e);
-		}
+		// Disabled
 	}
 
 	function toggleNotificationsDropdown() {
-		showNotifications = !showNotifications;
+		showWarning('Notifications are currently unavailable.', 'Notification Center');
 	}
 
 	// Dropup states for mobile navigation menu
@@ -191,11 +151,12 @@
 			<!-- Nav links -->
 			<nav class="flex-1 space-y-1 overflow-y-auto pr-1">
 				{#each navItems as item (item.href)}
+					{@const isActive = page.url.pathname === item.href.split('?')[0] && (item.href.includes('?') ? page.url.search.includes(item.href.split('?')[1]) : true)}
 					<a
 						href={item.href}
 						class={[
 							'flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all-custom',
-							page.url.pathname === item.href
+							isActive
 								? 'bg-primary-green text-white shadow-md shadow-primary-green/20'
 								: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
 						].filter(Boolean).join(' ')}
@@ -893,14 +854,15 @@
 				{#if !(authState.profile && authState.profile.role === 'farmer')}
 					<!-- Fallback for standard guest/buyer accounts -->
 					{#each navItems as item (item.href)}
+						{@const isActive = page.url.pathname === item.href.split('?')[0] && (item.href.includes('?') ? page.url.search.includes(item.href.split('?')[1]) : true)}
 						<a
 							href={item.href}
 							class={[
 								'flex flex-col items-center gap-0.5 text-xs font-bold transition-colors duration-200',
-								page.url.pathname === item.href ? 'text-primary-green' : 'text-slate-500'
+								isActive ? 'text-primary-green' : 'text-slate-500'
 							].filter(Boolean).join(' ')}
 						>
-							<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' {page.url.pathname === item.href ? '1' : '0'};">{item.icon}</span>
+							<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' {isActive ? '1' : '0'};">{item.icon}</span>
 						</a>
 					{/each}
 				{/if}

@@ -46,36 +46,27 @@
 		}
 	});
 
-	// Load Preferences from localStorage on mount
+	import { setPreference, preferences } from '$lib/preferences.svelte.js';
+
+	// Load Preferences on mount/effect
 	import { onMount } from 'svelte';
 	onMount(() => {
 		if (typeof window !== 'undefined') {
-			activeTheme = localStorage.getItem('pref_theme') || 'system';
-			activeCurrency = localStorage.getItem('pref_currency') || 'INR';
-			activeDateFormat = localStorage.getItem('pref_date_format') || 'DD/MM/YYYY';
+			activeTheme = preferences.theme;
+			activeCurrency = preferences.currency;
+			activeDateFormat = preferences.dateFormat;
 		}
 	});
 
+	// Reactively bind local values to pref store changes
+	$effect(() => {
+		activeTheme = preferences.theme;
+		activeCurrency = preferences.currency;
+		activeDateFormat = preferences.dateFormat;
+	});
+
 	function handlePrefChange(key, val) {
-		if (typeof window !== 'undefined') {
-			localStorage.setItem(`pref_${key}`, val);
-			if (key === 'theme') {
-				// Apply theme changes to document class
-				if (val === 'dark') {
-					document.documentElement.classList.add('dark');
-				} else if (val === 'light') {
-					document.documentElement.classList.remove('dark');
-				} else {
-					// System theme detection
-					const darkMedia = window.matchMedia('(prefers-color-scheme: dark)');
-					if (darkMedia.matches) {
-						document.documentElement.classList.add('dark');
-					} else {
-						document.documentElement.classList.remove('dark');
-					}
-				}
-			}
-		}
+		setPreference(key, val);
 	}
 
 	function startEditing() {
@@ -377,49 +368,51 @@
 					Preferences & Localization
 				</h3>
 
-				<div class="space-y-3.5 text-xs font-medium text-slate-700">
+				<div class="space-y-4 text-xs font-medium text-slate-700">
 					<!-- Theme Selector -->
-					<div class="flex items-center justify-between">
-						<div>
+					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-50 pb-3">
+						<div class="flex-1">
 							<span class="block font-bold text-slate-850">Visual Theme</span>
-							<p class="text-[10px] text-slate-400 font-semibold mt-0.5">Toggle light, dark, or system matches</p>
+							<p class="text-[10px] text-slate-400 font-semibold mt-0.5">Toggle light or dark visual matches</p>
 						</div>
 						<select 
 							bind:value={activeTheme} 
 							onchange={() => handlePrefChange('theme', activeTheme)}
-							class="p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:border-primary-green cursor-pointer"
+							class="w-full sm:w-48 h-10 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-primary-green cursor-pointer transition-all"
 						>
 							<option value="light">Light Mode</option>
 							<option value="dark">Dark Mode</option>
-							<option value="system">System Default</option>
 						</select>
 					</div>
 
 					<!-- Currency Selector -->
-					<div class="flex items-center justify-between">
-						<div>
+					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-50 pb-3">
+						<div class="flex-1">
 							<span class="block font-bold text-slate-850">Preferred Currency</span>
 							<p class="text-[10px] text-slate-400 font-semibold mt-0.5">Used for marketplace listed items</p>
 						</div>
 						<select 
 							bind:value={activeCurrency} 
 							onchange={() => handlePrefChange('currency', activeCurrency)}
-							class="p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:border-primary-green cursor-pointer"
+							class="w-full sm:w-48 h-10 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-primary-green cursor-pointer transition-all"
 						>
-							<option value="INR">INR (₹) - Default</option>
+							<option value="INR">INR (₹)</option>
+							<option value="USD">USD ($)</option>
+							<option value="EUR">EUR (€)</option>
+							<option value="GBP">GBP (£)</option>
 						</select>
 					</div>
 
 					<!-- Date Format Selector -->
-					<div class="flex items-center justify-between">
-						<div>
+					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+						<div class="flex-1">
 							<span class="block font-bold text-slate-850">Date Format</span>
 							<p class="text-[10px] text-slate-400 font-semibold mt-0.5">Presentation format of logged timestamps</p>
 						</div>
 						<select 
 							bind:value={activeDateFormat} 
-							onchange={() => handlePrefChange('date_format', activeDateFormat)}
-							class="p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:border-primary-green cursor-pointer"
+							onchange={() => handlePrefChange('dateFormat', activeDateFormat)}
+							class="w-full sm:w-48 h-10 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-primary-green cursor-pointer transition-all"
 						>
 							<option value="DD/MM/YYYY">DD/MM/YYYY</option>
 							<option value="MM/DD/YYYY">MM/DD/YYYY</option>

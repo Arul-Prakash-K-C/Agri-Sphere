@@ -17,11 +17,11 @@ export async function GET({ locals }) {
 		const docSnap = await docRef.get();
 
 		if (!docSnap.exists) {
-			// Seed irrigation configuration as clean empty slate
 			const seedData = {
 				scheduleRuns: [],
 				upcomingRuns: [],
 				activities: [],
+				location: locals.profile?.address || 'Napa Valley',
 				valves: {
 					zone1: false,
 					zone2: false,
@@ -34,6 +34,10 @@ export async function GET({ locals }) {
 		}
 
 		const data = docSnap.data();
+		if (!data.location) {
+			data.location = locals.profile?.address || 'Napa Valley';
+			await docRef.update({ location: data.location });
+		}
 		// Clean up any legacy dummy/seeded data if present (so existing users get reset automatically)
 		const hasDummies = (data.scheduleRuns || []).some(r => r.id === '1' || r.id === '2' || r.id === '3') ||
 		                   (data.upcomingRuns || []).some(r => r.id === 'u1' || r.id === 'u2' || r.id === 'u3') ||
@@ -265,15 +269,7 @@ export async function POST({ request, locals }) {
 			const allRunsWithNew = [...(data.scheduleRuns || []), ...createdRuns];
 			const { updatedRuns, notificationsToCreate } = realignRuns(allRunsWithNew, data.weatherOverrides || {}, rainForecast, locals.user.uid, !!data.rainSmartEnabled);
 
-			// Write notifications to Firestore
-			if (notificationsToCreate.length > 0) {
-				const batch = adminDb.batch();
-				for (const notif of notificationsToCreate) {
-					const notifRef = adminDb.collection('notifications').doc();
-					batch.set(notifRef, notif);
-				}
-				await batch.commit();
-			}
+			// Write notifications to Firestore (Disabled)
 			
 			// Build activity logs for the created runs
 			const newActivities = createdRuns.map(origRun => {
@@ -392,15 +388,7 @@ export async function POST({ request, locals }) {
 			const allRuns = data.scheduleRuns || [];
 			const { updatedRuns: runs, notificationsToCreate } = realignRuns(allRuns, overrides, {}, locals.user.uid, !!data.rainSmartEnabled);
 
-			// Write notifications to Firestore
-			if (notificationsToCreate.length > 0) {
-				const batch = adminDb.batch();
-				for (const notif of notificationsToCreate) {
-					const notifRef = adminDb.collection('notifications').doc();
-					batch.set(notifRef, notif);
-				}
-				await batch.commit();
-			}
+			// Write notifications to Firestore (Disabled)
 
 			const newActivity = {
 				id: `act-override-${Date.now()}`,
@@ -458,6 +446,11 @@ export async function POST({ request, locals }) {
 		if (action === 'toggle_rain_smart') {
 			const { enabled } = payload;
 			const rainSmartEnabled = !!enabled;
+
+			const allRuns = data.scheduleRuns || [];
+			const { updatedRuns: runs, notificationsToCreate } = realignRuns(allRuns, data.weatherOverrides || {}, {}, locals.user.uid, rainSmartEnabled);
+
+			// Write notifications to Firestore (Disabled)
 
 			const newActivity = {
 				id: `act-smart-${Date.now()}`,
@@ -650,14 +643,7 @@ export async function POST({ request, locals }) {
 			const allRunsWithNew = [...otherRuns, ...createdRuns];
 			const { updatedRuns, notificationsToCreate } = realignRuns(allRunsWithNew, data.weatherOverrides || {}, {}, locals.user.uid, !!data.rainSmartEnabled);
 
-			if (notificationsToCreate.length > 0) {
-				const batch = adminDb.batch();
-				for (const notif of notificationsToCreate) {
-					const notifRef = adminDb.collection('notifications').doc();
-					batch.set(notifRef, notif);
-				}
-				await batch.commit();
-			}
+			// Write notifications to Firestore (Disabled)
 
 			const today = new Date();
 			const curDate = today.getDate();
@@ -751,6 +737,12 @@ export async function POST({ request, locals }) {
 				weatherOverrides: {}
 			});
 			return json({ success: true, runs: [], upcomingRuns: [], activities: [] });
+		}
+
+		if (action === 'update_location') {
+			const { location } = payload;
+			await docRef.update({ location });
+			return json({ success: true, location });
 		}
 
 		return json({ error: 'Invalid action' }, { status: 400 });
