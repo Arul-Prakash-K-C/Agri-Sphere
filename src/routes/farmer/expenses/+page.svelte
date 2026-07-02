@@ -3,6 +3,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import Modal from '$lib/components/Modal.svelte';
 	import { showConfirm, showSuccess, showError } from '$lib/modal.svelte.js';
+	import { formatCurrencyGlobal, getCurrencySymbolGlobal } from '$lib/preferences.svelte.js';
 
 	let { data } = $props();
 
@@ -310,7 +311,7 @@
 					labels: last6Months,
 					datasets: [
 						{
-							label: 'Operational Expenses (₹)',
+							label: `Operational Expenses (${getCurrencySymbolGlobal()})`,
 							data: dataPoints,
 							borderColor: '#006b2c', // primary-green
 							backgroundColor: 'rgba(22, 163, 74, 0.05)',
@@ -610,7 +611,7 @@
 
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 				<label class="block">
-					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Amount (₹)</span>
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Amount ({getCurrencySymbolGlobal()})</span>
 					<input type="number" step="0.01" bind:value={newAmount} required placeholder="0.00" class="input-field w-full text-xs" />
 				</label>
 				<label class="block">
@@ -740,7 +741,7 @@
 
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 				<label class="block">
-					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Amount (₹)</span>
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Amount ({getCurrencySymbolGlobal()})</span>
 					<input type="number" step="0.01" bind:value={editAmount} required placeholder="0.00" class="input-field w-full text-xs" />
 				</label>
 				<label class="block">
@@ -862,7 +863,7 @@
 				<div class="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
 					<div>
 						<span class="block mb-1 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Amount</span>
-						<span class="text-slate-800 font-extrabold text-sm">₹{selectedExpense.amount.toLocaleString()}</span>
+						<span class="text-slate-800 font-extrabold text-sm">{formatCurrencyGlobal(selectedExpense.amount, 2)}</span>
 					</div>
 					<div>
 						<span class="block mb-1 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Status</span>
@@ -899,7 +900,7 @@
 							</div>
 							<div>
 								<span class="text-slate-400 block text-[9px] uppercase font-bold">Cost per Unit</span>
-								<span class="text-slate-800 font-bold">{selectedExpense.itemDetails.costPerUnit ? '₹' + selectedExpense.itemDetails.costPerUnit : 'N/A'}</span>
+								<span class="text-slate-800 font-bold">{selectedExpense.itemDetails.costPerUnit ? formatCurrencyGlobal(selectedExpense.itemDetails.costPerUnit, 2) : 'N/A'}</span>
 							</div>
 							{#if selectedExpense.itemDetails.notes}
 								<div class="col-span-2">
@@ -946,7 +947,7 @@
 				</div>
 				<div>
 					<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Seed</p>
-					<p class="text-lg font-black text-slate-800 mt-0.5">₹{seedTotal.toLocaleString()}</p>
+					<p class="text-lg font-black text-slate-800 mt-0.5">{formatCurrencyGlobal(seedTotal, 0)}</p>
 				</div>
 			</div>
 			<!-- Fertilizer -->
@@ -956,7 +957,7 @@
 				</div>
 				<div>
 					<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fertilizer</p>
-					<p class="text-lg font-black text-slate-800 mt-0.5">₹{fertilizerTotal.toLocaleString()}</p>
+					<p class="text-lg font-black text-slate-800 mt-0.5">{formatCurrencyGlobal(fertilizerTotal, 0)}</p>
 				</div>
 			</div>
 			<!-- Chemicals -->
@@ -966,7 +967,7 @@
 				</div>
 				<div>
 					<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Chemicals</p>
-					<p class="text-lg font-black text-slate-800 mt-0.5">₹{chemicalsTotal.toLocaleString()}</p>
+					<p class="text-lg font-black text-slate-800 mt-0.5">{formatCurrencyGlobal(chemicalsTotal, 0)}</p>
 				</div>
 			</div>
 			<!-- Labor -->
@@ -976,7 +977,7 @@
 				</div>
 				<div>
 					<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Labor</p>
-					<p class="text-lg font-black text-slate-800 mt-0.5">₹{laborTotal.toLocaleString()}</p>
+					<p class="text-lg font-black text-slate-800 mt-0.5">{formatCurrencyGlobal(laborTotal, 0)}</p>
 				</div>
 			</div>
 			<!-- Water -->
@@ -986,7 +987,7 @@
 				</div>
 				<div>
 					<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Water</p>
-					<p class="text-lg font-black text-slate-800 mt-0.5">₹{waterTotal.toLocaleString()}</p>
+					<p class="text-lg font-black text-slate-800 mt-0.5">{formatCurrencyGlobal(waterTotal, 0)}</p>
 				</div>
 			</div>
 			<!-- Electricity -->
@@ -996,7 +997,7 @@
 				</div>
 				<div>
 					<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Electricity</p>
-					<p class="text-lg font-black text-slate-800 mt-0.5">₹{electricityTotal.toLocaleString()}</p>
+					<p class="text-lg font-black text-slate-800 mt-0.5">{formatCurrencyGlobal(electricityTotal, 0)}</p>
 				</div>
 			</div>
 		</div>
@@ -1143,7 +1144,7 @@
 							</td>
 							<td class="p-4 text-slate-500 hidden sm:table-cell">{expense.description}</td>
 							<td class="p-4 text-right pr-6 sm:pr-4 font-extrabold text-slate-800 w-[35%] sm:w-auto">
-								₹{expense.amount.toFixed(2)}
+								{formatCurrencyGlobal(expense.amount, 2)}
 							</td>
 							<td class="p-4 hidden sm:table-cell">
 								<span class={['px-2.5 py-0.5 rounded-full text-[10px] font-bold border', expense.statusColor].filter(Boolean).join(' ')}>

@@ -4,6 +4,7 @@
 	import { onMount, tick } from 'svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import { showAlert } from '$lib/modal.svelte.js';
+	import { formatCurrencyGlobal, getCurrencySymbolGlobal } from '$lib/preferences.svelte.js';
 
 	let { data } = $props();
 
@@ -38,6 +39,16 @@
 
 	// Sub-tabs: 'marketplace' | 'wishlist' | 'favorites' | 'compare'
 	let activeTab = $state('marketplace');
+
+	// Read tab from query parameters reactively
+	$effect(() => {
+		if (browser) {
+			const tabParam = new URLSearchParams(window.location.search).get('tab');
+			if (tabParam && ['marketplace', 'wishlist', 'favorites', 'compare'].includes(tabParam)) {
+				activeTab = tabParam;
+			}
+		}
+	});
 
 	// Recently Viewed state persisted in localStorage
 	let recentlyViewed = $state([]);
@@ -178,11 +189,7 @@
 
 	// Format currency helper
 	function formatCurrency(val) {
-		return new Intl.NumberFormat('en-IN', {
-			style: 'currency',
-			currency: 'INR',
-			maximumFractionDigits: 0
-		}).format(val);
+		return formatCurrencyGlobal(val, 0);
 	}
 
 	// Filter and Search states with localStorage persistence
@@ -516,10 +523,10 @@
 </svelte:head>
 
 <!-- Main Container -->
-<section class="max-w-[1440px] mx-auto space-y-6 text-slate-800 bg-[#F8FAF5] min-h-[85vh] p-1 rounded-3xl">
+<section class="max-w-[1440px] mx-auto space-y-6 text-slate-800 dark:text-slate-100 bg-[#F8FAF5] dark:bg-[#121212] min-h-[85vh] p-1 rounded-3xl">
 	
 	<!-- Top Welcome & Tabs -->
-	<div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-2 border-b border-emerald-100 pb-5">
+	<div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-2 border-b border-emerald-100 dark:border-slate-800 pb-5">
 		<div>
 			<h1 class="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2">
 				<span class="text-primary-green">🌾</span> Produce Marketplace
@@ -672,7 +679,7 @@
 				</div>
 
 				<div class="relative md:col-span-3 w-full flex items-center gap-2">
-					<span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">Max Price (₹)</span>
+					<span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">Max Price ({getCurrencySymbolGlobal()})</span>
 					<input 
 						type="number" 
 						bind:value={filterMaxPrice}

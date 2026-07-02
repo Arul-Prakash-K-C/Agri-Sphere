@@ -2,6 +2,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import { invalidateAll } from '$app/navigation';
 	import { showConfirm, showSuccess, showError } from '$lib/modal.svelte.js';
+	import { formatCurrencyGlobal, getCurrencySymbolGlobal } from '$lib/preferences.svelte.js';
 
 	const { data } = $props();
 
@@ -548,7 +549,7 @@
 	}
 
 	function formatCurrency(n) {
-		return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(n || 0);
+		return formatCurrencyGlobal(n, 2);
 	}
 </script>
 
@@ -946,7 +947,7 @@
 					<!-- Price per unit -->
 					{#if allocationType === 'Sale'}
 						<div>
-							<label for="price" class="block text-xs font-bold text-slate-600 mb-1.5">Price per {selectedItem?.unit || 'Unit'} (₹)</label>
+							<label for="price" class="block text-xs font-bold text-slate-600 mb-1.5">Price per {selectedItem?.unit || 'Unit'} ({getCurrencySymbolGlobal()})</label>
 							<input
 								id="price"
 								type="number"
@@ -965,7 +966,7 @@
 				{#if allocationType === 'Sale'}
 					<div class="grid grid-cols-2 gap-3">
 						<div>
-							<label for="totalPrice" class="block text-xs font-bold text-slate-600 mb-1.5">Total Price (₹)</label>
+							<label for="totalPrice" class="block text-xs font-bold text-slate-600 mb-1.5">Total Price ({getCurrencySymbolGlobal()})</label>
 							<input
 								id="totalPrice"
 								type="number"
@@ -1081,7 +1082,7 @@
 				<div class="grid grid-cols-2 gap-3">
 					<!-- Price per unit -->
 					<div>
-						<label for="editPrice" class="block text-xs font-bold text-slate-600 mb-1.5">Price per {editingSale.unit} (₹)</label>
+						<label for="editPrice" class="block text-xs font-bold text-slate-600 mb-1.5">Price per {editingSale.unit} ({getCurrencySymbolGlobal()})</label>
 						<input
 							id="editPrice"
 							type="number"
@@ -1095,7 +1096,7 @@
 					</div>
 					<!-- Total Price -->
 					<div>
-						<label for="editTotalPrice" class="block text-xs font-bold text-slate-600 mb-1.5">Total Price (₹)</label>
+						<label for="editTotalPrice" class="block text-xs font-bold text-slate-600 mb-1.5">Total Price ({getCurrencySymbolGlobal()})</label>
 						<input
 							id="editTotalPrice"
 							type="number"

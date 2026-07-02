@@ -130,15 +130,9 @@
 
 	// Sync weather location search input and active address on load or update
 	$effect(() => {
-		const savedLocation = typeof localStorage !== 'undefined' ? localStorage.getItem('farmer_irrigation_location') : null;
-		const defaultAddr = data.profile?.address || 'Napa Valley';
-		if (savedLocation) {
-			locationSearchInput = savedLocation;
-			activeWeatherAddress = savedLocation;
-		} else {
-			locationSearchInput = defaultAddr;
-			activeWeatherAddress = defaultAddr;
-		}
+		const initialLoc = data.location || data.profile?.address || 'Napa Valley';
+		locationSearchInput = initialLoc;
+		activeWeatherAddress = initialLoc;
 	});
 
 	let activeRainToday = $derived(
@@ -166,6 +160,20 @@
 	async function updateLocationWeather(address) {
 		if (!address || address.trim().length === 0) return;
 		weatherLoading = true;
+
+		// Persist the searched location to the database so it stays saved across logouts/closes
+		try {
+			await fetch('/api/irrigation', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					action: 'update_location',
+					payload: { location: address.trim() }
+				})
+			});
+		} catch (e) {
+			console.error('Error persisting location to db:', e);
+		}
 		
 		let lat = 38.2975;
 		let lon = -122.2869;

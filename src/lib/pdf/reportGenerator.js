@@ -47,16 +47,33 @@ function drawLogo(doc, x, y) {
  * Helper to format currency values to Indian Rupees with consistent decimals and formatting.
  */
 export function formatCurrency(amount) {
+	let currency = 'INR';
+	if (typeof window !== 'undefined') {
+		currency = localStorage.getItem('pref_currency') || 'INR';
+	}
+	const localeMap = {
+		'INR': 'en-IN',
+		'USD': 'en-US',
+		'EUR': 'de-DE',
+		'GBP': 'en-GB'
+	};
+	const symbolMap = {
+		'INR': '₹',
+		'USD': '$',
+		'EUR': '€',
+		'GBP': '£'
+	};
+	const locale = localeMap[currency] || 'en-IN';
+	const symbol = symbolMap[currency] || '₹';
+
 	if (amount === undefined || amount === null || isNaN(Number(amount))) {
-		const symbol = useRupeeSymbol ? '₹' : 'Rs.';
 		return `${symbol}0.00`;
 	}
-	const formattedVal = new Intl.NumberFormat('en-IN', {
+	const formattedVal = new Intl.NumberFormat(locale, {
 		minimumFractionDigits: 2,
 		maximumFractionDigits: 2
 	}).format(amount);
 	
-	const symbol = useRupeeSymbol ? '₹' : 'Rs.';
 	return `${symbol}${formattedVal}`;
 }
 
@@ -66,10 +83,38 @@ export function formatCurrency(amount) {
  */
 export function sanitizeCurrencyString(val) {
 	if (!val || typeof val !== 'string') return val;
-	if (!useRupeeSymbol) {
-		return val.replace(/₹/g, 'Rs. ');
+	
+	let currency = 'INR';
+	if (typeof window !== 'undefined') {
+		currency = localStorage.getItem('pref_currency') || 'INR';
 	}
-	return val;
+	const symbolMap = {
+		'INR': '₹',
+		'USD': '$',
+		'EUR': '€',
+		'GBP': '£'
+	};
+	const textMap = {
+		'INR': 'INR',
+		'USD': 'USD',
+		'EUR': 'EUR',
+		'GBP': 'GBP'
+	};
+	
+	const currentSymbol = symbolMap[currency] || '₹';
+	const currentText = textMap[currency] || 'INR';
+
+	// Replace standard ₹ symbol in PDF contents with current localized symbol (e.g. $, €)
+	let cleaned = val;
+	if (currency !== 'INR') {
+		cleaned = cleaned.replace(/₹/g, currentSymbol);
+	}
+	
+	if (!useRupeeSymbol) {
+		// Fallback for systems that don't load the unicode fonts, replace symbols with text representation
+		return cleaned.replace(/₹/g, 'Rs. ').replace(/\$/g, 'USD ').replace(/€/g, 'EUR ').replace(/£/g, 'GBP ');
+	}
+	return cleaned;
 }
 
 /**
