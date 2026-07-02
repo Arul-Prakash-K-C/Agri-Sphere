@@ -59,7 +59,7 @@ export async function PATCH({ request, locals }) {
 			
 			const batch = adminDb.batch();
 			snapshot.docs.forEach(doc => {
-				batch.update(doc.ref, { read: true });
+				batch.set(doc.ref, { read: true }, { merge: true });
 			});
 			await batch.commit();
 
@@ -81,7 +81,14 @@ export async function PATCH({ request, locals }) {
 			return json({ error: 'Forbidden' }, { status: 403 });
 		}
 
-		await docRef.update({ read: !!read });
+		try {
+			await docRef.update({ read: !!read });
+		} catch (err) {
+			if (err.code === 5 || err.message.includes('NOT_FOUND') || err.message.includes('No document to update')) {
+				return json({ error: 'Notification not found' }, { status: 404 });
+			}
+			throw err;
+		}
 		const updatedDoc = await docRef.get();
 
 		return json({ id: updatedDoc.id, ...updatedDoc.data() });
