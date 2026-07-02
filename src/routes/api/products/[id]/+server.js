@@ -93,61 +93,11 @@ export async function PATCH({ params, request, locals }) {
 			}).catch(err => console.error('Error recording price history:', err));
 		}
 
-		// --- Hook: Notify availability subscribers if quantity 0 → >0 ---
-		const newQuantity = updatePayload.quantity !== undefined ? updatePayload.quantity : oldQuantity;
-		if (oldQuantity === 0 && newQuantity > 0) {
-			notifyAvailabilitySubscribers(params.id, updatedDoc.data())
-				.catch(err => console.error('Error notifying availability subscribers:', err));
-		}
-
-		await adminDb.collection('notifications').add({
-			title: 'Product Updated',
-			message: `Product "${updatedDoc.data().name}" has been updated.`,
-			read: false,
-			type: 'marketplace',
-			userId: locals.user.uid,
-			createdAt: new Date().toISOString()
-		});
-
 		return json({ id: updatedDoc.id, ...updatedDoc.data() });
 	} catch (error) {
 		console.error('Error updating product listing:', error);
 		return json({ error: 'Internal Server Error' }, { status: 500 });
 	}
-}
-
-/**
- * Notify all buyers subscribed to a product's availability, then clean up subscriptions.
- */
-async function notifyAvailabilitySubscribers(productId, productData) {
-	const subsSnapshot = await adminDb.collection('availabilitySubscriptions')
-		.where('productId', '==', productId)
-		.get();
-
-	if (subsSnapshot.empty) return;
-
-	const batch = adminDb.batch();
-
-	for (const subDoc of subsSnapshot.docs) {
-		const sub = subDoc.data();
-
-		// Create notification for the buyer
-		const notifRef = adminDb.collection('notifications').doc();
-		batch.set(notifRef, {
-			userId: sub.buyerId,
-			title: `${productData.name || 'Product'} is back in stock!`,
-			message: `Good news! "${productData.name}" listed by ${productData.farmerName || 'a farmer'} is now available with ${productData.quantity} ${productData.unit || 'units'} in stock.`,
-			read: false,
-			type: 'availability',
-			productId: productId,
-			createdAt: new Date().toISOString()
-		});
-
-		// Delete the processed subscription
-		batch.delete(subDoc.ref);
-	}
-
-	await batch.commit();
 }
 
 /** @type {import('./$types').RequestHandler} */
@@ -173,15 +123,6 @@ export async function DELETE({ params, locals }) {
 		}
 
 		await docRef.delete();
-
-		await adminDb.collection('notifications').add({
-			title: 'Product Deleted',
-			message: `Product "${productDoc.data().name}" has been deleted.`,
-			read: false,
-			type: 'marketplace',
-			userId: locals.user.uid,
-			createdAt: new Date().toISOString()
-		});
 
 		return json({ success: true, message: 'Product listing deleted successfully' });
 	} catch (error) {

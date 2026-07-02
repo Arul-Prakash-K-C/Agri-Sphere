@@ -8,7 +8,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import { logout } from '$lib/firebase-data';
 	import Modal from '$lib/components/Modal.svelte';
-	import { modalState } from '$lib/modal.svelte.js';
+	import { modalState, showWarning } from '$lib/modal.svelte.js';
 
 	let { children, data } = $props();
 
@@ -63,81 +63,36 @@
 		goto('/login');
 	}
 
-	// Notifications state
+	// Notifications state (disabled)
 	let notifications = $state([]);
 	let showNotifications = $state(false);
-	let unreadCount = $derived(notifications.filter(n => !n.read).length);
+	let unreadCount = $derived(0);
 
 	let notificationInterval;
 	$effect(() => {
-		if (authState.user) {
-			fetchNotifications();
-			notificationInterval = setInterval(fetchNotifications, 5000);
-		} else {
-			notifications = [];
-			if (notificationInterval) clearInterval(notificationInterval);
-		}
-		return () => {
-			if (notificationInterval) clearInterval(notificationInterval);
-		};
+		// Notifications disabled: do not poll or fetch.
+		notifications = [];
 	});
 
 	async function fetchNotifications() {
-		try {
-			const res = await fetch('/api/notifications');
-			if (res.ok) {
-				notifications = await res.json();
-			}
-		} catch (e) {
-			console.error('Error fetching notifications:', e);
-		}
+		// Disabled
+		notifications = [];
 	}
 
 	async function markAsRead(id) {
-		try {
-			const res = await fetch('/api/notifications', {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ id, read: true })
-			});
-			if (res.ok) {
-				notifications = notifications.map(n => n.id === id ? { ...n, read: true } : n);
-			}
-		} catch (e) {
-			console.error('Error marking notification as read:', e);
-		}
+		// Disabled
 	}
 
 	async function markAllAsRead() {
-		try {
-			const res = await fetch('/api/notifications', {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ all: true })
-			});
-			if (res.ok) {
-				notifications = notifications.map(n => ({ ...n, read: true }));
-			}
-		} catch (e) {
-			console.error('Error marking all notifications as read:', e);
-		}
+		// Disabled
 	}
 
 	async function deleteNotification(id) {
-		try {
-			const res = await fetch(`/api/notifications?id=${id}`, {
-				method: 'DELETE'
-			});
-			if (res.ok) {
-				notifications = notifications.filter(n => n.id !== id);
-			}
-		} catch (e) {
-			console.error('Error deleting notification:', e);
-		}
+		// Disabled
 	}
 
 	function toggleNotificationsDropdown() {
-		showNotifications = !showNotifications;
+		showWarning('Notifications are currently unavailable.', 'Notification Center');
 	}
 
 	// Dropup states for mobile navigation menu

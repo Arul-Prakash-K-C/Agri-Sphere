@@ -99,14 +99,7 @@ export async function POST({ request, locals }) {
 			await syncInventoryForFarmer(locals.user.uid);
 		}
 
-		await adminDb.collection('notifications').add({
-			title: 'Expense Added',
-			message: `Expense registered under "${category}": ₹${amount.toLocaleString('en-IN')}.`,
-			read: false,
-			type: 'expense',
-			userId: locals.user.uid,
-			createdAt: new Date().toISOString()
-		});
+
 
 		return json({ id: docRef.id, ...newExpense }, { status: 201 });
 	} catch (error) {
