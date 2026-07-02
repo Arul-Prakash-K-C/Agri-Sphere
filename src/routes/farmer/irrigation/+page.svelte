@@ -2,7 +2,6 @@
 	import { fade, slide } from 'svelte/transition';
 	import { onMount } from 'svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import { showConfirm, showSuccess, showError, showAlert } from '$lib/modal.svelte.js';
 
 	let { data } = $props();
 
@@ -125,6 +124,7 @@
 
 	let overrideRainProbability = $state(0);
 	let overrideDidRain = $state(false);
+	let overridePostponeDays = $state(1);
 	let modalActiveTab = $state('event'); // 'event' | 'weather'
 	let weatherLoading = $state(false);
 
@@ -140,6 +140,22 @@
 			? weatherOverrides[`${todayYear}-${pad(todayMonth + 1)}-${pad(todayDate)}`].rainProbability 
 			: weatherPrecipitationToday
 	);
+
+	let avgRainNext2Weeks = $derived.by(() => {
+		const today = new Date();
+		let sum = 0;
+		let count = 0;
+		const pad = (n) => String(n).padStart(2, '0');
+		for (let i = 0; i < 14; i++) {
+			const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+			const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+			if (dailyPrecipitation[dateStr] !== undefined) {
+				sum += dailyPrecipitation[dateStr];
+				count++;
+			}
+		}
+		return count > 0 ? Math.round(sum / count) : 0;
+	});
 
 	async function updateLocationWeather(address) {
 		if (!address || address.trim().length === 0) return;
@@ -304,15 +320,16 @@
 		}
 
 		weatherLoading = false;
+
+		// Save the successfully fetched location to local storage
+		if (typeof localStorage !== 'undefined' && address) {
+			localStorage.setItem('farmer_irrigation_location', address);
+		}
 	}
 
 	function detectBrowserLocation() {
 		if (!navigator.geolocation) {
-			showAlert({
-				title: 'Geolocation Unsupported',
-				message: 'Geolocation is not supported by your browser.',
-				type: 'warning'
-			});
+			alert("Geolocation is not supported by your browser.");
 			return;
 		}
 
@@ -329,7 +346,7 @@
 			},
 			(err) => {
 				console.error('Geolocation error:', err);
-				showError(`Failed to detect location: ${err.message}`);
+				alert(`Failed to detect location: ${err.message}`);
 				detectingLocation = false;
 			},
 			{ enableHighAccuracy: true, timeout: 10000 }
@@ -337,7 +354,10 @@
 	}
 
 	onMount(() => {
-		updateLocationWeather(activeWeatherAddress);
+		const savedLocation = localStorage.getItem('farmer_irrigation_location');
+		const defaultAddr = data.profile?.address || 'Napa Valley';
+		const addressToUse = savedLocation || defaultAddr;
+		updateLocationWeather(addressToUse);
 	});
 
 	let loading = $state(false);
@@ -360,9 +380,11 @@
 		if (weatherOverrides[dateKey]) {
 			overrideRainProbability = weatherOverrides[dateKey].rainProbability;
 			overrideDidRain = weatherOverrides[dateKey].didRain;
+			overridePostponeDays = weatherOverrides[dateKey].postponeDays || Math.max(1, Math.floor(overrideRainProbability / 20));
 		} else {
 			overrideRainProbability = dailyPrecipitation[dateKey] || 0;
 			overrideDidRain = false;
+			overridePostponeDays = Math.max(1, Math.floor(overrideRainProbability / 20));
 		}
 
 		showAddModal = true;
@@ -401,7 +423,7 @@
 			}
 
 			const result = await res.json();
-			scheduleRuns = [...scheduleRuns, ...result.runs];
+			scheduleRuns = result.runs || [];
 			if (result.activities) activities = result.activities;
 			if (result.upcomingRuns) upcomingRuns = result.upcomingRuns;
 
@@ -569,13 +591,7 @@
 	}
 
 	async function handleDeleteSchedule(schedule) {
-		const confirmed = await showConfirm({
-			title: 'Delete Schedule Series?',
-			message: 'Are you sure you want to delete this entire schedule series?',
-			confirmText: 'Delete',
-			confirmColor: 'bg-red-600 hover:bg-red-700 text-white'
-		});
-		if (!confirmed) return;
+		if (!confirm('Are you sure you want to delete this entire schedule series?')) return;
 		loading = true;
 		error = '';
 		try {
@@ -600,9 +616,8 @@
 			scheduleRuns = result.runs || [];
 			if (result.activities) activities = result.activities;
 			if (result.upcomingRuns) upcomingRuns = result.upcomingRuns;
-			showSuccess('Schedule series deleted successfully.');
 		} catch (err) {
-			showError(err.message);
+			error = err.message;
 		} finally {
 			loading = false;
 		}
@@ -624,7 +639,8 @@
 					payload: {
 						dateString: dateKey,
 						rainProbability: Number(overrideRainProbability),
-						didRain: overrideDidRain
+						didRain: overrideDidRain,
+						postponeDays: overrideDidRain ? Number(overridePostponeDays) : 0
 					}
 				})
 			});
@@ -649,13 +665,7 @@
 	}
 
 	async function deleteRun(runId) {
-		const confirmed = await showConfirm({
-			title: 'Delete Scheduled Item?',
-			message: 'Are you sure you want to delete this scheduled item?',
-			confirmText: 'Delete',
-			confirmColor: 'bg-red-600 hover:bg-red-700 text-white'
-		});
-		if (!confirmed) return;
+		if (!confirm('Are you sure you want to delete this scheduled item?')) return;
 		loading = true;
 		error = '';
 
@@ -677,22 +687,15 @@
 			const result = await res.json();
 			scheduleRuns = result.runs || [];
 			if (result.upcomingRuns) upcomingRuns = result.upcomingRuns;
-			showSuccess('Scheduled item deleted successfully.');
 		} catch (err) {
-			showError(err.message);
+			error = err.message;
 		} finally {
 			loading = false;
 		}
 	}
 
 	async function clearAll() {
-		const confirmed = await showConfirm({
-			title: 'Clear All Irrigation Schedules?',
-			message: 'Are you sure you want to clear ALL scheduled irrigation events, notes, and weather adjustments? This cannot be undone.',
-			confirmText: 'Clear All',
-			confirmColor: 'bg-red-600 hover:bg-red-700 text-white'
-		});
-		if (!confirmed) return;
+		if (!confirm('Are you sure you want to clear ALL scheduled irrigation events, notes, and weather adjustments? This cannot be undone.')) return;
 		loading = true;
 		error = '';
 
@@ -716,9 +719,8 @@
 			activities = result.activities || [];
 			weatherOverrides = {};
 			manageModalActive = false;
-			showSuccess('All irrigation schedules cleared.');
 		} catch (err) {
-			showError(err.message);
+			error = err.message;
 		} finally {
 			loading = false;
 		}
@@ -795,21 +797,21 @@
 			<p class="text-sm text-slate-500 mt-1">Monitor and schedule water distribution zones.</p>
 		</div>
 		<div class="flex flex-wrap items-center gap-3 w-full lg:w-auto mt-2 lg:mt-0 font-semibold text-slate-700 font-bold">
-			<!-- Location Monitor & Smart Rain Delay Header Widget -->
-			<div class="flex flex-wrap items-center gap-4 bg-white border border-slate-200/60 rounded-2xl p-2 px-3 shadow-xs">
+			<!-- Location Monitor & View Weather Widget -->
+			<div class="flex items-center gap-4 bg-white border border-slate-200/80 rounded-2xl p-1.5 pl-3 pr-3.5 shadow-sm hover:shadow-md transition-shadow duration-300">
 				<!-- Monitor Location Input -->
-				<div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 min-w-[200px]">
+				<div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 w-[220px] focus-within:border-primary-green focus-within:bg-white transition-all">
 					<span class="material-symbols-outlined text-[15px] text-slate-400">location_on</span>
 					<input 
 						type="text" 
 						placeholder="Search location..." 
 						bind:value={locationSearchInput}
 						onkeydown={(e) => e.key === 'Enter' && updateLocationWeather(locationSearchInput)}
-						class="w-full bg-transparent text-[11px] font-semibold text-slate-700 placeholder-slate-400 focus:outline-none"
+						class="w-full bg-transparent text-[11px] font-semibold text-slate-700 placeholder-slate-400 border-none outline-none focus:outline-none focus:ring-0 p-0"
 					/>
 					<button 
 						onclick={() => updateLocationWeather(locationSearchInput)}
-						class="px-1.5 py-0.5 bg-primary-green text-white text-[8px] font-black rounded hover:bg-dark-green transition-all cursor-pointer shrink-0"
+						class="px-2 py-0.5 bg-primary-green text-white text-[9px] font-bold rounded-md hover:bg-dark-green transition-all cursor-pointer shrink-0 shadow-xs"
 					>
 						GO
 					</button>
@@ -817,7 +819,7 @@
 						type="button"
 						onclick={detectBrowserLocation}
 						disabled={detectingLocation}
-						class="text-slate-400 hover:text-primary-green transition-all cursor-pointer shrink-0"
+						class="text-slate-400 hover:text-primary-green transition-all cursor-pointer shrink-0 flex items-center"
 						title="Auto-detect current location"
 					>
 						{#if detectingLocation}
@@ -829,32 +831,21 @@
 				</div>
 
 				<!-- Divider -->
-				<div class="h-5 w-px bg-slate-200 hidden sm:block"></div>
+				<div class="h-6 w-px bg-slate-200 hidden sm:block"></div>
 
-				<!-- Smart Rain Delay Toggle -->
+				<!-- View Weather Toggle -->
 				<div class="flex items-center gap-2">
-					<span class="material-symbols-outlined text-[16px] text-primary-green">umbrella</span>
+					<span class="material-symbols-outlined text-[16px] text-blue-500">umbrella</span>
 					<div class="text-left leading-none">
-						<span class="block text-[9px] font-black text-slate-800">Smart Rain Delay</span>
-						<span class="text-[8px] text-slate-400 font-semibold">{rainSmartEnabled ? 'Enabled' : 'Disabled'}</span>
+						<span class="block text-[9px] font-black text-slate-800">View Weather</span>
+						<span class="text-[8px] text-slate-400 font-semibold">{rainSmartEnabled ? 'On' : 'Off'}</span>
 					</div>
-					<label class="relative inline-flex items-center cursor-pointer select-none ml-1">
+					<label class="relative inline-flex items-center cursor-pointer select-none ml-1.5">
 						<input type="checkbox" bind:checked={rainSmartEnabled} onchange={handleToggleRainSmart} class="sr-only peer" />
-						<div class="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-primary-green"></div>
+						<div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
 					</label>
 				</div>
 			</div>
-
-			{#if scheduleRuns.length > 0}
-				<button 
-					onclick={clearAll}
-					class="border border-red-200 text-red-650 hover:bg-red-50/50 font-bold text-xs px-4 py-3 rounded-full flex items-center justify-center gap-1.5 transition-all whitespace-nowrap cursor-pointer"
-					title="Clear all events and weather overrides"
-				>
-					<span class="material-symbols-outlined text-[16px]">delete_sweep</span>
-					<span>Clear All</span>
-				</button>
-			{/if}
 
 			<button 
 				onclick={() => manageModalActive = true}
@@ -870,7 +861,7 @@
 				class="bg-gradient-to-br from-primary-green to-dark-green text-white font-bold text-[11px] px-4 py-2.5 rounded-full flex items-center justify-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/45 hover:-translate-y-0.5 transition-all whitespace-nowrap cursor-pointer"
 			>
 				<span class="material-symbols-outlined text-[16px]">calendar_today</span>
-				<span>Schedule New Run</span>
+				<span>Add Schedules</span>
 			</button>
 		</div>
 	</div>
@@ -997,7 +988,7 @@
 							type="range" 
 							min="0" 
 							max="100" 
-							step="10" 
+							step="1" 
 							bind:value={overrideRainProbability}
 							class="flex-1 accent-primary-green h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer"
 						/>
@@ -1005,7 +996,7 @@
 							type="number" 
 							min="0" 
 							max="100" 
-							step="10" 
+							step="1" 
 							bind:value={overrideRainProbability} 
 							class="w-14 text-center bg-slate-50 border border-slate-200 rounded-lg p-1 text-xs text-slate-700" 
 						/>
@@ -1023,6 +1014,19 @@
 						<div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-green"></div>
 					</label>
 				</div>
+
+				{#if overrideDidRain}
+					<div class="space-y-1">
+						<span class="block text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Days to Postpone</span>
+						<input 
+							type="number" 
+							min="1" 
+							max="30" 
+							bind:value={overridePostponeDays} 
+							class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-700 focus:outline-none focus:border-primary-green" 
+						/>
+					</div>
+				{/if}
 
 				{#if error}
 					<div class="rounded-2xl bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
@@ -1104,9 +1108,10 @@
 							{@const rainChance = override ? override.rainProbability : (dailyPrecipitation[dateKey] || 0)}
 							{@const didItRain = override ? override.didRain : false}
 							{@const cellRuns = scheduleRuns.filter(r => 
-								r.date === dateNumber && 
-								Number(r.month ?? 9) === currentMonth && 
-								Number(r.year ?? 2023) === currentYear &&
+								((r.date === dateNumber && 
+								  Number(r.month ?? 9) === currentMonth && 
+								  Number(r.year ?? 2023) === currentYear) ||
+								 (r.postponedFromDateStr === dateKey)) &&
 								(filterType === 'All' || 
 								 (filterType === 'Irrigation' && (r.type === 'Irrigation' || !r.type)) || 
 								 (filterType === 'Fertilizer' && r.type === 'Fertilizer') || 
@@ -1130,7 +1135,7 @@
 										{dateNumber}
 									</span>
 									<div class="flex items-center gap-1">
-										{#if rainChance > 0 || didItRain}
+										{#if (rainSmartEnabled && rainChance > 0) || didItRain}
 											<span 
 												class={['text-[8px] font-black flex items-center gap-0.5', didItRain ? 'text-sky-700 bg-sky-100/50 px-1.5 py-0.5 rounded-md border border-sky-200/30' : 'text-sky-600'].filter(Boolean).join(' ')} 
 												title={didItRain ? 'Manual override: Rained (' + rainChance + '%)' : 'Rain probability: ' + rainChance + '%'}
@@ -1140,7 +1145,7 @@
 												</span>
 												{didItRain ? 'Rained' : rainChance + '%'}
 											</span>
-									{/if}
+										{/if}
 									<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 text-slate-400 hover:text-primary-green transition-opacity">add</span>
 								</div>
 							</div>
@@ -1166,19 +1171,20 @@
 												</button>
 											</div>
 										{:else}
-											<div class={['relative rounded-xl overflow-hidden text-[9px] font-extrabold border shadow-sm leading-tight min-h-[44px] flex flex-col justify-between group/run', getCropColorClasses(run.zone)].filter(Boolean).join(' ')}>
+											{@const isOriginalDayPlaceholder = run.postponedFromDateStr === dateKey}
+											<div class={['relative rounded-xl overflow-hidden text-[9px] font-extrabold border shadow-sm leading-tight min-h-[44px] flex flex-col justify-between group/run', isOriginalDayPlaceholder ? 'bg-slate-50 border-slate-200 text-slate-400 border-dashed opacity-75' : getCropColorClasses(run.zone)].filter(Boolean).join(' ')}>
 												<!-- Content Overlaid -->
 												<div class="relative p-1.5 flex flex-col justify-between h-full min-h-[44px] z-10">
 													<div class="flex items-center justify-between gap-1">
-														<span class="font-black truncate">
+														<span class={['font-black truncate', isOriginalDayPlaceholder ? 'line-through' : ''].filter(Boolean).join(' ')}>
 															{run.zone}
 														</span>
-														{#if run.extensionDays > 0}
+														{#if run.extensionDays > 0 && !isOriginalDayPlaceholder}
 															<span class="text-[8px] flex items-center cursor-help shrink-0" title="Shifted +{run.extensionDays}d due to {run.rainProbability}% rain forecast.">☔</span>
 														{/if}
 													</div>
 													{#if run.extensionDays > 0}
-														<div class="text-[8px] font-bold text-sky-600">
+														<div class={['text-[8px] font-bold', isOriginalDayPlaceholder ? 'text-slate-450' : 'text-sky-600'].filter(Boolean).join(' ')}>
 															Postponed +{run.extensionDays}d
 														</div>
 													{/if}
@@ -1186,13 +1192,15 @@
 												</div>
 
 												<!-- Hover Action Button to delete individual item -->
-												<button 
-													onclick={(e) => { e.stopPropagation(); deleteRun(run.id); }}
-													class="absolute right-1 top-1 text-slate-400 hover:text-red-500 opacity-0 group-hover/run:opacity-100 transition-opacity p-0.5 rounded hover:bg-black/5 flex items-center justify-center cursor-pointer z-20"
-													title="Delete event"
-												>
-													<span class="material-symbols-outlined text-[10px]">close</span>
-												</button>
+												{#if !isOriginalDayPlaceholder}
+													<button 
+														onclick={(e) => { e.stopPropagation(); deleteRun(run.id); }}
+														class="absolute right-1 top-1 text-slate-400 hover:text-red-500 opacity-0 group-hover/run:opacity-100 transition-opacity p-0.5 rounded hover:bg-black/5 flex items-center justify-center cursor-pointer z-20"
+														title="Delete event"
+													>
+														<span class="material-symbols-outlined text-[10px]">close</span>
+													</button>
+												{/if}
 											</div>
 										{/if}
 									{/each}
@@ -1393,7 +1401,7 @@
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto pr-1 scrollbar-thin">
 				{#if uniqueSchedules.length === 0}
 					<div class="col-span-full text-center py-8 text-slate-400 font-semibold">
-						No active schedules configured yet. Click "Schedule New Run" in the header to get started.
+						No active schedules configured yet. Click "Add Schedules" in the header to get started.
 					</div>
 				{:else}
 					{#each uniqueSchedules as sched}
