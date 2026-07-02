@@ -265,15 +265,7 @@ export async function POST({ request, locals }) {
 			const allRunsWithNew = [...(data.scheduleRuns || []), ...createdRuns];
 			const { updatedRuns, notificationsToCreate } = realignRuns(allRunsWithNew, data.weatherOverrides || {}, rainForecast, locals.user.uid, !!data.rainSmartEnabled);
 
-			// Write notifications to Firestore
-			if (notificationsToCreate.length > 0) {
-				const batch = adminDb.batch();
-				for (const notif of notificationsToCreate) {
-					const notifRef = adminDb.collection('notifications').doc();
-					batch.set(notifRef, notif);
-				}
-				await batch.commit();
-			}
+			// Write notifications to Firestore (Disabled)
 			
 			// Build activity logs for the created runs
 			const newActivities = createdRuns.map(origRun => {
@@ -392,15 +384,7 @@ export async function POST({ request, locals }) {
 			const allRuns = data.scheduleRuns || [];
 			const { updatedRuns: runs, notificationsToCreate } = realignRuns(allRuns, overrides, {}, locals.user.uid, !!data.rainSmartEnabled);
 
-			// Write notifications to Firestore
-			if (notificationsToCreate.length > 0) {
-				const batch = adminDb.batch();
-				for (const notif of notificationsToCreate) {
-					const notifRef = adminDb.collection('notifications').doc();
-					batch.set(notifRef, notif);
-				}
-				await batch.commit();
-			}
+			// Write notifications to Firestore (Disabled)
 
 			const newActivity = {
 				id: `act-override-${Date.now()}`,
@@ -458,6 +442,11 @@ export async function POST({ request, locals }) {
 		if (action === 'toggle_rain_smart') {
 			const { enabled } = payload;
 			const rainSmartEnabled = !!enabled;
+
+			const allRuns = data.scheduleRuns || [];
+			const { updatedRuns: runs, notificationsToCreate } = realignRuns(allRuns, data.weatherOverrides || {}, {}, locals.user.uid, rainSmartEnabled);
+
+			// Write notifications to Firestore (Disabled)
 
 			const newActivity = {
 				id: `act-smart-${Date.now()}`,
@@ -650,14 +639,7 @@ export async function POST({ request, locals }) {
 			const allRunsWithNew = [...otherRuns, ...createdRuns];
 			const { updatedRuns, notificationsToCreate } = realignRuns(allRunsWithNew, data.weatherOverrides || {}, {}, locals.user.uid, !!data.rainSmartEnabled);
 
-			if (notificationsToCreate.length > 0) {
-				const batch = adminDb.batch();
-				for (const notif of notificationsToCreate) {
-					const notifRef = adminDb.collection('notifications').doc();
-					batch.set(notifRef, notif);
-				}
-				await batch.commit();
-			}
+			// Write notifications to Firestore (Disabled)
 
 			const today = new Date();
 			const curDate = today.getDate();

@@ -115,14 +115,7 @@ export async function POST({ request, locals }) {
 		const docRef = await adminDb.collection('harvests').add(newHarvest);
 		await upsertInventoryFromHarvest(locals.user.uid, { id: docRef.id, ...newHarvest });
 
-		await adminDb.collection('notifications').add({
-			title: 'Harvest Logged',
-			message: `Harvest logged: ${quantity} ${unit} of "${cropName}".`,
-			read: false,
-			type: 'harvest',
-			userId: locals.user.uid,
-			createdAt: new Date().toISOString()
-		});
+
 
 		return json({ id: docRef.id, ...newHarvest }, { status: 201 });
 	} catch (error) {
