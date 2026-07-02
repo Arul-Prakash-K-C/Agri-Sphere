@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import ExportReportButton from '$lib/components/ExportReportButton.svelte';
+	import { formatCurrencyGlobal } from '$lib/preferences.svelte.js';
 
 	let { data } = $props();
 
@@ -217,11 +218,7 @@
 	
 	// Format currency
 	function formatCurrency(val) {
-		return new Intl.NumberFormat('en-IN', {
-			style: 'currency',
-			currency: 'INR',
-			maximumFractionDigits: 0
-		}).format(val);
+		return formatCurrencyGlobal(val, 0);
 	}
 
 	let financialChartInstance;

@@ -2,6 +2,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import Modal from '$lib/components/Modal.svelte';
 	import { showConfirm, showSuccess, showError } from '$lib/modal.svelte.js';
+	import { formatCurrencyGlobal, getCurrencySymbolGlobal } from '$lib/preferences.svelte.js';
 
 	let { data } = $props();
 
@@ -289,7 +290,7 @@
 
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 				<label class="block">
-					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Price per Unit (₹)</span>
+					<span class="block mb-1.5 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Price per Unit ({getCurrencySymbolGlobal()})</span>
 					<input type="number" bind:value={formPrice} min="1" step="any" required placeholder="e.g. 180" class="input-field w-full text-xs" />
 				</label>
 				<label class="block">
@@ -450,7 +451,7 @@
 					<div class="flex items-center justify-between border-t border-slate-100 pt-3">
 						<div>
 							<p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Unit Sourcing Price</p>
-							<p class="text-lg font-black text-dark-green mt-0.5">₹{product.price || '0'} <span class="text-[10px] text-slate-400 font-normal">/ {product.unit}</span></p>
+							<p class="text-lg font-black text-dark-green mt-0.5">{formatCurrencyGlobal(product.price, 2)} <span class="text-[10px] text-slate-400 font-normal">/ {product.unit}</span></p>
 						</div>
 					</div>
 				</div>

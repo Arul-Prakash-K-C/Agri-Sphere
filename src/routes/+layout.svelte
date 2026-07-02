@@ -50,11 +50,16 @@
 
 		// customer
 		return [
-			{ href: '/customer/dashboard', label: 'Dashboard', icon: 'dashboard' }
+			{ href: '/customer/dashboard?tab=marketplace', label: 'Dashboard', icon: 'dashboard' },
+			{ href: '/customer/dashboard?tab=wishlist', label: 'Wishlist', icon: 'favorite' },
+			{ href: '/customer/dashboard?tab=favorites', label: 'Favorite Farmers', icon: 'star' }
 		];
 	});
 
+	import { loadPreferences } from '$lib/preferences.svelte.js';
+
 	onMount(() => {
+		loadPreferences();
 		startAuthListener();
 	});
 
@@ -146,11 +151,12 @@
 			<!-- Nav links -->
 			<nav class="flex-1 space-y-1 overflow-y-auto pr-1">
 				{#each navItems as item (item.href)}
+					{@const isActive = page.url.pathname === item.href.split('?')[0] && (item.href.includes('?') ? page.url.search.includes(item.href.split('?')[1]) : true)}
 					<a
 						href={item.href}
 						class={[
 							'flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all-custom',
-							page.url.pathname === item.href
+							isActive
 								? 'bg-primary-green text-white shadow-md shadow-primary-green/20'
 								: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
 						].filter(Boolean).join(' ')}
@@ -848,14 +854,15 @@
 				{#if !(authState.profile && authState.profile.role === 'farmer')}
 					<!-- Fallback for standard guest/buyer accounts -->
 					{#each navItems as item (item.href)}
+						{@const isActive = page.url.pathname === item.href.split('?')[0] && (item.href.includes('?') ? page.url.search.includes(item.href.split('?')[1]) : true)}
 						<a
 							href={item.href}
 							class={[
 								'flex flex-col items-center gap-0.5 text-xs font-bold transition-colors duration-200',
-								page.url.pathname === item.href ? 'text-primary-green' : 'text-slate-500'
+								isActive ? 'text-primary-green' : 'text-slate-500'
 							].filter(Boolean).join(' ')}
 						>
-							<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' {page.url.pathname === item.href ? '1' : '0'};">{item.icon}</span>
+							<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' {isActive ? '1' : '0'};">{item.icon}</span>
 						</a>
 					{/each}
 				{/if}
