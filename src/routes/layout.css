@@ -150,7 +150,8 @@ textarea {
 
 :root.dark input,
 :root.dark select,
-:root.dark textarea {
+:root.dark textarea,
+:root.dark .input-field {
 	background-color: #282828 !important;
 	color: #ffffff !important;
 	border-color: #4a4a4a !important;
@@ -158,7 +159,8 @@ textarea {
 
 :root.dark input:focus,
 :root.dark select:focus,
-:root.dark textarea:focus {
+:root.dark textarea:focus,
+:root.dark .input-field:focus {
 	border-color: #22c55e !important;
 	background-color: #1e1e1e !important;
 }
@@ -297,7 +299,8 @@ textarea {
 }
 
 /* Buyer / Customer Dashboard Overrides */
-:root.dark section.max-w-\[1440px\] {
+:root.dark section.max-w-\[1440px\],
+:root.dark section.max-w-\[1440px\] div.bg-\[\#F8FAF5\] {
 	background-color: #121212 !important;
 }
 

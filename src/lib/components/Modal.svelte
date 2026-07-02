@@ -92,13 +92,13 @@
 			bind:this={modalElement}
 			transition:scale={{ start: 0.95, duration: 180 }}
 			class={[
-				'w-full max-h-[90vh] bg-white/75 backdrop-blur-xl border border-slate-200/60 shadow-2xl rounded-3xl overflow-hidden flex flex-col font-sans relative',
+				'w-full max-h-[90vh] bg-white/75 dark:bg-[#1e1e1e]/90 backdrop-blur-xl border border-slate-200/60 dark:border-slate-800 shadow-2xl rounded-3xl overflow-hidden flex flex-col font-sans relative text-slate-800 dark:text-slate-100',
 				sizeClasses[size] || sizeClasses.md
 			].join(' ')}
 		>
 			<!-- Header Block (always visible, glassmorphic header) -->
-			<div class="flex justify-between items-center px-6 py-4 border-b border-emerald-100/30 flex-shrink-0 bg-white/50">
-				<h3 class="font-extrabold text-slate-800 text-base flex items-center gap-2">
+			<div class="flex justify-between items-center px-6 py-4 border-b border-emerald-100/30 dark:border-slate-800 flex-shrink-0 bg-white/50 dark:bg-transparent">
+				<h3 class="font-extrabold text-slate-800 dark:text-white text-base flex items-center gap-2">
 					{#if icon}
 						<span class="material-symbols-outlined font-bold text-lg leading-none">{icon}</span>
 					{:else if type === 'success'}
@@ -118,7 +118,7 @@
 					<button
 						type="button"
 						onclick={handleClose}
-						class="text-slate-400 hover:text-slate-650 transition-all p-1.5 rounded-full hover:bg-slate-100/60 flex items-center cursor-pointer active:scale-95"
+						class="text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 transition-all p-1.5 rounded-full hover:bg-slate-100/60 dark:hover:bg-slate-800/60 flex items-center cursor-pointer active:scale-95"
 						aria-label="Close modal"
 					>
 						<span class="material-symbols-outlined text-lg leading-none">close</span>
@@ -127,7 +127,7 @@
 			</div>
 
 			<!-- Body Block (scrollable, flex-grow) -->
-			<div class="px-6 py-5 overflow-y-auto flex-grow space-y-4">
+			<div class="px-6 py-5 overflow-y-auto flex-grow space-y-4 dark:bg-[#1e1e1e]">
 				{#if children}
 					<!-- Render Slot/Snippets -->
 					{@render children()}
@@ -136,12 +136,12 @@
 
 			<!-- Footer Block (always visible, glassmorphic footer) -->
 			{#if footer}
-				<div class="px-6 py-4 border-t border-emerald-100/30 flex gap-3 justify-end flex-shrink-0 bg-slate-50/50">
+				<div class="px-6 py-4 border-t border-emerald-100/30 dark:border-slate-800 flex gap-3 justify-end flex-shrink-0 bg-slate-50/50 dark:bg-[#181818]">
 					{@render footer()}
 				</div>
 			{:else}
 				{#if type !== 'custom'}
-					<div class="px-6 py-4 border-t border-emerald-100/30 flex gap-3 justify-end flex-shrink-0 bg-slate-50/50">
+					<div class="px-6 py-4 border-t border-emerald-100/30 dark:border-slate-800 flex gap-3 justify-end flex-shrink-0 bg-slate-50/50 dark:bg-[#181818]">
 						{#if showCancel || type === 'confirm'}
 							<button
 								type="button"

@@ -543,12 +543,12 @@
 	</div>
 
 	<!-- Secondary Module Navigation Bar -->
-	<div class="bg-white border border-emerald-100 rounded-2xl p-2.5 shadow-sm flex items-center justify-between overflow-x-auto whitespace-nowrap gap-4">
+	<div class="bg-white dark:bg-transparent border border-emerald-100 dark:border-slate-800 rounded-2xl p-2.5 shadow-sm flex items-center justify-between overflow-x-auto whitespace-nowrap gap-4">
 		<div class="flex items-center gap-2">
 			<button 
 				onclick={() => activeTab = 'marketplace'} 
 				class={['px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer', 
-					activeTab === 'marketplace' ? 'bg-primary-green text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'].filter(Boolean).join(' ')}
+					activeTab === 'marketplace' ? 'bg-primary-green text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'].filter(Boolean).join(' ')}
 			>
 				<span class="material-symbols-outlined text-[16px]">storefront</span>
 				<span>Browse Marketplace</span>
@@ -556,7 +556,7 @@
 			<button 
 				onclick={() => activeTab = 'wishlist'} 
 				class={['px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer', 
-					activeTab === 'wishlist' ? 'bg-primary-green text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'].filter(Boolean).join(' ')}
+					activeTab === 'wishlist' ? 'bg-primary-green text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'].filter(Boolean).join(' ')}
 			>
 				<span class="material-symbols-outlined text-[16px] text-red-500 filled">favorite</span>
 				<span>My Wishlist ({wishlistIds.length})</span>
@@ -564,7 +564,7 @@
 			<button 
 				onclick={() => activeTab = 'favorites'} 
 				class={['px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer', 
-					activeTab === 'favorites' ? 'bg-primary-green text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'].filter(Boolean).join(' ')}
+					activeTab === 'favorites' ? 'bg-primary-green text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'].filter(Boolean).join(' ')}
 			>
 				<span class="material-symbols-outlined text-[16px] text-amber-500 filled">star</span>
 				<span>Favorite Farmers ({favoriteFarmerIds.length})</span>
@@ -572,7 +572,7 @@
 			<button 
 				onclick={() => activeTab = 'compare'} 
 				class={['px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer', 
-					activeTab === 'compare' ? 'bg-primary-green text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'].filter(Boolean).join(' ')}
+					activeTab === 'compare' ? 'bg-primary-green text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'].filter(Boolean).join(' ')}
 			>
 				<span class="material-symbols-outlined text-[16px]">compare_arrows</span>
 				<span>Compare Products ({compareList.length}/3)</span>
@@ -594,69 +594,69 @@
 	{#if activeTab === 'marketplace'}
 		<!-- Stats Grid -->
 		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-			<div class="glass-card rounded-2xl p-6 flex flex-col justify-between h-36 bg-white border border-emerald-100/50">
+			<div class="glass-card rounded-2xl p-6 flex flex-col justify-between h-36 bg-white dark:bg-transparent border border-emerald-100/50 dark:border-slate-800">
 				<div class="flex justify-between items-start">
-					<div class="size-10 rounded-2xl bg-emerald-50 flex items-center justify-center text-primary-green">
+					<div class="size-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 flex items-center justify-center text-primary-green">
 						<span class="material-symbols-outlined text-[22px]">local_shipping</span>
 					</div>
-					<span class="bg-emerald-100 text-dark-green px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+					<span class="bg-emerald-100 dark:bg-emerald-900/30 text-dark-green dark:text-emerald-400 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
 						Deliveries
 					</span>
 				</div>
 				<div>
 					<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Completed Orders</p>
-					<h3 class="text-2xl font-extrabold text-slate-800 mt-1">{completedOrdersCount} Deliveries</h3>
+					<h3 class="text-2xl font-extrabold text-slate-800 dark:text-white mt-1">{completedOrdersCount} Deliveries</h3>
 				</div>
 			</div>
 
-			<div class="glass-card rounded-2xl p-6 flex flex-col justify-between h-36 bg-white border border-emerald-100/50">
+			<div class="glass-card rounded-2xl p-6 flex flex-col justify-between h-36 bg-white dark:bg-transparent border border-emerald-100/50 dark:border-slate-800">
 				<div class="flex justify-between items-start">
 					<div class="size-10 rounded-2xl bg-emerald-500 flex items-center justify-center text-white">
 						<span class="material-symbols-outlined text-[22px]">assignment</span>
 					</div>
-					<span class="bg-emerald-100 text-dark-green px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+					<span class="bg-emerald-100 dark:bg-emerald-900/30 text-dark-green dark:text-emerald-400 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
 						In Transit
 					</span>
 				</div>
 				<div>
 					<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Purchases</p>
-					<h3 class="text-2xl font-extrabold text-slate-800 mt-1">{activeOrdersCount} Contracts</h3>
+					<h3 class="text-2xl font-extrabold text-slate-800 dark:text-white mt-1">{activeOrdersCount} Contracts</h3>
 				</div>
 			</div>
 
-			<div class="glass-card rounded-2xl p-6 flex flex-col justify-between h-36 bg-white border border-emerald-100/50">
+			<div class="glass-card rounded-2xl p-6 flex flex-col justify-between h-36 bg-white dark:bg-transparent border border-emerald-100/50 dark:border-slate-800">
 				<div class="flex justify-between items-start">
-					<div class="size-10 rounded-2xl bg-emerald-50 flex items-center justify-center text-primary-green">
+					<div class="size-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 flex items-center justify-center text-primary-green">
 						<span class="material-symbols-outlined text-[22px]">payments</span>
 					</div>
-					<span class="bg-emerald-100 text-dark-green px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+					<span class="bg-emerald-100 dark:bg-emerald-900/30 text-dark-green dark:text-emerald-400 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
 						Secure escrow
 					</span>
 				</div>
 				<div>
 					<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Purchase Outlays (Total)</p>
-					<h3 class="text-2xl font-extrabold text-slate-800 mt-1">{formatCurrency(totalOutlay)}</h3>
+					<h3 class="text-2xl font-extrabold text-slate-800 dark:text-white mt-1">{formatCurrency(totalOutlay)}</h3>
 				</div>
 			</div>
 
-			<div class="glass-card rounded-2xl p-6 flex flex-col justify-between h-36 bg-white border border-emerald-100/50">
+			<div class="glass-card rounded-2xl p-6 flex flex-col justify-between h-36 bg-white dark:bg-transparent border border-emerald-100/50 dark:border-slate-800">
 				<div class="flex justify-between items-start">
-					<div class="size-10 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600">
+					<div class="size-10 rounded-2xl bg-amber-50 dark:bg-amber-950/20 flex items-center justify-center text-amber-600">
 						<span class="material-symbols-outlined text-[22px]">agriculture</span>
 					</div>
-					<span class="bg-emerald-100 text-dark-green px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+					<span class="bg-emerald-100 dark:bg-emerald-900/30 text-dark-green dark:text-emerald-400 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
 						Verified
 					</span>
 				</div>
 				<div>
 					<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Connected Farms</p>
-					<h3 class="text-2xl font-extrabold text-slate-800 mt-1">{connectedFarmsCount} Partners</h3>
+					<h3 class="text-2xl font-extrabold text-slate-800 dark:text-white mt-1">{connectedFarmsCount} Partners</h3>
 				</div>
 			</div>
 		</div>
 
 		<!-- Search & Filters Toolbar -->
-		<div class="bg-white border border-emerald-100/60 rounded-2xl p-5 shadow-sm space-y-4 animate-fade-in">
+		<div class="bg-white dark:bg-[#1e1e1e] border border-emerald-100/60 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 animate-fade-in">
 			<div class="grid gap-4 md:grid-cols-12 items-center">
 				<div class="relative md:col-span-4 w-full">
 					<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
