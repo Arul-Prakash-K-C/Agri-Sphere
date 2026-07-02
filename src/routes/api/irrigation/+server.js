@@ -17,11 +17,11 @@ export async function GET({ locals }) {
 		const docSnap = await docRef.get();
 
 		if (!docSnap.exists) {
-			// Seed irrigation configuration as clean empty slate
 			const seedData = {
 				scheduleRuns: [],
 				upcomingRuns: [],
 				activities: [],
+				location: locals.profile?.address || 'Napa Valley',
 				valves: {
 					zone1: false,
 					zone2: false,
@@ -34,6 +34,10 @@ export async function GET({ locals }) {
 		}
 
 		const data = docSnap.data();
+		if (!data.location) {
+			data.location = locals.profile?.address || 'Napa Valley';
+			await docRef.update({ location: data.location });
+		}
 		// Clean up any legacy dummy/seeded data if present (so existing users get reset automatically)
 		const hasDummies = (data.scheduleRuns || []).some(r => r.id === '1' || r.id === '2' || r.id === '3') ||
 		                   (data.upcomingRuns || []).some(r => r.id === 'u1' || r.id === 'u2' || r.id === 'u3') ||
@@ -761,6 +765,12 @@ export async function POST({ request, locals }) {
 				weatherOverrides: {}
 			});
 			return json({ success: true, runs: [], upcomingRuns: [], activities: [] });
+		}
+
+		if (action === 'update_location') {
+			const { location } = payload;
+			await docRef.update({ location });
+			return json({ success: true, location });
 		}
 
 		return json({ error: 'Invalid action' }, { status: 400 });

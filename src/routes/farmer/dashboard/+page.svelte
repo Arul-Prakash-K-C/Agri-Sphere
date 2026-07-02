@@ -808,7 +808,7 @@
 				<div class="flex justify-between items-start">
 					<div>
 						<h3 class="font-extrabold text-base text-white">Farm Conditions</h3>
-						<p class="text-[10px] text-white/80 mt-0.5">Central Valley Fields</p>
+						<p class="text-[10px] text-white/80 mt-0.5">{weather.locationName || 'Central Valley Fields'}</p>
 					</div>
 					<span class="material-symbols-outlined text-yellow-300 text-[28px] filled">light_mode</span>
 				</div>
