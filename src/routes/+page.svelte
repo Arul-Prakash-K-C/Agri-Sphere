@@ -12,6 +12,15 @@
 
 <svelte:head>
 	<title>AgriConnect - Smart Farm Management</title>
+	<meta name="description" content="Manage your farm, track analytics, and sell produce directly. Smart farming platform for modern agriculture." />
+	<!-- Preconnect to image CDN for faster hero image load -->
+	<link rel="preconnect" href="https://lh3.googleusercontent.com" />
+	<!-- Preload LCP hero image so browser discovers it immediately -->
+	<link
+		rel="preload"
+		as="image"
+		href="https://lh3.googleusercontent.com/aida-public/AB6AXuB2YHBmVSdYqk-vo7Iub_NSk_BOpb2Ey6e-rXKeZDQNR2BhdtfvSxlDkB6rpJpFiXzdxUsYihFOI1_gc-f9aP2SCVZak3cfwbvfDDFxbp0s5P67Kxe4X8LEM2JdlBVl61GJch7Q6Ef4kjkoFORnnK9mES0w94ZVKRBJqZIdjTLtv-pRwhQtSpjHPaTKWd_U8KTnpa4cSVt1dMW2odzGQ28mSJEpXp00vfmAUU5rzxM4wBhIWguHdbQE_Yu_whpR5RlRTuRqNEvRw0c"
+	/>
 </svelte:head>
 
 <!-- Landing Page Main Wrapper -->
@@ -22,10 +31,17 @@
 		<!-- Background Image with Fade Overlay -->
 		<div class="absolute inset-0 z-0">
 			<div class="absolute inset-0 bg-gradient-to-r from-white via-white/95 sm:via-white/90 to-transparent z-10"></div>
-			<div 
-				class="w-full h-full bg-cover bg-center opacity-85" 
-				style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB2YHBmVSdYqk-vo7Iub_NSk_BOpb2Ey6e-rXKeZDQNR2BhdtfvSxlDkB6rpJpFiXzdxUsYihFOI1_gc-f9aP2SCVZak3cfwbvfDDFxbp0s5P67Kxe4X8LEM2JdlBVl61GJch7Q6Ef4kjkoFORnnK9mES0w94ZVKRBJqZIdjTLtv-pRwhQtSpjHPaTKWd_U8KTnpa4cSVt1dMW2odzGQ28mSJEpXp00vfmAUU5rzxM4wBhIWguHdbQE_Yu_whpR5RlRTuRqNEvRw0c')"
-			></div>
+			<!-- Real img tag so browser preloader can discover it early (fixes LCP) -->
+			<img
+				src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2YHBmVSdYqk-vo7Iub_NSk_BOpb2Ey6e-rXKeZDQNR2BhdtfvSxlDkB6rpJpFiXzdxUsYihFOI1_gc-f9aP2SCVZak3cfwbvfDDFxbp0s5P67Kxe4X8LEM2JdlBVl61GJch7Q6Ef4kjkoFORnnK9mES0w94ZVKRBJqZIdjTLtv-pRwhQtSpjHPaTKWd_U8KTnpa4cSVt1dMW2odzGQ28mSJEpXp00vfmAUU5rzxM4wBhIWguHdbQE_Yu_whpR5RlRTuRqNEvRw0c"
+				alt=""
+				class="absolute inset-0 w-full h-full object-cover object-center opacity-85"
+				fetchpriority="high"
+				loading="eager"
+				decoding="sync"
+				width="1200"
+				height="600"
+			/>
 		</div>
 
 		<!-- Hero Content -->
@@ -147,10 +163,16 @@
 			<!-- Feature 1: Farm Management (Large 8-col) -->
 			<div class="md:col-span-8 glass-card rounded-3xl p-8 relative overflow-hidden group flex flex-col justify-end">
 				<div class="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent z-10"></div>
-				<div 
-					class="absolute inset-0 w-full h-full bg-cover bg-top opacity-50 group-hover:scale-105 transition-transform duration-700" 
-					style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuA-EPEOSfnUXNbJwygC-1LFTTyCKoAXjH2Jg4aweh67AQbuyDwiz5jeCbJw7DK3iXNjLyThQrlf98j91yGQCj89Jy3KkAtx3y9NuoUkHzwnbfLVcejmUPPZjunxzgJ8D_1p3IYlx-a47uVoJBed9mlK4OcmNSV8mgx4x6SzY4QHqd5JUQCgjRq6tjxlFsiPFwh24-KYBSuxRA9ET5WG8BdHjqu5rEbSjnsj03jG3VWopplrXlZQ4b5EGpOWbXyZGIvcQKR-KbpVLRI')"
-				></div>
+				<!-- Lazy-loaded feature image -->
+				<img
+					src="https://lh3.googleusercontent.com/aida-public/AB6AXuA-EPEOSfnUXNbJwygC-1LFTTyCKoAXjH2Jg4aweh67AQbuyDwiz5jeCbJw7DK3iXNjLyThQrlf98j91yGQCj89Jy3KkAtx3y9NuoUkHzwnbfLVcejmUPPZjunxzgJ8D_1p3IYlx-a47uVoJBed9mlK4OcmNSV8mgx4x6SzY4QHqd5JUQCgjRq6tjxlFsiPFwh24-KYBSuxRA9ET5WG8BdHjqu5rEbSjnsj03jG3VWopplrXlZQ4b5EGpOWbXyZGIvcQKR-KbpVLRI"
+					alt=""
+					class="absolute inset-0 w-full h-full object-cover object-top opacity-50 group-hover:scale-105 transition-transform duration-700"
+					loading="lazy"
+					decoding="async"
+					width="800"
+					height="300"
+				/>
 				<div class="relative z-20 bg-white/90 backdrop-blur-md p-6 rounded-2xl border border-slate-100 max-w-md shadow-sm">
 					<div class="bg-emerald-50 text-primary-green w-12 h-12 rounded-xl flex items-center justify-center mb-4">
 						<span class="material-symbols-outlined text-2xl">monitoring</span>
@@ -213,10 +235,15 @@
 					</a>
 				</div>
 				<div class="relative w-48 h-full hidden lg:block">
-					<div 
-						class="absolute inset-0 bg-contain bg-center bg-no-repeat group-hover:scale-110 transition-transform duration-500" 
-						style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAxORy_CHp-i6ZV1meTGHyal-Pwz-bR12gmdvNF5beAKqBEt6lDAVyRRCcCVNdKV6S7XHk0cjJdqIFC-NZGBGUVyTxhyYwQThxakJ6y8O7r9JFpIuwlT8im37VrPLHWhyYhNaChaJuumY8ZlTXUUd_Ax_7m2a7pqqbap_qAgRBJHPAm4Qogfze970JZkTvRciS-QU1Vh9-nL8Bsa_zKEQvrdk9NPEmvpaLbgVtWwyyc92yefiJfk1VEfCP7CIdBiWJF0jlWQY-Y7m8')"
-					></div>
+					<img
+						src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxORy_CHp-i6ZV1meTGHyal-Pwz-bR12gmdvNF5beAKqBEt6lDAVyRRCcCVNdKV6S7XHk0cjJdqIFC-NZGBGUVyTxhyYwQThxakJ6y8O7r9JFpIuwlT8im37VrPLHWhyYhNaChaJuumY8ZlTXUUd_Ax_7m2a7pqqbap_qAgRBJHPAm4Qogfze970JZkTvRciS-QU1Vh9-nL8Bsa_zKEQvrdk9NPEmvpaLbgVtWwyyc92yefiJfk1VEfCP7CIdBiWJF0jlWQY-Y7m8"
+						alt=""
+						class="absolute inset-0 w-full h-full object-contain object-center group-hover:scale-110 transition-transform duration-500"
+						loading="lazy"
+						decoding="async"
+						width="192"
+						height="300"
+					/>
 				</div>
 			</div>
 		</div>
@@ -230,7 +257,7 @@
 		<!-- Brand Column -->
 		<div class="space-y-4">
 			<div class="flex items-center gap-3">
-				<img src="/logo.png" alt="AgriConnect Logo" class="size-9 object-contain rounded-full border border-emerald-100/50 shadow-sm" width="36" height="36" loading="lazy" decoding="async" />
+				<img src="/logo.webp" alt="AgriConnect Logo" class="size-9 object-contain rounded-full border border-emerald-100/50 shadow-sm" width="36" height="36" loading="lazy" decoding="async" />
 				<span class="text-base font-extrabold text-slate-800 tracking-tight">AgriConnect</span>
 			</div>
 			<p class="text-xs text-slate-500 leading-relaxed">Smart Farming Meets Modern Technology. Grounded in Innovation.</p>

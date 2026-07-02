@@ -517,6 +517,7 @@
 
 <svelte:head>
 	<title>Farmer Dashboard - AgriConnect</title>
+	<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 </svelte:head>
 
 <section class="max-w-[1440px] mx-auto space-y-6">
