@@ -37,18 +37,7 @@
 		subscribedProductIds = subs.map(s => s.productId);
 	});
 
-	// Sub-tabs: 'marketplace' | 'wishlist' | 'favorites' | 'compare'
-	let activeTab = $state('marketplace');
 
-	// Read tab from query parameters reactively
-	$effect(() => {
-		if (browser) {
-			const tabParam = new URLSearchParams(window.location.search).get('tab');
-			if (tabParam && ['marketplace', 'wishlist', 'favorites', 'compare'].includes(tabParam)) {
-				activeTab = tabParam;
-			}
-		}
-	});
 
 	// Recently Viewed state persisted in localStorage
 	let recentlyViewed = $state([]);
@@ -80,6 +69,25 @@
 
 	// Product Comparison State
 	let compareList = $state([]);
+
+	$effect(() => {
+		if (browser) {
+			try {
+				const saved = localStorage.getItem('cust_compare_list');
+				if (saved) {
+					compareList = JSON.parse(saved);
+				}
+			} catch (e) {
+				console.error('Error reading compare list:', e);
+			}
+		}
+	});
+
+	$effect(() => {
+		if (browser) {
+			localStorage.setItem('cust_compare_list', JSON.stringify(compareList));
+		}
+	});
 
 	function toggleComparison(product, event) {
 		if (event) event.stopPropagation();
@@ -542,56 +550,7 @@
 		</div>
 	</div>
 
-	<!-- Secondary Module Navigation Bar -->
-	<div class="bg-white dark:bg-transparent border border-emerald-100 dark:border-slate-800 rounded-2xl p-2.5 shadow-sm flex items-center justify-between overflow-x-auto whitespace-nowrap gap-4">
-		<div class="flex items-center gap-2">
-			<button 
-				onclick={() => activeTab = 'marketplace'} 
-				class={['px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer', 
-					activeTab === 'marketplace' ? 'bg-primary-green text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'].filter(Boolean).join(' ')}
-			>
-				<span class="material-symbols-outlined text-[16px]">storefront</span>
-				<span>Browse Marketplace</span>
-			</button>
-			<button 
-				onclick={() => activeTab = 'wishlist'} 
-				class={['px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer', 
-					activeTab === 'wishlist' ? 'bg-primary-green text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'].filter(Boolean).join(' ')}
-			>
-				<span class="material-symbols-outlined text-[16px] text-red-500 filled">favorite</span>
-				<span>My Wishlist ({wishlistIds.length})</span>
-			</button>
-			<button 
-				onclick={() => activeTab = 'favorites'} 
-				class={['px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer', 
-					activeTab === 'favorites' ? 'bg-primary-green text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'].filter(Boolean).join(' ')}
-			>
-				<span class="material-symbols-outlined text-[16px] text-amber-500 filled">star</span>
-				<span>Favorite Farmers ({favoriteFarmerIds.length})</span>
-			</button>
-			<button 
-				onclick={() => activeTab = 'compare'} 
-				class={['px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer', 
-					activeTab === 'compare' ? 'bg-primary-green text-white shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'].filter(Boolean).join(' ')}
-			>
-				<span class="material-symbols-outlined text-[16px]">compare_arrows</span>
-				<span>Compare Products ({compareList.length}/3)</span>
-			</button>
-		</div>
-		{#if compareList.length > 0}
-			<div class="flex items-center gap-2">
-				<button 
-					onclick={clearComparison}
-					class="text-xs font-bold text-red-500 hover:underline flex items-center gap-1 cursor-pointer"
-				>
-					<span class="material-symbols-outlined text-[15px]">delete</span> Clear Compare
-				</button>
-			</div>
-		{/if}
-	</div>
 
-	<!-- Module Tab Views -->
-	{#if activeTab === 'marketplace'}
 		<!-- Stats Grid -->
 		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 			<div class="glass-card rounded-2xl p-6 flex flex-col justify-between h-36 bg-white dark:bg-transparent border border-emerald-100/50 dark:border-slate-800">
@@ -776,7 +735,7 @@
 								<span class="material-symbols-outlined text-[16px]">compare_arrows</span>
 							</button>
 							<button 
-								onclick={(e) => toggleWishlist(crop, e)}
+								onclick={(e) => toggleWishlist(crop.id, e)}
 								class={['size-8 rounded-xl flex items-center justify-center border shadow-sm transition-all cursor-pointer backdrop-blur-sm', 
 									isWishlisted ? 'bg-white text-red-500 border-slate-200' : 'bg-white/80 border-slate-200 text-slate-500 hover:text-red-500'].join(' ')}
 								title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
@@ -856,294 +815,6 @@
 				{/each}
 			</div>
 		</div>
-
-	{:else if activeTab === 'wishlist'}
-		<!-- Dedicated Wishlist Tab View -->
-		<div class="space-y-4 animate-fade-in">
-			<div>
-				<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Saved Wishlist Products</h3>
-				<p class="text-xs text-slate-400 font-semibold mt-0.5">View and monitor listed produce items you have bookmarked.</p>
-			</div>
-
-			<div class="grid gap-6 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-				{#each wishlistProducts as crop (crop.id)}
-					{@const isWishlisted = true}
-					{@const isCompared = compareList.some(p => p.id === crop.id)}
-					<div 
-						role="button"
-						tabindex="0"
-						onclick={(e) => viewDetails(crop, e)}
-						onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && viewDetails(crop, e)}
-						class="bg-white rounded-2xl border border-slate-200/50 shadow-sm hover:shadow-lg hover:-translate-y-1.5 transition-all duration-300 overflow-hidden flex flex-col group cursor-pointer relative animate-fade-in"
-					>
-						<div class="absolute top-3 right-3 flex gap-2 z-10">
-							<button 
-								onclick={(e) => toggleComparison(crop, e)}
-								class={['size-8 rounded-xl flex items-center justify-center border shadow-sm transition-all cursor-pointer backdrop-blur-sm', 
-									isCompared ? 'bg-primary-green text-white border-primary-green' : 'bg-white/80 border-slate-200 text-slate-500 hover:text-primary-green'].join(' ')}
-								title="Compare product"
-							>
-								<span class="material-symbols-outlined text-[16px]">compare_arrows</span>
-							</button>
-							<button 
-								onclick={(e) => toggleWishlist(crop, e)}
-								class="size-8 rounded-xl flex items-center justify-center border shadow-sm transition-all cursor-pointer backdrop-blur-sm bg-white text-red-500 border-slate-200"
-								title="Remove from Wishlist"
-							>
-								<span class="material-symbols-outlined text-[16px] filled">favorite</span>
-							</button>
-						</div>
-
-						<div class="h-40 w-full relative overflow-hidden flex-shrink-0">
-							<img src={crop.imageUrl || 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=400&q=80'} alt={crop.name} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-							<div class="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent"></div>
-							<div class="absolute bottom-2.5 left-3 text-white pr-10">
-								<h4 class="font-extrabold text-sm leading-tight truncate">{crop.name}</h4>
-								<p class="text-[9px] text-white/85 font-bold flex items-center gap-0.5 mt-0.5">
-									{crop.farmer || 'Verified Farmer'}
-									<span class="material-symbols-outlined text-[11px] text-emerald-400 filled">verified</span>
-								</p>
-							</div>
-						</div>
-
-						<div class="p-3.5 flex-grow flex flex-col justify-between gap-3.5">
-							<div class="flex justify-between items-center text-[10px]">
-								<span class="bg-emerald-50 text-dark-green border border-emerald-100/50 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-									{crop.category || 'Produce'}
-								</span>
-								<span class="text-slate-400 font-bold flex items-center gap-0.5 truncate max-w-[100px]">
-									<span class="material-symbols-outlined text-[12px]">pin_drop</span>
-									{crop.location || 'Local Fields'}
-								</span>
-							</div>
-
-							<div class="space-y-1 bg-slate-50 p-2 rounded-xl border border-slate-100/50 text-[10px] font-semibold text-slate-500">
-								<div class="flex justify-between">
-									<span>Available Stock</span>
-									<strong class="text-slate-700">{crop.quantity || '30'} {crop.unit || 'KG'}</strong>
-								</div>
-								<div class="flex justify-between">
-									<span>Harvest Date</span>
-									<strong class="text-slate-700">{crop.harvestDate || 'Recently'}</strong>
-								</div>
-							</div>
-
-							<div class="border-t border-slate-50 pt-2 flex justify-between items-center">
-								<div>
-									<p class="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Direct Price</p>
-									<p class="text-sm font-black text-primary-green mt-0.5">
-										₹{crop.price} 
-										<span class="text-[9px] text-slate-400 font-normal">/ {crop.unit || 'KG'}</span>
-									</p>
-								</div>
-							</div>
-						</div>
-					</div>
-				{:else}
-					<div class="col-span-full bg-white p-16 rounded-2xl text-center text-slate-400 border border-slate-200/50">
-						<span class="material-symbols-outlined text-4xl text-slate-300 block mb-2">favorite_border</span>
-						<p class="font-bold text-slate-500">Your wishlist is empty.</p>
-						<button onclick={() => activeTab = 'marketplace'} class="mt-3 btn-primary text-xs px-4 py-2 cursor-pointer">Browse Produce</button>
-					</div>
-				{/each}
-			</div>
-		</div>
-
-	{:else if activeTab === 'favorites'}
-		<!-- Dedicated Favorite Farmers followed view -->
-		<div class="space-y-4 animate-fade-in">
-			<div>
-				<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">My Followed Farmers</h3>
-				<p class="text-xs text-slate-400 font-semibold mt-0.5">Quickly access product listings and origins of your favorite farm partners.</p>
-			</div>
-
-			<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-				{#each favoriteFarmers as farmer (farmer.farmerId)}
-					<div class="bg-white border border-slate-200/60 rounded-2xl p-5 flex flex-col justify-between gap-4 shadow-sm hover:shadow-md transition-shadow relative">
-						<!-- Unfollow overlay -->
-						<button 
-							onclick={(e) => toggleFavoriteFarmer(farmer.farmerId, e)}
-							class="absolute top-4 right-4 size-7 rounded-xl bg-slate-50 border border-slate-100 hover:bg-red-50 hover:text-red-500 transition-colors flex items-center justify-center text-slate-450 cursor-pointer"
-							title="Unfollow Farmer"
-						>
-							<span class="material-symbols-outlined text-[15px]">close</span>
-						</button>
-
-						<div class="flex items-center gap-3.5">
-							<div class="size-12 rounded-full bg-gradient-to-tr from-primary-green to-dark-green text-white flex items-center justify-center font-black text-base uppercase shadow-sm">
-								{farmer.farmerName[0]}
-							</div>
-							<div>
-								<h4 class="font-bold text-slate-800 text-sm flex items-center gap-1">
-									{farmer.farmerName}
-									<span class="material-symbols-outlined text-[15px] text-emerald-500 filled">verified</span>
-								</h4>
-								<p class="text-xs text-slate-400 font-medium mt-0.5 flex items-center gap-0.5">
-									<span class="material-symbols-outlined text-[13px]">pin_drop</span> {farmer.location}
-								</p>
-							</div>
-						</div>
-
-						<div class="grid grid-cols-2 gap-2 text-[10px] font-semibold text-slate-500 bg-[#F8FAF5]/60 border border-emerald-100/40 p-3 rounded-xl">
-							<div>
-								<span class="text-slate-400 block">Listed Crops</span>
-								<strong class="text-slate-800 text-xs">{farmer.activeProductsCount} Items</strong>
-							</div>
-							<div>
-								<span class="text-slate-400 block">Phone Contact</span>
-								<a href="tel:{farmer.phone}" class="text-primary-green hover:underline block truncate mt-0.5">{farmer.phone}</a>
-							</div>
-						</div>
-
-						<div class="flex gap-2">
-							<button 
-								onclick={() => viewFarmerListings(farmer.farmerName)}
-								class="btn-primary py-2 text-xs flex-1 cursor-pointer flex items-center justify-center gap-1.5"
-							>
-								<span class="material-symbols-outlined text-[16px]">grid_view</span> View Listings
-							</button>
-						</div>
-					</div>
-				{:else}
-					<div class="col-span-full bg-white p-16 rounded-2xl text-center text-slate-400 border border-slate-200/50">
-						<span class="material-symbols-outlined text-4xl text-slate-350 block mb-2">stars</span>
-						<p class="font-bold text-slate-500">You haven't followed any farmers yet.</p>
-						<p class="text-xs text-slate-400 mt-1">Open product specifications in the marketplace to follow verified growers.</p>
-					</div>
-				{/each}
-			</div>
-		</div>
-
-	{:else if activeTab === 'compare'}
-		<!-- Product Comparison Grid table layout -->
-		<div class="space-y-4 animate-fade-in">
-			<div>
-				<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Product Comparison</h3>
-				<p class="text-xs text-slate-400 font-semibold mt-0.5">Select up to 3 produce items in the marketplace to compare side-by-side specs.</p>
-			</div>
-
-			{#if compareList.length > 0}
-				<div class="bg-white border border-slate-200/60 shadow-sm rounded-2xl overflow-hidden">
-					<div class="overflow-x-auto">
-						<table class="w-full text-left border-collapse text-xs">
-							<thead>
-								<tr class="bg-slate-50 font-bold uppercase tracking-wider text-[10px] text-slate-400 border-b border-slate-100">
-									<th class="p-4 pl-6 w-48">Spec/Feature</th>
-									{#each compareList as p}
-										<th class="p-4 relative">
-											{#if bestProductId === p.id}
-												<div class="absolute -top-1 left-4 bg-amber-500 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-b-md shadow-sm tracking-widest animate-pulse z-20">
-													⭐ Best Choice
-												</div>
-											{/if}
-											<button 
-												onclick={(e) => toggleComparison(p, e)}
-												class="absolute top-2 right-2 text-slate-400 hover:text-red-500 size-6 rounded-full hover:bg-slate-100 flex items-center justify-center cursor-pointer"
-												title="Remove item"
-											>
-												<span class="material-symbols-outlined text-[14px]">close</span>
-											</button>
-											<div class="flex items-center gap-3 mt-2 pr-6">
-												<img src={p.imageUrl} alt={p.name} class="size-12 rounded-lg object-cover" />
-												<div>
-													<p class="font-black text-slate-800 truncate text-xs">{p.name}</p>
-													<p class="text-[9px] text-slate-400 font-bold mt-0.5">{p.category}</p>
-												</div>
-											</div>
-										</th>
-									{/each}
-									<!-- Placeholders if less than 3 -->
-									{#each Array.from({ length: Math.max(0, 3 - compareList.length) }) as _}
-										<th class="p-4 text-slate-350 italic font-medium text-[10px]">Empty Slot</th>
-									{/each}
-								</tr>
-							</thead>
-							<tbody class="divide-y divide-slate-50 text-slate-650 font-medium">
-								<tr class="hover:bg-slate-50/20">
-									<td class="p-4 pl-6 text-slate-400 uppercase text-[10px] font-bold">Farmer</td>
-									{#each compareList as p}
-										<td class="p-4 text-slate-800 font-bold">{p.farmerName || p.farmer || 'Verified Farmer'}</td>
-									{/each}
-									{#each Array.from({ length: Math.max(0, 3 - compareList.length) }) as _}
-										<td class="p-4 text-slate-300">—</td>
-									{/each}
-								</tr>
-								<tr class="hover:bg-slate-50/20">
-									<td class="p-4 pl-6 text-slate-400 uppercase text-[10px] font-bold">Price</td>
-									{#each compareList as p}
-										<td class="p-4 text-primary-green font-black text-sm">₹{p.price} <span class="text-[10px] text-slate-400 font-normal">/ {p.unit || 'KG'}</span></td>
-									{/each}
-									{#each Array.from({ length: Math.max(0, 3 - compareList.length) }) as _}
-										<td class="p-4 text-slate-300">—</td>
-									{/each}
-								</tr>
-								<tr class="hover:bg-slate-50/20">
-									<td class="p-4 pl-6 text-slate-400 uppercase text-[10px] font-bold">Available Quantity</td>
-									{#each compareList as p}
-										<td class="p-4 text-slate-800 font-bold">{p.quantity} {p.unit || 'KG'}</td>
-									{/each}
-									{#each Array.from({ length: Math.max(0, 3 - compareList.length) }) as _}
-										<td class="p-4 text-slate-300">—</td>
-									{/each}
-								</tr>
-								<tr class="hover:bg-slate-50/20">
-									<td class="p-4 pl-6 text-slate-400 uppercase text-[10px] font-bold">Unit</td>
-									{#each compareList as p}
-										<td class="p-4 text-slate-600">{p.unit || 'KG'}</td>
-									{/each}
-									{#each Array.from({ length: Math.max(0, 3 - compareList.length) }) as _}
-										<td class="p-4 text-slate-300">—</td>
-									{/each}
-								</tr>
-								<tr class="hover:bg-slate-50/20">
-									<td class="p-4 pl-6 text-slate-400 uppercase text-[10px] font-bold">Quality Grade</td>
-									{#each compareList as p}
-										<td class="p-4">
-											<span class="bg-[#F8FAF5] border border-emerald-100 text-dark-green text-[10px] font-bold px-2 py-0.5 rounded">
-												{p.qualityGrade || 'Grade A'}
-											</span>
-										</td>
-									{/each}
-									{#each Array.from({ length: Math.max(0, 3 - compareList.length) }) as _}
-										<td class="p-4 text-slate-300">—</td>
-									{/each}
-								</tr>
-								<tr class="hover:bg-slate-50/20">
-									<td class="p-4 pl-6 text-slate-400 uppercase text-[10px] font-bold">Harvest Date</td>
-									{#each compareList as p}
-										<td class="p-4 text-slate-500 font-semibold">{p.harvestDate || 'Recently Harvested'}</td>
-									{/each}
-									{#each Array.from({ length: Math.max(0, 3 - compareList.length) }) as _}
-										<td class="p-4 text-slate-300">—</td>
-									{/each}
-								</tr>
-								<tr class="hover:bg-slate-50/20">
-									<td class="p-4 pl-6 text-slate-400 uppercase text-[10px] font-bold">Availability</td>
-									{#each compareList as p}
-										<td class="p-4">
-											<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold border bg-emerald-50 text-dark-green border-emerald-100">
-												{p.status || 'Available'}
-											</span>
-										</td>
-									{/each}
-									{#each Array.from({ length: Math.max(0, 3 - compareList.length) }) as _}
-										<td class="p-4 text-slate-300">—</td>
-									{/each}
-								</tr>
-							</tbody>
-						</table>
-					</div>
-				</div>
-			{:else}
-				<div class="bg-white p-16 rounded-2xl text-center text-slate-400 border border-slate-200/50">
-					<span class="material-symbols-outlined text-4xl text-slate-350 block mb-2">compare_arrows</span>
-					<p class="font-bold text-slate-500">Comparison list is empty.</p>
-					<p class="text-xs text-slate-400 mt-1">Select items in the browse produce grid to add them to comparison view.</p>
-					<button onclick={() => activeTab = 'marketplace'} class="mt-3 btn-primary text-xs px-4 py-2 cursor-pointer">Go to Browse</button>
-				</div>
-			{/if}
-		</div>
-	{/if}
 
 	<!-- View Details Modal (Extended with Favorite Farmer toggle) -->
 	<Modal bind:show={showProductModal} size="xl" title="Product Specification" type="custom">
