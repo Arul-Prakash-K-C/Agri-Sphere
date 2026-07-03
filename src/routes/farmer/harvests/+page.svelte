@@ -1,6 +1,7 @@
 <script>
 	import { fade, slide } from 'svelte/transition';
 	import { showConfirm, showSuccess, showError } from '$lib/modal.svelte.js';
+	import { preferences } from '$lib/preferences.svelte.js';
 
 	let { data } = $props();
 
@@ -22,6 +23,8 @@
 	let customToDate = $state('');
 	let searchQuery = $state('');
 	let currentPage = $state(1);
+	let showMobileDateFilterDropdown = $state(false);
+	let expandedHarvestId = $state(null);
 	const itemsPerPage = 10;
 
 	function isDateInFilter(dateIso, filter) {
@@ -826,8 +829,233 @@
 
 
 
+	<!-- Mobile view (hidden on desktop md:block) -->
+	<div class="block md:hidden p-4 rounded-3xl relative border shadow-2xl space-y-6 font-sans transition-colors duration-300 {preferences.theme === 'dark' ? 'bg-[#121212] border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-800'}">
+		<!-- 1) Header Section -->
+		<div class="flex items-center justify-between py-2 border-b gap-4 {preferences.theme === 'dark' ? 'border-slate-900/60' : 'border-slate-200/60'}">
+			<div>
+				<h2 class="text-sm font-black tracking-widest uppercase select-none {preferences.theme === 'dark' ? 'text-white' : 'text-slate-850'}">
+					HARVEST REGISTER
+				</h2>
+				<p class="text-[10px] font-semibold mt-0.5 {preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-450'}">
+					All logged harvests for your farm
+				</p>
+			</div>
+			
+			<div class="flex items-center gap-2 relative">
+				<!-- Calendar Button -->
+				<button 
+					type="button" 
+					onclick={() => showMobileDateFilterDropdown = !showMobileDateFilterDropdown}
+					class="flex items-center justify-center border rounded-xl size-9 transition-colors cursor-pointer {preferences.theme === 'dark' ? 'border-slate-800 bg-[#1e1e1e] text-white hover:bg-slate-800' : 'border-slate-250 bg-slate-50 text-slate-700 hover:bg-slate-100'}"
+					title="Filter by Date"
+				>
+					<span class="material-symbols-outlined text-[18px]">calendar_month</span>
+				</button>
+				
+				<!-- Add Button -->
+				<button 
+					type="button" 
+					onclick={openAddModal}
+					class="flex items-center justify-center border rounded-xl size-9 transition-colors cursor-pointer {preferences.theme === 'dark' ? 'border-slate-800 bg-[#1e1e1e] text-white hover:bg-slate-800' : 'border-slate-250 bg-slate-50 text-slate-700 hover:bg-slate-100'}"
+					title="Log New Harvest"
+				>
+					<span class="material-symbols-outlined text-[18px]">add</span>
+				</button>
+
+				{#if showMobileDateFilterDropdown}
+					<!-- Date filter options floating menu -->
+					<div class="absolute right-0 top-11 z-50 border rounded-xl shadow-2xl py-1.5 min-w-[150px] text-xs font-bold transition-colors duration-300 {preferences.theme === 'dark' ? 'bg-[#1e1e1e] border-slate-800 text-slate-350' : 'bg-white border-slate-200 text-slate-650'}">
+						{#each ['All', 'Today', 'Yesterday', 'This Week', 'Previous Week', 'This Month', 'Previous Month', 'This Quarter', 'This Year'] as option}
+							<button
+								type="button"
+								onclick={() => { dateFilter = option; showMobileDateFilterDropdown = false; }}
+								class="w-full text-left px-4 py-2 transition-colors {preferences.theme === 'dark' ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-900'} {dateFilter === option ? 'text-primary-green' : ''}"
+							>
+								{option}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</div>
+
+		<!-- 2) Search row -->
+		<div class="flex items-center justify-between gap-3">
+			<div class="relative flex-1">
+				<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-[15px]">search</span>
+				<input
+					type="text"
+					placeholder="Search crop, grade, status..."
+					bind:value={searchQuery}
+					class="w-full border rounded-full pl-9 pr-3 py-1.5 text-xs focus:outline-none focus:border-primary-green transition-colors {preferences.theme === 'dark' ? 'bg-[#1a1a1a] border-slate-800 text-slate-300 placeholder-slate-600' : 'bg-slate-50 border-slate-205 text-slate-700 placeholder-slate-400'}"
+				/>
+			</div>
+			<div class="border px-3.5 py-1.5 rounded-full text-[10px] font-bold shrink-0 shadow-inner {preferences.theme === 'dark' ? 'bg-[#1a1a1a] text-slate-400 border-slate-850' : 'bg-slate-50 text-slate-650 border-slate-200'}">
+				{sortedHarvests.length} {sortedHarvests.length === 1 ? 'log' : 'logs'}
+			</div>
+		</div>
+
+		<!-- 3) Harvest Card List -->
+		<div class="space-y-3">
+			{#each paginatedHarvests as harvest (harvest.id)}
+				{@const crop = crops.find(c => c.id === harvest.cropId || c.name.toLowerCase() === harvest.cropName?.toLowerCase())}
+				{@const imageUrl = crop?.imageUrl || 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=120&q=80'}
+				{@const status = getLifespanStatus(harvest.harvestDate, harvest.lifespan)}
+				
+				<!-- Card wrapper -->
+				<div 
+					role="button"
+					tabindex="0"
+					onclick={() => expandedHarvestId = (expandedHarvestId === harvest.id ? null : harvest.id)}
+					onkeydown={(e) => e.key === 'Enter' && (expandedHarvestId = (expandedHarvestId === harvest.id ? null : harvest.id))}
+					class="border rounded-2xl p-3 flex flex-col gap-1 cursor-pointer transition-all duration-200 {preferences.theme === 'dark' ? 'bg-[#161616] border-slate-900/60 hover:border-slate-800' : 'bg-slate-50 border-slate-150 hover:border-slate-200'}"
+				>
+					<!-- Top Row: Thumbnail + Info (Name, Badges, Details) + Arrow -->
+					<div class="flex items-center justify-between w-full gap-2.5">
+						<!-- Left & middle content row -->
+						<div class="flex items-center gap-3 flex-grow min-w-0">
+							<!-- Crop Image -->
+							<img 
+								src={imageUrl} 
+								alt={harvest.cropName} 
+								class="size-12 rounded-xl object-cover border shrink-0 {preferences.theme === 'dark' ? 'border-slate-900/60' : 'border-slate-200/50'}"
+							/>
+							
+							<!-- Info block -->
+							<div class="min-w-0 flex-grow">
+								<!-- First Line: Name + Grade + Status -->
+								<div class="flex items-center gap-1.5 flex-wrap">
+									<h3 class="text-xs font-bold truncate max-w-[110px] leading-none {preferences.theme === 'dark' ? 'text-white' : 'text-slate-800'}">
+										{harvest.cropName}
+									</h3>
+									
+									<!-- Grade badge -->
+									<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold whitespace-nowrap {preferences.theme === 'dark' ? 'bg-[#14231b] text-[#52c486] border border-[#1a3828]' : 'bg-emerald-50 text-emerald-700 border border-emerald-100/50'}">
+										{harvest.qualityGrade || 'Grade A'}
+									</span>
+
+									<!-- Status badge (Without check/warning icons) -->
+									{#if harvest.status?.toLowerCase() === 'sold'}
+										<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold border whitespace-nowrap {preferences.theme === 'dark' ? 'bg-[#1e1e1e] text-slate-350 border-[#2d2d2d]' : 'bg-slate-100 text-slate-500 border border-slate-200'}">
+											Sold
+										</span>
+									{:else if status}
+										{@const isRed = status.classes.includes('text-red-700') || status.classes.includes('text-red-600') || status.label.includes('left') || status.label.includes('Overdue')}
+										{@const isYellow = status.classes.includes('text-amber-700')}
+										<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold border whitespace-nowrap {isRed ? (preferences.theme === 'dark' ? 'bg-[#281515] text-[#f87171] border-[#4c1d1d]' : 'bg-red-50 text-red-600 border-red-100/50') : (isYellow ? (preferences.theme === 'dark' ? 'bg-[#2a2115] text-[#f59e0b] border-[#45321f]' : 'bg-amber-50 text-amber-600 border-amber-100/50') : (preferences.theme === 'dark' ? 'bg-[#14231b] text-[#52c486] border border-[#1a3828]' : 'bg-emerald-50 text-emerald-700 border border-emerald-100/50'))}">
+											{status.label}
+										</span>
+									{/if}
+								</div>
+								
+								<!-- Second Line: Details -->
+								<p class="text-[9.5px] font-semibold mt-1 whitespace-nowrap {preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-450'}">
+									{harvest.quantity} {harvest.unit} • {formatDate(harvest.harvestDate)}
+								</p>
+							</div>
+						</div>
+
+						<!-- Right Chevron (Dynamic Arrow) -->
+						<span class="material-symbols-outlined text-base leading-none pl-1 shrink-0 {preferences.theme === 'dark' ? 'text-slate-550' : 'text-slate-400'}">
+							{expandedHarvestId === harvest.id ? 'keyboard_arrow_down' : 'chevron_right'}
+						</span>
+					</div>
+
+					<!-- Expanded Panel (Accordion Content) -->
+					{#if expandedHarvestId === harvest.id}
+						<div transition:slide={{ duration: 150 }} class="mt-3 pt-3 border-t space-y-3 text-[11px] font-semibold transition-colors duration-300 {preferences.theme === 'dark' ? 'border-slate-900/60 text-slate-350' : 'border-slate-205 text-slate-600'}">
+							<div class="flex justify-between items-center">
+								<span class="{preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}">Lifespan</span>
+								<span class="font-extrabold {preferences.theme === 'dark' ? 'text-white' : 'text-slate-800'}">{harvest.lifespan || '—'}</span>
+							</div>
+							<div class="flex justify-between items-center">
+								<span class="{preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}">Notes</span>
+								<span class="font-extrabold truncate max-w-[200px] {preferences.theme === 'dark' ? 'text-white' : 'text-slate-800'}">{harvest.notes || '—'}</span>
+							</div>
+							<div class="flex justify-between items-center">
+								<span class="{preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}">Status</span>
+								<!-- Status badge in details -->
+								{#if harvest.status?.toLowerCase() === 'sold'}
+									<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold border whitespace-nowrap {preferences.theme === 'dark' ? 'bg-[#1e1e1e] text-slate-350 border-[#2d2d2d]' : 'bg-slate-100 text-slate-500 border border-slate-200'}">
+										Sold
+									</span>
+								{:else if status}
+									{@const isRed = status.classes.includes('text-red-700') || status.classes.includes('text-red-600') || status.label.includes('left') || status.label.includes('Overdue')}
+									{@const isYellow = status.classes.includes('text-amber-700')}
+									<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold border whitespace-nowrap {isRed ? (preferences.theme === 'dark' ? 'bg-[#281515] text-[#f87171] border-[#4c1d1d]' : 'bg-red-50 text-red-600 border-red-100/50') : (isYellow ? (preferences.theme === 'dark' ? 'bg-[#2a2115] text-[#f59e0b] border-[#45321f]' : 'bg-amber-50 text-amber-600 border-amber-100/50') : (preferences.theme === 'dark' ? 'bg-[#14231b] text-[#52c486] border border-[#1a3828]' : 'bg-emerald-50 text-emerald-700 border border-emerald-100/50'))}">
+										{status.label}
+									</span>
+								{/if}
+							</div>
+							
+							<div class="flex justify-end gap-4 pt-2 text-[11px] font-bold">
+								<button 
+									type="button" 
+									onclick={(e) => { e.stopPropagation(); openEditModal(harvest); }} 
+									class="flex items-center gap-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
+								>
+									<span class="material-symbols-outlined text-[13px]">edit</span>
+									<span>Edit</span>
+								</button>
+								<button 
+									type="button" 
+									onclick={(e) => { e.stopPropagation(); confirmDelete(harvest); }} 
+									class="flex items-center gap-1 text-red-500 hover:text-red-400 transition-colors cursor-pointer"
+								>
+									<span class="material-symbols-outlined text-[13px]">delete</span>
+									<span>Delete</span>
+								</button>
+							</div>
+						</div>
+					{/if}
+				</div>
+			{:else}
+				<div class="py-12 text-center border rounded-2xl {preferences.theme === 'dark' ? 'bg-[#161616] border-slate-900' : 'bg-slate-50 border-slate-200'}">
+					<span class="material-symbols-outlined text-3xl text-slate-600">inventory_2</span>
+					<p class="mt-2 text-xs font-semibold {preferences.theme === 'dark' ? 'text-slate-450' : 'text-slate-500'}">No harvests logged yet</p>
+				</div>
+			{/each}
+		</div>
+
+		<!-- 4) Footer / Pagination -->
+		<div class="flex items-center justify-between pt-4 border-t text-[10px] font-semibold {preferences.theme === 'dark' ? 'border-slate-900/60 text-slate-500' : 'border-slate-200/60 text-slate-450'}">
+			<span>
+				{#if sortedHarvests.length > 0}
+					Showing {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, sortedHarvests.length)} of {sortedHarvests.length} records
+				{:else}
+					Showing 0 of 0 records
+				{/if}
+			</span>
+
+			{#if totalPages > 1}
+				<div class="flex items-center gap-1.5">
+					<button
+						type="button"
+						disabled={currentPage === 1}
+						onclick={() => currentPage = Math.max(1, currentPage - 1)}
+						class="px-2 py-1 rounded-md border text-[9px] font-bold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors {preferences.theme === 'dark' ? 'border-slate-800 bg-[#1e1e1e] text-slate-400 hover:bg-slate-800' : 'border-slate-250 bg-slate-50 text-slate-650 hover:bg-slate-100'}"
+					>
+						Prev
+					</button>
+
+					<span class="font-bold px-1 {preferences.theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}">{currentPage} / {totalPages}</span>
+
+					<button
+						type="button"
+						disabled={currentPage === totalPages}
+						onclick={() => currentPage = Math.min(totalPages, currentPage + 1)}
+						class="px-2 py-1 rounded-md border text-[9px] font-bold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors {preferences.theme === 'dark' ? 'border-slate-800 bg-[#1e1e1e] text-slate-400 hover:bg-slate-800' : 'border-slate-250 bg-slate-50 text-slate-650 hover:bg-slate-100'}"
+					>
+						Next
+					</button>
+				</div>
+			{/if}
+		</div>
+	</div>
+
 	<!-- ── Harvest Table ────────────────────────────────────────────────────── -->
-	<div class="bg-white rounded-2xl border border-slate-200/50 shadow-sm overflow-hidden">
+	<div class="hidden md:block bg-white rounded-2xl border border-slate-200/50 shadow-sm overflow-hidden">
 		<!-- Table Header / Toolbar -->
 		<div class="px-6 py-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
 			<div>

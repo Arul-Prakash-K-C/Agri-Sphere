@@ -3,6 +3,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import { showConfirm, showSuccess, showError } from '$lib/modal.svelte.js';
 	import { formatCurrencyGlobal, getCurrencySymbolGlobal } from '$lib/preferences.svelte.js';
+	import Card from '$lib/components/Card.svelte';
 
 	let { data } = $props();
 
@@ -387,75 +388,71 @@
 	<!-- Crop Cards Bento Grid -->
 	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 		{#each filteredProducts as product (product.id)}
-			<article class="bg-white rounded-2xl border border-slate-200/50 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col group">
-				<div class="relative h-48 w-full overflow-hidden">
-					<img src={product.imageUrl || 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=600&q=80'} alt={product.name} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-					<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-					
-					<div class="absolute top-3 right-3 flex gap-1.5">
-						<button 
-							onclick={(e) => toggleStatus(product, e)}
-							class="bg-white/90 backdrop-blur-sm text-slate-700 size-8 rounded-full hover:bg-emerald-50 hover:text-dark-green transition-colors shadow-sm flex items-center justify-center cursor-pointer"
-							title={product.status === 'Available' ? 'Mark as Sold' : 'Mark as Available'}
-						>
-							<span class="material-symbols-outlined text-[18px]">{product.status === 'Available' ? 'check_box_outline_blank' : 'check_box'}</span>
-						</button>
-						<button 
-							onclick={(e) => openEditModal(product, e)}
-							class="bg-white/90 backdrop-blur-sm text-primary-green size-8 rounded-full hover:bg-emerald-50 transition-colors shadow-sm flex items-center justify-center cursor-pointer"
-							title="Edit listing"
-						>
-							<span class="material-symbols-outlined text-[18px]">edit</span>
-						</button>
-						<button 
-							onclick={(e) => handleDeleteProduct(product.id, e)}
-							class="bg-white/90 backdrop-blur-sm text-red-600 size-8 rounded-full hover:bg-red-50 hover:text-red-700 transition-colors shadow-sm flex items-center justify-center cursor-pointer"
-							title="Delete listing"
-						>
-							<span class="material-symbols-outlined text-[18px]">delete</span>
-						</button>
+			<Card 
+				imageUrl={product.imageUrl} 
+				title={product.name}
+			>
+				{#snippet actions()}
+					<button 
+						onclick={(e) => toggleStatus(product, e)}
+						class="bg-white/90 backdrop-blur-sm text-slate-700 size-8 rounded-full hover:bg-emerald-50 hover:text-dark-green transition-colors shadow-sm flex items-center justify-center cursor-pointer"
+						title={product.status === 'Available' ? 'Mark as Sold' : 'Mark as Available'}
+					>
+						<span class="material-symbols-outlined text-[18px]">{product.status === 'Available' ? 'check_box_outline_blank' : 'check_box'}</span>
+					</button>
+					<button 
+						onclick={(e) => openEditModal(product, e)}
+						class="bg-white/90 backdrop-blur-sm text-primary-green size-8 rounded-full hover:bg-emerald-50 transition-colors shadow-sm flex items-center justify-center cursor-pointer"
+						title="Edit listing"
+					>
+						<span class="material-symbols-outlined text-[18px]">edit</span>
+					</button>
+					<button 
+						onclick={(e) => handleDeleteProduct(product.id, e)}
+						class="bg-white/90 backdrop-blur-sm text-red-600 size-8 rounded-full hover:bg-red-50 hover:text-red-700 transition-colors shadow-sm flex items-center justify-center cursor-pointer"
+						title="Delete listing"
+					>
+						<span class="material-symbols-outlined text-[18px]">delete</span>
+					</button>
+				{/snippet}
+
+				{#snippet subtitleSnippet()}
+					<p class="text-[10px] opacity-90 mt-1 font-semibold bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full inline-block">{product.category}</p>
+				{/snippet}
+
+				<div class="flex justify-between items-center text-xs">
+					<span class={['px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1.5',
+						product.status === 'Available' ? 'bg-emerald-50 text-dark-green border-emerald-100/50' : 'bg-red-50 text-red-700 border-red-100/50'
+					].filter(Boolean).join(' ')}>
+						<span class={['w-1.5 h-1.5 rounded-full', product.status === 'Available' ? 'bg-primary-green' : 'bg-red-500'].filter(Boolean).join(' ')}></span>
+						{product.status}
+					</span>
+					<span class="text-slate-400 font-bold flex items-center gap-0.5">
+						<span class="material-symbols-outlined text-[15px]">pin_drop</span>
+						{product.farmLocation || 'Local Fields'}
+					</span>
+				</div>
+
+				<p class="text-xs text-slate-500 line-clamp-2 leading-relaxed">{product.description || 'No description provided.'}</p>
+
+				<div class="space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs font-semibold text-slate-500">
+					<div class="flex justify-between">
+						<span>Stock Availability</span>
+						<span class="text-slate-800">{product.quantity || '0'} {product.unit || 'KG'}</span>
 					</div>
-					
-					<div class="absolute bottom-3 left-4 text-white">
-						<h3 class="text-lg font-extrabold leading-none">{product.name}</h3>
-						<p class="text-[10px] opacity-90 mt-1 font-semibold bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full inline-block">{product.category}</p>
+					<div class="flex justify-between">
+						<span>Harvest Date</span>
+						<span class="text-slate-800">{product.harvestDate || 'Recently'}</span>
 					</div>
 				</div>
-				<div class="p-5 flex-grow flex flex-col justify-between gap-4">
-					<div class="flex justify-between items-center text-xs">
-						<span class={['px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1.5',
-							product.status === 'Available' ? 'bg-emerald-50 text-dark-green border-emerald-100/50' : 'bg-red-50 text-red-700 border-red-100/50'
-						].filter(Boolean).join(' ')}>
-							<span class={['w-1.5 h-1.5 rounded-full', product.status === 'Available' ? 'bg-primary-green' : 'bg-red-500'].filter(Boolean).join(' ')}></span>
-							{product.status}
-						</span>
-						<span class="text-slate-400 font-bold flex items-center gap-0.5">
-							<span class="material-symbols-outlined text-[15px]">pin_drop</span>
-							{product.farmLocation || 'Local Fields'}
-						</span>
-					</div>
 
-					<p class="text-xs text-slate-500 line-clamp-2 leading-relaxed">{product.description || 'No description provided.'}</p>
-
-					<div class="space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs font-semibold text-slate-500">
-						<div class="flex justify-between">
-							<span>Stock Availability</span>
-							<span class="text-slate-800">{product.quantity || '0'} {product.unit || 'KG'}</span>
-						</div>
-						<div class="flex justify-between">
-							<span>Harvest Date</span>
-							<span class="text-slate-800">{product.harvestDate || 'Recently'}</span>
-						</div>
+				{#snippet footer()}
+					<div>
+						<p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Unit Sourcing Price</p>
+						<p class="text-lg font-black text-dark-green mt-0.5">{formatCurrencyGlobal(product.price, 2)} <span class="text-[10px] text-slate-400 font-normal">/ {product.unit}</span></p>
 					</div>
-
-					<div class="flex items-center justify-between border-t border-slate-100 pt-3">
-						<div>
-							<p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Unit Sourcing Price</p>
-							<p class="text-lg font-black text-dark-green mt-0.5">{formatCurrencyGlobal(product.price, 2)} <span class="text-[10px] text-slate-400 font-normal">/ {product.unit}</span></p>
-						</div>
-					</div>
-				</div>
-			</article>
+				{/snippet}
+			</Card>
 		{:else}
 			<div class="col-span-full py-16 text-center bg-white border border-slate-200/50 rounded-2xl shadow-sm">
 				<span class="material-symbols-outlined text-4xl text-slate-300">storefront</span>
