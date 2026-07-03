@@ -2,13 +2,14 @@
 	import { fade, slide } from 'svelte/transition';
 	import { invalidateAll } from '$app/navigation';
 	import { showConfirm, showSuccess, showError } from '$lib/modal.svelte.js';
-	import { formatCurrencyGlobal, getCurrencySymbolGlobal } from '$lib/preferences.svelte.js';
+	import { preferences, formatCurrencyGlobal, getCurrencySymbolGlobal } from '$lib/preferences.svelte.js';
 
 	const { data } = $props();
 
 	let sales = $state([]);
 	let inventory = $state([]);
 	let harvests = $state([]);
+	let crops = $state([]);
 	let loading = $state(false);
 	let error = $state('');
 
@@ -16,6 +17,7 @@
 		sales = data?.sales || [];
 		inventory = data?.inventory || [];
 		harvests = data?.harvests || [];
+		crops = data?.crops || [];
 	});
 
 	// Helper to find harvest details or crop details for dynamic lifespan calculation
@@ -318,6 +320,8 @@
 	let dateFilter = $state('All');
 	let customFromDate = $state('');
 	let customToDate = $state('');
+	let showMobileDateFilterDropdown = $state(false);
+	let expandedSaleId = $state(null);
 
 	function isDateInFilter(dateIso, filter) {
 		if (filter === 'All') return true;
@@ -577,25 +581,293 @@
 	<!-- Stats row -->
 	<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
 		{#each [
-			{ label: 'Total Revenue', value: formatCurrency(totalRevenue), icon: 'currency_rupee', color: 'bg-emerald-50 text-dark-green' },
-			{ label: 'Total Sold (kg)', value: `${totalSold} kg`, icon: 'shopping_basket', color: 'bg-blue-50 text-blue-700' },
-			{ label: 'Total Self Use (kg)', value: `${totalSelfUse} kg`, icon: 'home', color: 'bg-violet-50 text-violet-700' },
-			{ label: 'Total Wastage (kg)', value: `${totalWastage} kg`, icon: 'delete_outline', color: 'bg-amber-50 text-amber-700' }
+			{ label: 'TOTAL REVENUE', value: formatCurrency(totalRevenue), icon: 'currency_rupee', bg: 'bg-[#e8f5e9]', text: 'text-[#2e7d32]' },
+			{ label: 'TOTAL SOLD (KG)', value: `${totalSold} kg`, icon: 'shopping_basket', bg: 'bg-[#e3f2fd]', text: 'text-[#1565c0]' },
+			{ label: 'TOTAL SELF USE (KG)', value: `${totalSelfUse} kg`, icon: 'home', bg: 'bg-[#f3e5f5]', text: 'text-[#6a1b9a]' },
+			{ label: 'TOTAL WASTAGE (KG)', value: `${totalWastage} kg`, icon: 'delete', bg: 'bg-[#fff8e1]', text: 'text-[#ff8f00]' }
 		] as stat}
-			<div class="bg-white rounded-2xl border border-slate-100 p-5 flex items-start gap-4 shadow-sm">
-				<div class={['size-10 rounded-xl flex items-center justify-center shrink-0', stat.color].join(' ')}>
-					<span class="material-symbols-outlined text-[20px]">{stat.icon}</span>
+			<div class="rounded-3xl p-3 sm:p-6 flex items-center gap-3 sm:gap-5 border transition-all duration-300 {preferences.theme === 'dark' ? 'bg-[#161616] border-slate-900 text-white shadow-md' : 'bg-white border-slate-100 text-slate-850 shadow-sm'}">
+				<div class="size-10 sm:size-14 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 {stat.bg} {stat.text}">
+					<span class="material-symbols-outlined text-lg sm:text-[28px]">{stat.icon}</span>
 				</div>
-				<div class="min-w-0">
-					<p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">{stat.label}</p>
-					<p class="font-extrabold text-slate-800 text-sm truncate mt-0.5">{stat.value}</p>
+				<div class="min-w-0 flex flex-col justify-center">
+					<p class="text-[8px] sm:text-[9.5px] font-extrabold uppercase tracking-widest text-slate-400 leading-none">{stat.label}</p>
+					<p class="font-extrabold mt-1 sm:mt-2 text-xs sm:text-lg md:text-xl tracking-tight leading-snug {preferences.theme === 'dark' ? 'text-white' : 'text-slate-900'} whitespace-nowrap">{stat.value}</p>
 				</div>
 			</div>
 		{/each}
 	</div>
 
+	<!-- Mobile view (hidden on desktop md:block) -->
+	<div class="block md:hidden p-4 rounded-3xl relative border shadow-2xl space-y-6 font-sans transition-colors duration-300 {preferences.theme === 'dark' ? 'bg-[#121212] border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-800'}">
+		<!-- 1) Header Section -->
+		<div class="flex items-center justify-between py-2 border-b gap-4 {preferences.theme === 'dark' ? 'border-slate-900/60' : 'border-slate-200/60'}">
+			<div>
+				<h2 class="text-sm font-black tracking-widest uppercase select-none {preferences.theme === 'dark' ? 'text-white' : 'text-slate-850'}">
+					ALLOCATION LOG
+				</h2>
+				<p class="text-[10px] font-semibold mt-0.5 {preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-455'}">
+					Track inventory allocation and usage
+				</p>
+			</div>
+			
+			<div class="flex items-center gap-2 relative">
+				<!-- Calendar Button -->
+				<button 
+					type="button" 
+					onclick={() => showMobileDateFilterDropdown = !showMobileDateFilterDropdown}
+					class="flex items-center justify-center border rounded-xl size-9 transition-colors cursor-pointer {preferences.theme === 'dark' ? 'border-slate-800 bg-[#1e1e1e] text-white hover:bg-slate-800' : 'border-slate-250 bg-slate-50 text-slate-700 hover:bg-slate-100'}"
+					title="Filter by Date"
+				>
+					<span class="material-symbols-outlined text-[18px]">calendar_month</span>
+				</button>
+				
+				<!-- Add Button -->
+				<button 
+					type="button" 
+					onclick={openModal}
+					class="flex items-center justify-center border rounded-xl size-9 transition-colors cursor-pointer {preferences.theme === 'dark' ? 'border-slate-800 bg-[#1e1e1e] text-white hover:bg-slate-800' : 'border-slate-250 bg-slate-50 text-slate-700 hover:bg-slate-100'}"
+					title="Record Allocation"
+				>
+					<span class="material-symbols-outlined text-[18px]">add</span>
+				</button>
+
+				{#if showMobileDateFilterDropdown}
+					<!-- Date filter options floating menu -->
+					<div class="absolute right-0 top-11 z-50 border rounded-xl shadow-2xl py-1.5 min-w-[150px] text-xs font-bold transition-colors duration-300 {preferences.theme === 'dark' ? 'bg-[#1e1e1e] border-slate-800 text-slate-355' : 'bg-white border-slate-200 text-slate-650'}">
+						{#each ['All', 'Today', 'Yesterday', 'This Week', 'Previous Week', 'This Month', 'Previous Month', 'This Quarter', 'This Year'] as option}
+							<button
+								type="button"
+								onclick={() => { dateFilter = option; showMobileDateFilterDropdown = false; }}
+								class="w-full text-left px-4 py-2 transition-colors {preferences.theme === 'dark' ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-900'} {dateFilter === option ? 'text-primary-green' : ''}"
+							>
+								{option}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</div>
+
+		<!-- Tabs block -->
+		<div class="flex flex-wrap gap-1.5">
+			{#each ['All', 'Sales', 'Self Use', 'Wastage'] as filterName}
+				<button
+					type="button"
+					onclick={() => activeFilter = filterName}
+					class="px-3 py-1 text-[10px] font-extrabold rounded-full border transition-all cursor-pointer {activeFilter === filterName ? 'bg-primary-green text-white border-primary-green' : (preferences.theme === 'dark' ? 'bg-[#1e1e1e] text-slate-400 border-slate-800 hover:bg-slate-800' : 'bg-slate-50 text-slate-505 border-slate-200 hover:bg-slate-100')}"
+				>
+					{filterName}
+				</button>
+			{/each}
+		</div>
+
+		<!-- 2) Search row -->
+		<div class="flex items-center justify-between gap-3">
+			<div class="relative flex-1">
+				<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-[15px]">search</span>
+				<input
+					type="text"
+					placeholder="Search item, buyer..."
+					value={searchQuery}
+					oninput={(e) => {
+						const val = e.target.value;
+						const url = new URL(window.location.href);
+						if (val.trim()) {
+							url.searchParams.set('search', val);
+						} else {
+							url.searchParams.delete('search');
+						}
+						import('$app/navigation').then(n => n.goto(url.toString(), { replaceState: true, keepFocus: true }));
+					}}
+					class="w-full border rounded-full pl-9 pr-3 py-1.5 text-xs focus:outline-none focus:border-primary-green transition-colors {preferences.theme === 'dark' ? 'bg-[#1a1a1a] border-slate-800 text-slate-300 placeholder-slate-600' : 'bg-slate-50 border-slate-205 text-slate-700 placeholder-slate-400'}"
+				/>
+			</div>
+			<div class="border px-3.5 py-1.5 rounded-full text-[10px] font-bold shrink-0 shadow-inner {preferences.theme === 'dark' ? 'bg-[#1a1a1a] text-slate-400 border-slate-850' : 'bg-slate-50 text-slate-650 border-slate-200'}">
+				{filteredSales.length} {filteredSales.length === 1 ? 'log' : 'logs'}
+			</div>
+		</div>
+
+		<!-- 3) Sales Card List -->
+		<div class="space-y-3">
+			{#each paginatedSales as sale (sale.id)}
+				{@const matchingCrop = crops.find(c => c.name.toLowerCase() === sale.itemName.replace(/\s+Harvest$/i, '').trim().toLowerCase())}
+				{@const imageUrl = matchingCrop?.imageUrl || 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=120&q=80'}
+				
+				<!-- Card wrapper -->
+				<div 
+					role="button"
+					tabindex="0"
+					onclick={() => expandedSaleId = (expandedSaleId === sale.id ? null : sale.id)}
+					onkeydown={(e) => e.key === 'Enter' && (expandedSaleId = (expandedSaleId === sale.id ? null : sale.id))}
+					class="border rounded-2xl p-3 flex flex-col gap-1 cursor-pointer transition-all duration-200 {preferences.theme === 'dark' ? 'bg-[#161616] border-slate-900/60 hover:border-slate-800' : 'bg-slate-50 border-slate-150 hover:border-slate-200'}"
+				>
+					<!-- Top Row: Thumbnail + Info (Name, Badges, Details) + Arrow -->
+					<div class="flex items-center justify-between w-full gap-2.5">
+						<!-- Left & middle content row -->
+						<div class="flex items-center gap-3 flex-grow min-w-0">
+							<!-- Crop Image -->
+							<img 
+								src={imageUrl} 
+								alt={sale.itemName} 
+								class="size-12 rounded-xl object-cover border shrink-0 {preferences.theme === 'dark' ? 'border-slate-900/60' : 'border-slate-200/50'}"
+							/>
+							
+							<!-- Info block -->
+							<div class="min-w-0 flex-grow">
+								<!-- First Line: Name + Type Badge + Buyer -->
+								<div class="flex items-center gap-1.5 flex-wrap">
+									<h3 class="text-xs font-bold truncate max-w-[110px] leading-none {preferences.theme === 'dark' ? 'text-white' : 'text-slate-800'}">
+										{sale.itemName}
+									</h3>
+									
+									<!-- Type Badge -->
+									{#if !sale.type || sale.type === 'Sale'}
+										<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold whitespace-nowrap {preferences.theme === 'dark' ? 'bg-[#14231b] text-[#52c486] border border-[#1a3828]' : 'bg-emerald-50 text-emerald-700 border border-emerald-100/50'}">
+											Sale
+										</span>
+									{:else if sale.type === 'Self Use'}
+										<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold border whitespace-nowrap {preferences.theme === 'dark' ? 'bg-[#131f2b] text-[#4a9eff] border border-[#1b2b3a]' : 'bg-blue-50 text-blue-700 border border-blue-100/50'}">
+											Self
+										</span>
+									{:else}
+										<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold border whitespace-nowrap {preferences.theme === 'dark' ? 'bg-[#281515] text-[#f87171] border-[#4c1d1d]' : 'bg-red-50 text-red-650 border border-red-100/50'}">
+											Waste
+										</span>
+									{/if}
+
+									<!-- Buyer Badge -->
+									{#if (!sale.type || sale.type === 'Sale') && sale.buyerName}
+										<span class="px-1.5 py-0.5 rounded-full text-[8px] font-bold border whitespace-nowrap {preferences.theme === 'dark' ? 'bg-[#1e1e1e] text-slate-350 border-[#2d2d2d]' : 'bg-slate-100 text-slate-500 border border-slate-200'}">
+											{sale.buyerName}
+										</span>
+									{/if}
+								</div>
+								
+								<!-- Second Line: Details -->
+								<p class="text-[9.5px] font-semibold mt-1 whitespace-nowrap {preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-455'}">
+									{sale.quantity} {sale.unit}
+									{#if !sale.type || sale.type === 'Sale'}
+										• {formatCurrency(sale.totalAmount)}
+									{/if}
+									• {formatDate(sale.saleDate)}
+								</p>
+							</div>
+						</div>
+
+						<!-- Right Chevron (Dynamic Arrow) -->
+						<span class="material-symbols-outlined text-base leading-none pl-1 shrink-0 {preferences.theme === 'dark' ? 'text-slate-550' : 'text-slate-400'}">
+							{expandedSaleId === sale.id ? 'keyboard_arrow_down' : 'chevron_right'}
+						</span>
+					</div>
+
+					<!-- Expanded Panel (Accordion Content) -->
+					{#if expandedSaleId === sale.id}
+						<div transition:slide={{ duration: 150 }} class="mt-3 pt-3 border-t space-y-3 text-[11px] font-semibold transition-colors duration-300 {preferences.theme === 'dark' ? 'border-slate-900/60 text-slate-350' : 'border-slate-205 text-slate-650'}">
+							<div class="flex justify-between items-center">
+								<span class="{preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}">Allocation Type</span>
+								<span class="font-extrabold {preferences.theme === 'dark' ? 'text-white' : 'text-slate-800'}">{sale.type || 'Sale'}</span>
+							</div>
+							<div class="flex justify-between items-center">
+								<span class="{preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}">Quantity</span>
+								<span class="font-extrabold {preferences.theme === 'dark' ? 'text-white' : 'text-slate-800'}">{sale.quantity} {sale.unit}</span>
+							</div>
+							{#if !sale.type || sale.type === 'Sale'}
+								<div class="flex justify-between items-center">
+									<span class="{preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}">Price / Unit</span>
+									<span class="font-extrabold {preferences.theme === 'dark' ? 'text-white' : 'text-slate-800'}">{formatCurrency(sale.pricePerUnit)}</span>
+								</div>
+								<div class="flex justify-between items-center">
+									<span class="{preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}">Total Amount</span>
+									<span class="font-extrabold {preferences.theme === 'dark' ? 'text-white' : 'text-slate-800'}">{formatCurrency(sale.totalAmount)}</span>
+								</div>
+								<div class="flex justify-between items-center">
+									<span class="{preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}">Buyer</span>
+									<span class="font-extrabold {preferences.theme === 'dark' ? 'text-white' : 'text-slate-800'}">{sale.buyerName || '—'}</span>
+								</div>
+							{/if}
+							<div class="flex justify-between items-center">
+								<span class="{preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}">Log Date</span>
+								<span class="font-extrabold {preferences.theme === 'dark' ? 'text-white' : 'text-slate-800'}">{formatDate(sale.saleDate)}</span>
+							</div>
+							<div class="flex justify-between items-center">
+								<span class="{preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}">Category</span>
+								<span class="font-extrabold capitalize {preferences.theme === 'dark' ? 'text-white' : 'text-slate-800'}">{sale.category || '—'}</span>
+							</div>
+							<div class="flex justify-between items-center">
+								<span class="{preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}">Notes</span>
+								<span class="font-extrabold truncate max-w-[200px] {preferences.theme === 'dark' ? 'text-white' : 'text-slate-800'}">{sale.notes || '—'}</span>
+							</div>
+							
+							<div class="flex justify-end gap-4 pt-2 text-[11px] font-bold">
+								{#if !sale.type || sale.type === 'Sale'}
+									<button 
+										type="button" 
+										onclick={(e) => { e.stopPropagation(); openEditModal(sale); }} 
+										class="flex items-center gap-1 transition-colors cursor-pointer {preferences.theme === 'dark' ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-850'}"
+									>
+										<span class="material-symbols-outlined text-[13px]">edit</span>
+										<span>Edit</span>
+									</button>
+								{/if}
+								<button 
+									type="button" 
+									onclick={(e) => { e.stopPropagation(); handleDelete(sale); }} 
+									class="flex items-center gap-1 transition-colors cursor-pointer {preferences.theme === 'dark' ? 'text-red-500 hover:text-red-400' : 'text-red-650 hover:text-red-750'}"
+								>
+									<span class="material-symbols-outlined text-[13px]">delete</span>
+									<span>Delete</span>
+								</button>
+							</div>
+						</div>
+					{/if}
+				</div>
+			{:else}
+				<div class="py-12 text-center border rounded-2xl {preferences.theme === 'dark' ? 'bg-[#161616] border-slate-900' : 'bg-slate-50 border-slate-200'}">
+					<span class="material-symbols-outlined text-3xl text-slate-600">point_of_sale</span>
+					<p class="mt-2 text-xs font-semibold {preferences.theme === 'dark' ? 'text-slate-450' : 'text-slate-500'}">No allocations recorded yet</p>
+				</div>
+			{/each}
+		</div>
+
+		<!-- 4) Footer / Pagination -->
+		<div class="flex items-center justify-between pt-4 border-t text-[10px] font-semibold {preferences.theme === 'dark' ? 'border-slate-900/60 text-slate-500' : 'border-slate-200/60 text-slate-450'}">
+			<span>
+				{#if filteredSales.length > 0}
+					Showing {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, filteredSales.length)} of {filteredSales.length} records
+				{:else}
+					Showing 0 of 0 records
+				{/if}
+			</span>
+
+			{#if totalPages > 1}
+				<div class="flex items-center gap-1.5">
+					<button
+						type="button"
+						disabled={currentPage === 1}
+						onclick={() => currentPage = Math.max(1, currentPage - 1)}
+						class="px-2 py-1 rounded-md border text-[9px] font-bold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors {preferences.theme === 'dark' ? 'border-slate-800 bg-[#1e1e1e] text-slate-400 hover:bg-slate-800' : 'border-slate-250 bg-slate-50 text-slate-650 hover:bg-slate-100'}"
+					>
+						Prev
+					</button>
+
+					<span class="font-bold px-1 {preferences.theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}">{currentPage} / {totalPages}</span>
+
+					<button
+						type="button"
+						disabled={currentPage === totalPages}
+						onclick={() => currentPage = Math.min(totalPages, currentPage + 1)}
+						class="px-2 py-1 rounded-md border text-[9px] font-bold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors {preferences.theme === 'dark' ? 'border-slate-800 bg-[#1e1e1e] text-slate-400 hover:bg-slate-800' : 'border-slate-250 bg-slate-50 text-slate-650 hover:bg-slate-100'}"
+					>
+						Next
+					</button>
+				</div>
+			{/if}
+		</div>
+	</div>
+
 	<!-- Sales table card -->
-	<div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+	<div class="hidden md:block bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
 		<!-- Toolbar -->
 		<div class="p-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
 			<div class="space-y-1.5">
@@ -697,7 +969,7 @@
 				</thead>
 				<tbody class="divide-y divide-slate-50 font-medium text-slate-600">
 					{#each paginatedSales as sale (sale.id)}
-						<tr class="hover:bg-slate-50/40 transition-colors" transition:slide={{ duration: 150 }}>
+						<tr class="hover:bg-slate-50/40 transition-colors" transition:fade={{ duration: 150 }}>
 							<td class="p-4 pl-6 w-[22%] sm:w-auto">
 								{#if !sale.type || sale.type === 'Sale'}
 									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-dark-green border border-emerald-250/50">

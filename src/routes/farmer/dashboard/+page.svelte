@@ -759,7 +759,7 @@
 		<div class="lg:col-span-2 glass-card rounded-2xl p-6 flex flex-col overflow-hidden">
 			<div class="flex justify-between items-center border-b border-slate-100 pb-4 mb-4">
 				<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Recent Farm Logs</h3>
-				<button class="text-primary-green font-bold text-xs hover:underline">View All</button>
+				<a href="/farmer/crops" class="text-primary-green font-bold text-xs hover:underline">View All</a>
 			</div>
 			
 			<div class="overflow-x-auto">
@@ -767,7 +767,7 @@
 					<thead>
 						<tr class="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
 							<th class="py-2.5">Activity</th>
-							<th class="py-2.5">Category</th>
+							<th class="py-2.5 hidden md:table-cell">Category</th>
 							<th class="py-2.5">Detail</th>
 						</tr>
 					</thead>
@@ -776,7 +776,7 @@
 							<tr class="hover:bg-slate-50/50 transition-colors">
 								<td class="py-3.5">
 									<div class="flex items-center gap-3">
-										<div class="size-8 rounded-full bg-emerald-50 text-primary-green flex items-center justify-center">
+										<div class="hidden md:flex size-8 rounded-full bg-emerald-50 text-primary-green items-center justify-center shrink-0">
 											<span class="material-symbols-outlined text-[16px]">agriculture</span>
 										</div>
 										<div>
@@ -785,7 +785,7 @@
 										</div>
 									</div>
 								</td>
-								<td class="py-3.5 text-slate-400">Crop Cycle</td>
+								<td class="py-3.5 text-slate-400 hidden md:table-cell">Crop Cycle</td>
 								<td class="py-3.5"><span class="px-2 py-0.5 rounded-full bg-emerald-50 text-dark-green text-[10px] font-bold border border-emerald-100">{crop.harvestDuration || 'Seasonal'}</span></td>
 							</tr>
 						{:else}

@@ -2,6 +2,7 @@
 	import { fade, slide } from "svelte/transition";
 	import Modal from "$lib/components/Modal.svelte";
 	import { showConfirm, showSuccess, showError } from "$lib/modal.svelte.js";
+	import Card from "$lib/components/Card.svelte";
 
 	let { data } = $props();
 
@@ -528,94 +529,47 @@
 	<!-- Crop Cards Bento Grid -->
 	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 		{#each filteredCrops as crop (crop.id)}
-			<article
-				class="bg-white rounded-2xl border border-slate-200/50 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col group"
+			<Card 
+				imageUrl={crop.imageUrl} 
+				title={crop.name} 
+				subtitle={crop.location}
 			>
-				<div class="relative h-48 w-full overflow-hidden">
-					<img
-						src={crop.imageUrl}
-						alt={crop.name}
-						class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-					/>
-					<div
-						class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"
-					></div>
-
-					<div class="absolute top-3 right-3 flex gap-1.5">
-						<button
-							onclick={() => handleDeleteCrop(crop.id)}
-							class="bg-white/80 backdrop-blur-sm text-red-600 p-1.5 rounded-full hover:bg-red-50 hover:text-red-700 transition-colors shadow-sm"
-						>
-							<span class="material-symbols-outlined text-[18px]"
-								>delete</span
-							>
-						</button>
-					</div>
-
-					<div class="absolute bottom-3 left-4 text-white">
-						<h3 class="text-lg font-extrabold leading-none">
-							{crop.name}
-						</h3>
-						<p class="text-[10px] opacity-90 mt-1 font-semibold">
-							{crop.location}
-						</p>
-					</div>
-				</div>
-				<div class="p-5 flex-grow flex flex-col justify-between gap-4">
-					<div class="flex justify-between items-center text-xs">
-						<span
-							class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-emerald-100/50 bg-emerald-50 text-dark-green flex items-center gap-1.5"
-							title={crop.harvestDuration}
-						>
-							<span
-								class="w-1.5 h-1.5 rounded-full bg-primary-green"
-							></span>
-							{getHarvestStatus(
-								crop.plantedDate,
-								crop.harvestDuration,
-							)}
-						</span>
-						<span
-							class="text-slate-400 font-semibold flex items-center gap-1"
-						>
-							<span
-								class="material-symbols-outlined text-[16px] text-slate-400"
-								>calendar_month</span
-							>
-							Planted: {crop.plantedDate}
-						</span>
-					</div>
-
-					<div
-						class="flex items-center gap-4 bg-slate-50/50 p-3.5 rounded-2xl border border-slate-100"
+				{#snippet actions()}
+					<button
+						onclick={() => handleDeleteCrop(crop.id)}
+						class="bg-white/80 backdrop-blur-sm text-red-600 p-1.5 rounded-full hover:bg-red-50 hover:text-red-700 transition-colors shadow-sm cursor-pointer"
 					>
-						<div
-							class="size-10 rounded-xl bg-primary-green/10 flex items-center justify-center text-primary-green shrink-0"
-						>
-							<span class="material-symbols-outlined text-lg"
-								>potted_plant</span
-							>
-						</div>
-						<div class="flex-1">
-							<p
-								class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"
-							>
-								Acreage
-							</p>
-							<div class="flex justify-between items-end mt-1">
-								<span
-									class="text-xl font-black text-slate-800 leading-none"
-									>{crop.acres}</span
-								>
-								<span
-									class="text-[10px] font-bold text-slate-400 uppercase"
-									>Acres</span
-								>
-							</div>
+						<span class="material-symbols-outlined text-[18px]">delete</span>
+					</button>
+				{/snippet}
+
+				<div class="flex justify-between items-center text-xs">
+					<span
+						class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-emerald-100/50 bg-emerald-50 text-dark-green flex items-center gap-1.5"
+						title={crop.harvestDuration}
+					>
+						<span class="w-1.5 h-1.5 rounded-full bg-primary-green"></span>
+						{getHarvestStatus(crop.plantedDate, crop.harvestDuration)}
+					</span>
+					<span class="text-slate-400 font-semibold flex items-center gap-1">
+						<span class="material-symbols-outlined text-[16px] text-slate-400">calendar_month</span>
+						Planted: {crop.plantedDate}
+					</span>
+				</div>
+
+				<div class="flex items-center gap-4 bg-slate-50/50 p-3.5 rounded-2xl border border-slate-100">
+					<div class="size-10 rounded-xl bg-primary-green/10 flex items-center justify-center text-primary-green shrink-0">
+						<span class="material-symbols-outlined text-lg">potted_plant</span>
+					</div>
+					<div class="flex-1">
+						<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Acreage</p>
+						<div class="flex justify-between items-end mt-1">
+							<span class="text-xl font-black text-slate-800 leading-none">{crop.acres}</span>
+							<span class="text-[10px] font-bold text-slate-400 uppercase">Acres</span>
 						</div>
 					</div>
 				</div>
-			</article>
+			</Card>
 		{/each}
 		{#if loading}
 			<div

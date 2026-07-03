@@ -57,7 +57,7 @@
 		];
 	});
 
-	import { loadPreferences } from '$lib/preferences.svelte.js';
+	import { loadPreferences, preferences } from '$lib/preferences.svelte.js';
 
 	onMount(() => {
 		loadPreferences();
@@ -721,8 +721,8 @@
 			</main>
 
 			<!-- Mobile Bottom Navigation (Visible only on mobile screen widths) -->
-			<!-- Displays 6 icons: Dashboard, Disease, Crops (Crops/Irrigation/Harvest), Sales (Sales/Expenses), Inventory, Listings -->
-			<nav class="md:hidden fixed bottom-0 w-full bg-white/95 backdrop-blur-md border-t border-emerald-100 flex justify-around items-center py-2.5 z-40 shadow-lg">
+			<!-- Displays 5 icons: Dashboard, Disease, Crops (Crops/Irrigation/Harvest), Sales (Sales/Expenses), Inventory, Listings -->
+			<nav class="md:hidden fixed bottom-0 w-full backdrop-blur-md border-t flex justify-around items-center py-2.5 z-40 shadow-lg transition-colors duration-300 {preferences.theme === 'dark' ? 'bg-black/95 border-slate-900 text-white' : 'bg-white/95 border-emerald-100 text-slate-800'}">
 				{#if authState.profile && authState.profile.role === 'farmer'}
 					<!-- Dashboard -->
 					<a
@@ -749,13 +749,14 @@
 					<!-- Crops (Groups Crops, Irrigation, Harvest Logs with Dropup) -->
 					<div class="relative flex flex-col items-center">
 						{#if cropsDropupOpen}
-							<div class="absolute bottom-[52px] left-1/2 -translate-x-1/2 bg-white rounded-2xl border border-emerald-100/80 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.15)] py-2 px-2.5 flex flex-col gap-1.5 min-w-[130px] z-50 animate-fade-in
-								after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-8 after:border-t-white after:border-x-transparent after:border-b-transparent
-								before:content-[''] before:absolute before:top-full before:left-1/2 before:-translate-x-1/2 before:border-[9px] before:border-t-emerald-100/80 before:border-x-transparent before:border-b-transparent before:-z-10">
+							<div class="absolute bottom-[52px] left-1/2 -translate-x-1/2 rounded-2xl shadow-[0_10px_25px_-5px_rgba(0,0,0,0.15)] py-2 px-2.5 flex flex-col gap-1.5 min-w-[130px] z-50 animate-fade-in transition-colors duration-300
+								{preferences.theme === 'dark' ? 'bg-slate-900 border border-slate-800 text-white after:border-t-slate-900 before:border-t-slate-800' : 'bg-white border border-emerald-100/80 text-slate-800 after:border-t-white before:border-t-emerald-100/80'}
+								after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-8 after:border-x-transparent after:border-b-transparent
+								before:content-[''] before:absolute before:top-full before:left-1/2 before:-translate-x-1/2 before:border-[9px] before:border-x-transparent before:border-b-transparent before:-z-10">
 								<a
 									href="/farmer/crops"
 									onclick={closeDropups}
-									class={['px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors', page.url.pathname === '/farmer/crops' ? 'bg-primary-green text-white' : 'text-slate-700 hover:bg-slate-50'].join(' ')}
+									class={['px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors', page.url.pathname === '/farmer/crops' ? 'bg-primary-green text-white' : (preferences.theme === 'dark' ? 'text-slate-350 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-50')].join(' ')}
 								>
 									<span class="material-symbols-outlined text-[16px]">psychology</span>
 									Crops
@@ -763,7 +764,7 @@
 								<a
 									href="/farmer/irrigation"
 									onclick={closeDropups}
-									class={['px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors', page.url.pathname === '/farmer/irrigation' ? 'bg-primary-green text-white' : 'text-slate-700 hover:bg-slate-50'].join(' ')}
+									class={['px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors', page.url.pathname === '/farmer/irrigation' ? 'bg-primary-green text-white' : (preferences.theme === 'dark' ? 'text-slate-350 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-50')].join(' ')}
 								>
 									<span class="material-symbols-outlined text-[16px]">water_drop</span>
 									Irrigation
@@ -771,7 +772,7 @@
 								<a
 									href="/farmer/harvests"
 									onclick={closeDropups}
-									class={['px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors', page.url.pathname === '/farmer/harvests' ? 'bg-primary-green text-white' : 'text-slate-700 hover:bg-slate-50'].join(' ')}
+									class={['px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors', page.url.pathname === '/farmer/harvests' ? 'bg-primary-green text-white' : (preferences.theme === 'dark' ? 'text-slate-350 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-50')].join(' ')}
 								>
 									<span class="material-symbols-outlined text-[16px]">agriculture</span>
 									Harvests
@@ -795,13 +796,14 @@
 					<!-- Sales (Groups Sales, Expenses with Dropup) -->
 					<div class="relative flex flex-col items-center">
 						{#if salesDropupOpen}
-							<div class="absolute bottom-[52px] left-1/2 -translate-x-1/2 bg-white rounded-2xl border border-emerald-100/80 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.15)] py-2 px-2.5 flex flex-col gap-1.5 min-w-[120px] z-50 animate-fade-in
-								after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-8 after:border-t-white after:border-x-transparent after:border-b-transparent
-								before:content-[''] before:absolute before:top-full before:left-1/2 before:-translate-x-1/2 before:border-[9px] before:border-t-emerald-100/80 before:border-x-transparent before:border-b-transparent before:-z-10">
+							<div class="absolute bottom-[52px] left-1/2 -translate-x-1/2 rounded-2xl shadow-[0_10px_25px_-5px_rgba(0,0,0,0.15)] py-2 px-2.5 flex flex-col gap-1.5 min-w-[120px] z-50 animate-fade-in transition-colors duration-300
+								{preferences.theme === 'dark' ? 'bg-slate-900 border border-slate-800 text-white after:border-t-slate-900 before:border-t-slate-800' : 'bg-white border border-emerald-100/80 text-slate-800 after:border-t-white before:border-t-emerald-100/80'}
+								after:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-8 after:border-x-transparent after:border-b-transparent
+								before:content-[''] before:absolute before:top-full before:left-1/2 before:-translate-x-1/2 before:border-[9px] before:border-x-transparent before:border-b-transparent before:-z-10">
 								<a
 									href="/farmer/sales"
 									onclick={closeDropups}
-									class={['px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors', page.url.pathname === '/farmer/sales' ? 'bg-primary-green text-white' : 'text-slate-700 hover:bg-slate-50'].join(' ')}
+									class={['px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors', page.url.pathname === '/farmer/sales' ? 'bg-primary-green text-white' : (preferences.theme === 'dark' ? 'text-slate-350 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-50')].join(' ')}
 								>
 									<span class="material-symbols-outlined text-[16px]">point_of_sale</span>
 									Sales
@@ -809,7 +811,7 @@
 								<a
 									href="/farmer/expenses"
 									onclick={closeDropups}
-									class={['px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors', page.url.pathname === '/farmer/expenses' ? 'bg-primary-green text-white' : 'text-slate-700 hover:bg-slate-50'].join(' ')}
+									class={['px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors', page.url.pathname === '/farmer/expenses' ? 'bg-primary-green text-white' : (preferences.theme === 'dark' ? 'text-slate-350 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-50')].join(' ')}
 								>
 									<span class="material-symbols-outlined text-[16px]">payments</span>
 									Expenses
@@ -867,17 +869,6 @@
 						</a>
 					{/each}
 				{/if}
-
-				<!-- Settings Link -->
-				<a
-					href="/settings"
-					class={[
-						'flex flex-col items-center gap-0.5 text-xs font-bold transition-colors duration-200',
-						page.url.pathname === '/settings' ? 'text-primary-green' : 'text-slate-500'
-					].filter(Boolean).join(' ')}
-				>
-					<span class="material-symbols-outlined text-[22px]">settings</span>
-				</a>
 			</nav>
 		</div>
 

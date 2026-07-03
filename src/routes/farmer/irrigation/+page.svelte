@@ -2,6 +2,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import { onMount } from 'svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import { preferences } from '$lib/preferences.svelte.js';
 
 	let { data } = $props();
 
@@ -112,6 +113,82 @@
 	let editStartDateStr = $state('');
 
 	const pad = (n) => String(n).padStart(2, '0');
+
+	// Responsive and interactive calendar states
+	let selectedDateKey = $state(`${todayYear}-${pad(todayMonth + 1)}-${pad(todayDate)}`);
+	let calendarViewMode = $state('month'); // 'month' | 'agenda'
+	let showDayDetailsModal = $state(false);
+
+	// Derived: schedules on the currently selected day
+	let selectedDayRuns = $derived.by(() => {
+		const [y, m, d] = selectedDateKey.split('-').map(Number);
+		return scheduleRuns.filter(r => 
+			((r.date === d && 
+			  Number(r.month ?? 9) === (m - 1) && 
+			  Number(r.year ?? 2023) === y) ||
+			 (r.postponedFromDateStr === selectedDateKey)) &&
+			(filterType === 'All' || 
+			 (filterType === 'Irrigation' && (r.type === 'Irrigation' || !r.type)) || 
+			 (filterType === 'Fertilizer' && r.type === 'Fertilizer') || 
+			 (filterType === 'Note' && (r.type === 'Note' || r.zone?.startsWith('Note:'))))
+		);
+	});
+
+	// Derived: 7 days of the week containing selectedDateKey
+	let agendaWeekDays = $derived.by(() => {
+		const [y, m, d] = selectedDateKey.split('-').map(Number);
+		const selDate = new Date(y, m - 1, d);
+		const dayOfWeek = selDate.getDay(); // 0 (Sun) to 6 (Sat)
+		
+		const week = [];
+		for (let i = 0; i < 7; i++) {
+			const tempDate = new Date(y, m - 1, d - dayOfWeek + i);
+			const formattedKey = `${tempDate.getFullYear()}-${pad(tempDate.getMonth() + 1)}-${pad(tempDate.getDate())}`;
+			week.push({
+				dateNumber: tempDate.getDate(),
+				month: tempDate.getMonth(),
+				year: tempDate.getFullYear(),
+				dateKey: formattedKey
+			});
+		}
+		return week;
+	});
+
+	let firstDayIndexMonday = $derived((new Date(currentYear, currentMonth, 1).getDay() + 6) % 7);
+	let prevMonthDays = $derived.by(() => {
+		const prevMonthDate = new Date(currentYear, currentMonth, 0);
+		const prevLast = prevMonthDate.getDate();
+		const prevMonthNum = prevMonthDate.getMonth();
+		const prevYearNum = prevMonthDate.getFullYear();
+		const days = [];
+		for (let i = firstDayIndexMonday - 1; i >= 0; i--) {
+			const dNum = prevLast - i;
+			days.push({
+				dateNumber: dNum,
+				month: prevMonthNum,
+				year: prevYearNum,
+				dateKey: `${prevYearNum}-${pad(prevMonthNum + 1)}-${pad(dNum)}`
+			});
+		}
+		return days;
+	});
+	let nextMonthDays = $derived.by(() => {
+		const nextMonthDate = new Date(currentYear, currentMonth + 1, 1);
+		const nextMonthNum = nextMonthDate.getMonth();
+		const nextYearNum = nextMonthDate.getFullYear();
+		const totalCells = totalDaysInMonth + firstDayIndexMonday;
+		const nextCount = (7 - (totalCells % 7)) % 7;
+		const days = [];
+		for (let i = 1; i <= nextCount; i++) {
+			days.push({
+				dateNumber: i,
+				month: nextMonthNum,
+				year: nextYearNum,
+				dateKey: `${nextYearNum}-${pad(nextMonthNum + 1)}-${pad(i)}`
+			});
+		}
+		return days;
+	});
 
 	let weatherLocation = $state('Napa Valley');
 	let weatherTempToday = $state(82);
@@ -388,6 +465,21 @@
 		}
 
 		showAddModal = true;
+	}
+
+	function handleDayClick(day, dateKey, cellRuns) {
+		selectedDateKey = dateKey;
+		clickedDay = day;
+		
+		if (cellRuns && cellRuns.length > 0) {
+			if (calendarViewMode === 'agenda') {
+				// Agenda mode: just highlight, no details modal
+			} else {
+				showDayDetailsModal = true;
+			}
+		} else {
+			openAddModalForDate(day);
+		}
 	}
 
 	async function handleAddRun(event) {
@@ -1061,9 +1153,8 @@
 
 	<!-- Main Body Layout -->
 	<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-		
 		<!-- Left Panel: Interactive Schedule (8 cols) -->
-		<div class="lg:col-span-8 space-y-6">
+		<div class="lg:col-span-8 space-y-6 hidden lg:block">
 			<div class="glass-card rounded-2xl overflow-hidden bg-white">
 				<div class="p-6 border-b border-slate-100 flex items-center justify-between">
 					<div class="flex items-center gap-4">
@@ -1078,11 +1169,22 @@
 							<option value="Note">Notes Only</option>
 						</select>
 					</div>
-					<div class="flex gap-2">
-						<button onclick={prevMonth} class="size-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer" title="Previous Month">
+					<div class="flex items-center gap-2">
+						<!-- Toggle view mode on mobile -->
+						<button 
+							type="button"
+							onclick={() => calendarViewMode = calendarViewMode === 'month' ? 'agenda' : 'month'}
+							class="md:hidden flex items-center justify-center p-1.5 border border-slate-200 rounded-xl text-slate-600 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer"
+							title={calendarViewMode === 'month' ? 'Switch to Agenda Strip' : 'Switch to Month Grid'}
+						>
+							<span class="material-symbols-outlined text-base">
+								{calendarViewMode === 'month' ? 'splitscreen' : 'calendar_view_month'}
+							</span>
+						</button>
+						<button onclick={prevMonth} class="size-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-650 hover:bg-slate-50 transition-colors cursor-pointer" title="Previous Month">
 							<span class="material-symbols-outlined text-base">chevron_left</span>
 						</button>
-						<button onclick={nextMonth} class="size-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer" title="Next Month">
+						<button onclick={nextMonth} class="size-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-650 hover:bg-slate-50 transition-colors cursor-pointer" title="Next Month">
 							<span class="material-symbols-outlined text-base">chevron_right</span>
 						</button>
 					</div>
@@ -1092,25 +1194,105 @@
 					<div class="grid grid-cols-7 bg-slate-50/50">
 						<!-- Day Headers -->
 						{#each ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as day}
-							<div class="p-3 text-center text-[10px] font-black text-slate-400 border-r border-b border-slate-100">{day}</div>
+							<div class="p-1.5 md:p-3 text-center text-[10px] font-black text-slate-400 border-r border-b border-slate-100">{day}</div>
 						{/each}
 
-						<!-- Empty Cells for previous month alignment -->
-						{#each Array.from({ length: firstDayIndex }) as _}
-							<div class="min-h-[110px] border-r border-b border-slate-100 bg-slate-50/10"></div>
+						{#if calendarViewMode === 'month'}
+							<!-- Empty Cells for previous month alignment -->
+							{#each Array.from({ length: firstDayIndex }) as _}
+								<div class="min-h-[60px] md:min-h-[110px] border-r border-b border-slate-100 bg-slate-50/10"></div>
+							{/each}
+
+							<!-- Days of current month -->
+							{#each Array.from({ length: totalDaysInMonth }) as _, index}
+								{@const dateNumber = index + 1}
+								{@const dateKey = `${currentYear}-${pad(currentMonth + 1)}-${pad(dateNumber)}`}
+								{@const override = weatherOverrides[dateKey]}
+								{@const rainChance = override ? override.rainProbability : (dailyPrecipitation[dateKey] || 0)}
+								{@const didItRain = override ? override.didRain : false}
+								{@const cellRuns = scheduleRuns.filter(r => 
+									((r.date === dateNumber && 
+									  Number(r.month ?? 9) === currentMonth && 
+									  Number(r.year ?? 2023) === currentYear) ||
+									 (r.postponedFromDateStr === dateKey)) &&
+									(filterType === 'All' || 
+									 (filterType === 'Irrigation' && (r.type === 'Irrigation' || !r.type)) || 
+									 (filterType === 'Fertilizer' && r.type === 'Fertilizer') || 
+									 (filterType === 'Note' && (r.type === 'Note' || r.zone?.startsWith('Note:'))))
+								)}
+								
+								<div 
+									role="gridcell"
+									tabindex="0"
+									onclick={() => handleDayClick(dateNumber, dateKey, cellRuns)}
+									onkeydown={(e) => e.key === 'Enter' && handleDayClick(dateNumber, dateKey, cellRuns)}
+									onmouseenter={() => hoveredCell = dateNumber}
+									onmouseleave={() => hoveredCell = null}
+									class={['min-h-[60px] md:min-h-[110px] p-1.5 md:p-3 border-r border-b border-slate-100 flex flex-col justify-between transition-colors relative cursor-pointer group hover:bg-slate-50/50',
+										selectedDateKey === dateKey ? 'bg-primary-green/10 border-primary-green/45 shadow-xs ring-1 ring-primary-green/30' : (hoveredCell === dateNumber ? 'bg-slate-50' : 'bg-white'),
+										(dateNumber === todayDate && currentMonth === todayMonth && currentYear === todayYear && selectedDateKey !== dateKey) ? 'bg-emerald-50/40 border-primary-green/30' : ''
+									].filter(Boolean).join(' ')}
+								>
+									<div class="flex justify-between items-center w-full">
+										<span class={['text-[10px] md:text-[11px] font-bold', (selectedDateKey === dateKey) ? 'text-primary-green font-black underline decoration-2 underline-offset-2' : ((dateNumber === todayDate && currentMonth === todayMonth && currentYear === todayYear) ? 'text-primary-green font-black' : 'text-slate-400')].filter(Boolean).join(' ')}>
+											{dateNumber}
+										</span>
+										<div class="flex items-center gap-0.5 md:gap-1">
+											{#if (rainSmartEnabled && rainChance > 0) || didItRain}
+												<span 
+													class={['text-[8px] font-black flex items-center gap-0.5', didItRain ? 'text-sky-700 bg-sky-100/50 px-1 py-0.5 rounded-md border border-sky-200/30' : 'text-sky-600'].filter(Boolean).join(' ')} 
+													title={didItRain ? 'Manual override: Rained (' + rainChance + '%)' : 'Rain probability: ' + rainChance + '%'}
+												>
+													<span class="material-symbols-outlined text-[9px] md:text-[10px] text-sky-500 fill-1">
+														{didItRain ? 'umbrella' : 'rainy'}
+													</span>
+													<span class="hidden sm:inline">{didItRain ? 'Rained' : rainChance + '%'}</span>
+												</span>
+											{/if}
+										<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 text-slate-400 hover:text-primary-green transition-opacity hidden md:inline">add</span>
+									</div>
+								</div>
+								<!-- Event Chips/Indicators inside cell -->
+								{#if cellRuns.length > 0 || rainChance > 0 || didItRain}
+									<div class="flex flex-wrap gap-1 justify-center mt-2 w-full pb-1">
+										<!-- Rain Indicator (Blue line) -->
+										{#if (rainSmartEnabled && rainChance > 0) || didItRain}
+											<span class="h-1 rounded-full flex-grow max-w-[24px] bg-blue-500" title="Rain Forecast"></span>
+										{/if}
+										{#each cellRuns.slice(0, 4) as run}
+											{@const isNote = run.zone?.startsWith('Note:')}
+											{@const isOriginalDayPlaceholder = run.postponedFromDateStr === dateKey}
+											{#if !isOriginalDayPlaceholder}
+												{@const colorClass = isNote ? 'bg-slate-350' : (run.type === 'Fertilizer' ? 'bg-purple-500' : 'bg-primary-green')}
+												<span class={['h-1 rounded-full flex-grow max-w-[24px]', colorClass].join(' ')} title={isNote ? run.zone.substring(5).trim() : run.zone}></span>
+											{/if}
+										{/each}
+										{#if cellRuns.filter(r => r.postponedFromDateStr !== dateKey).length > 4}
+											<span class="text-[8px] font-bold text-slate-400 pl-1 shrink-0 select-none">
+												+{cellRuns.filter(r => r.postponedFromDateStr !== dateKey).length - 4}
+											</span>
+										{/if}
+									</div>
+								{/if}
+							</div>
 						{/each}
 
-						<!-- Days of current month -->
-						{#each Array.from({ length: totalDaysInMonth }) as _, index}
-							{@const dateNumber = index + 1}
-							{@const dateKey = `${currentYear}-${pad(currentMonth + 1)}-${pad(dateNumber)}`}
+						<!-- Additional empty cells to finish grid rows -->
+						{#each Array.from({ length: remainingCells }) as _}
+							<div class="min-h-[60px] md:min-h-[110px] border-r border-b border-slate-100 bg-slate-50/10"></div>
+						{/each}
+					{:else}
+						<!-- Collapsed Agenda Strip View (Agenda mode on mobile) -->
+						{#each agendaWeekDays as day}
+							{@const dateNumber = day.dateNumber}
+							{@const dateKey = day.dateKey}
 							{@const override = weatherOverrides[dateKey]}
 							{@const rainChance = override ? override.rainProbability : (dailyPrecipitation[dateKey] || 0)}
 							{@const didItRain = override ? override.didRain : false}
 							{@const cellRuns = scheduleRuns.filter(r => 
 								((r.date === dateNumber && 
-								  Number(r.month ?? 9) === currentMonth && 
-								  Number(r.year ?? 2023) === currentYear) ||
+								  Number(r.month ?? 9) === day.month && 
+								  Number(r.year ?? 2023) === day.year) ||
 								 (r.postponedFromDateStr === dateKey)) &&
 								(filterType === 'All' || 
 								 (filterType === 'Irrigation' && (r.type === 'Irrigation' || !r.type)) || 
@@ -1121,101 +1303,475 @@
 							<div 
 								role="gridcell"
 								tabindex="0"
-								onclick={() => openAddModalForDate(dateNumber)}
-								onkeydown={(e) => e.key === 'Enter' && openAddModalForDate(dateNumber)}
-								onmouseenter={() => hoveredCell = dateNumber}
-								onmouseleave={() => hoveredCell = null}
-								class={['min-h-[110px] p-3 border-r border-b border-slate-100 flex flex-col justify-between transition-colors relative cursor-pointer group hover:bg-slate-50/50',
-									hoveredCell === dateNumber ? 'bg-slate-50' : 'bg-white',
-									(dateNumber === todayDate && currentMonth === todayMonth && currentYear === todayYear) ? 'bg-emerald-50/40 border-primary-green/30' : ''
+								onclick={() => handleDayClick(dateNumber, dateKey, cellRuns)}
+								onkeydown={(e) => e.key === 'Enter' && handleDayClick(dateNumber, dateKey, cellRuns)}
+								class={['min-h-[60px] md:min-h-[110px] p-1.5 md:p-3 border-r border-b border-slate-100 flex flex-col justify-between transition-colors relative cursor-pointer group hover:bg-slate-50/50',
+									selectedDateKey === dateKey ? 'bg-primary-green/10 border-primary-green/45 shadow-xs ring-1 ring-primary-green/30' : (dateKey === `${todayYear}-${pad(todayMonth + 1)}-${pad(todayDate)}` ? 'bg-emerald-50/40 border-primary-green/30' : 'bg-white')
 								].filter(Boolean).join(' ')}
 							>
 								<div class="flex justify-between items-center w-full">
-									<span class={['text-[11px] font-bold', (dateNumber === todayDate && currentMonth === todayMonth && currentYear === todayYear) ? 'text-primary-green font-black underline decoration-2 underline-offset-2' : 'text-slate-400'].filter(Boolean).join(' ')}>
+									<span class={['text-[10px] md:text-[11px] font-bold', (selectedDateKey === dateKey) ? 'text-primary-green font-black underline decoration-2 underline-offset-2' : 'text-slate-400'].filter(Boolean).join(' ')}>
 										{dateNumber}
 									</span>
-									<div class="flex items-center gap-1">
+									<div class="flex items-center gap-0.5 md:gap-1">
 										{#if (rainSmartEnabled && rainChance > 0) || didItRain}
 											<span 
-												class={['text-[8px] font-black flex items-center gap-0.5', didItRain ? 'text-sky-700 bg-sky-100/50 px-1.5 py-0.5 rounded-md border border-sky-200/30' : 'text-sky-600'].filter(Boolean).join(' ')} 
+												class={['text-[8px] font-black flex items-center gap-0.5', didItRain ? 'text-sky-700 bg-sky-100/50 px-1 py-0.5 rounded-md border border-sky-200/30' : 'text-sky-600'].filter(Boolean).join(' ')} 
 												title={didItRain ? 'Manual override: Rained (' + rainChance + '%)' : 'Rain probability: ' + rainChance + '%'}
 											>
-												<span class="material-symbols-outlined text-[10px] text-sky-500 fill-1">
+												<span class="material-symbols-outlined text-[9px] md:text-[10px] text-sky-500 fill-1">
 													{didItRain ? 'umbrella' : 'rainy'}
 												</span>
-												{didItRain ? 'Rained' : rainChance + '%'}
 											</span>
 										{/if}
-									<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100 text-slate-400 hover:text-primary-green transition-opacity">add</span>
+									</div>
 								</div>
-							</div>
-							
-							{#if cellRuns.length > 0}
-								<div class="space-y-1.5 mt-2 w-full">
-									{#each cellRuns as run}
-										{#if run.zone.startsWith('Note:')}
-											<div class="relative rounded-xl overflow-hidden text-[9px] font-extrabold border border-amber-200/50 shadow-sm leading-tight min-h-[44px] flex flex-col justify-between group/run text-amber-950 bg-gradient-to-br from-amber-50 to-amber-100">
-												<div class="p-1.5 flex flex-col justify-between h-full min-h-[44px] pr-5">
-													<div class="flex items-start gap-1">
-														<span class="material-symbols-outlined text-[10px] shrink-0 mt-0.5 text-amber-600">description</span>
-														<span class="font-bold line-clamp-2">{run.zone.substring(5).trim()}</span>
-													</div>
-													<div class="font-normal opacity-85 text-[8px] mt-1">{run.time}</div>
-												</div>
-												<button 
-													onclick={(e) => { e.stopPropagation(); deleteRun(run.id); }}
-													class="absolute right-1 top-1 text-amber-650/80 hover:text-red-500 opacity-0 group-hover/run:opacity-100 transition-opacity p-0.5 rounded hover:bg-amber-200/50 flex items-center justify-center cursor-pointer animate-fade-in"
-													title="Delete note"
-												>
-													<span class="material-symbols-outlined text-[10px]">close</span>
-												</button>
-											</div>
-										{:else}
-											{@const isOriginalDayPlaceholder = run.postponedFromDateStr === dateKey}
-											<div class={['relative rounded-xl overflow-hidden text-[9px] font-extrabold border shadow-sm leading-tight min-h-[44px] flex flex-col justify-between group/run', isOriginalDayPlaceholder ? 'bg-slate-50 border-slate-200 text-slate-400 border-dashed opacity-75' : getCropColorClasses(run.zone)].filter(Boolean).join(' ')}>
-												<!-- Content Overlaid -->
-												<div class="relative p-1.5 flex flex-col justify-between h-full min-h-[44px] z-10">
-													<div class="flex items-center justify-between gap-1">
-														<span class={['font-black truncate', isOriginalDayPlaceholder ? 'line-through' : ''].filter(Boolean).join(' ')}>
-															{run.zone}
-														</span>
-														{#if run.extensionDays > 0 && !isOriginalDayPlaceholder}
-															<span class="text-[8px] flex items-center cursor-help shrink-0" title="Shifted +{run.extensionDays}d due to {run.rainProbability}% rain forecast.">☔</span>
-														{/if}
-													</div>
-													{#if run.extensionDays > 0}
-														<div class={['text-[8px] font-bold', isOriginalDayPlaceholder ? 'text-slate-450' : 'text-sky-600'].filter(Boolean).join(' ')}>
-															Postponed +{run.extensionDays}d
+								
+								{#if cellRuns.length > 0}
+									<div class="flex flex-wrap gap-1 justify-center mt-1 w-full md:block md:space-y-1.5 md:mt-2">
+										{#each cellRuns.slice(0, 2) as run}
+											{#if run.zone.startsWith('Note:')}
+												<!-- Desktop View -->
+												<div class="hidden md:flex relative rounded-xl overflow-hidden text-[9px] font-extrabold border border-amber-200/50 shadow-sm leading-tight min-h-[44px] flex-col justify-between group/run text-amber-950 bg-gradient-to-br from-amber-50 to-amber-100 w-full">
+													<div class="p-1.5 flex flex-col justify-between h-full min-h-[44px] pr-5">
+														<div class="flex items-start gap-1">
+															<span class="material-symbols-outlined text-[10px] shrink-0 mt-0.5 text-amber-600">description</span>
+															<span class="font-bold line-clamp-2">{run.zone.substring(5).trim()}</span>
 														</div>
-													{/if}
-													<div class="font-normal opacity-75 text-[8px] mt-0.5">{run.time}</div>
+														<div class="font-normal opacity-85 text-[8px] mt-1">{run.time}</div>
+													</div>
 												</div>
-
-												<!-- Hover Action Button to delete individual item -->
-												{#if !isOriginalDayPlaceholder}
-													<button 
-														onclick={(e) => { e.stopPropagation(); deleteRun(run.id); }}
-														class="absolute right-1 top-1 text-slate-400 hover:text-red-500 opacity-0 group-hover/run:opacity-100 transition-opacity p-0.5 rounded hover:bg-black/5 flex items-center justify-center cursor-pointer z-20"
-														title="Delete event"
-													>
-														<span class="material-symbols-outlined text-[10px]">close</span>
-													</button>
-												{/if}
+												<!-- Mobile View -->
+												<div class="flex md:hidden items-center justify-center size-5 rounded-md bg-amber-100 border border-amber-200 text-amber-800 text-[10px] shadow-xs shrink-0 select-none" title={run.zone.substring(5).trim()}>
+													<span>📝</span>
+												</div>
+											{:else}
+												{@const isOriginalDayPlaceholder = run.postponedFromDateStr === dateKey}
+												<!-- Desktop View -->
+												<div class={['hidden md:flex relative rounded-xl overflow-hidden text-[9px] font-extrabold border shadow-sm leading-tight min-h-[44px] flex-col justify-between group/run w-full', isOriginalDayPlaceholder ? 'bg-slate-50 border-slate-200 text-slate-400 border-dashed opacity-75' : getCropColorClasses(run.zone)].filter(Boolean).join(' ')}>
+													<div class="relative p-1.5 flex flex-col justify-between h-full min-h-[44px] z-10">
+														<div class="flex items-center justify-between gap-1">
+															<span class={['font-black truncate', isOriginalDayPlaceholder ? 'line-through' : ''].filter(Boolean).join(' ')}>
+																{run.zone}
+															</span>
+														</div>
+														<div class="font-normal opacity-75 text-[8px] mt-0.5">{run.time}</div>
+													</div>
+												</div>
+												<!-- Mobile View -->
+												<div class={['flex md:hidden items-center justify-center size-5 rounded-md border text-[10px] shadow-xs shrink-0 select-none', isOriginalDayPlaceholder ? 'bg-slate-50 border-slate-200 opacity-50 border-dashed' : getCropColorClasses(run.zone)].filter(Boolean).join(' ')} title="{run.zone} ({run.time})">
+													<span>{isOriginalDayPlaceholder ? '💤' : getCropEmoji(run.zone)}</span>
+												</div>
+											{/if}
+										{/each}
+										{#if cellRuns.length > 2}
+											<div class="flex md:hidden items-center justify-center text-[7.5px] font-black text-slate-455 bg-slate-100 border border-slate-200/50 rounded-md size-5 select-none shrink-0" title="{cellRuns.length - 2} more runs">
+												+{cellRuns.length - 2}
 											</div>
 										{/if}
-									{/each}
-								</div>
-							{/if}
-						</div>
-					{/each}
+									</div>
+								{/if}
+							</div>
+						{/each}
+					{/if}
+				</div>
+			</div>
 
-					<!-- Additional empty cells to finish grid rows -->
-					{#each Array.from({ length: remainingCells }) as _}
-						<div class="min-h-[110px] border-r border-b border-slate-100 bg-slate-50/10"></div>
-					{/each}
+			<!-- Mobile Collapsed Day Agenda View -->
+			{#if calendarViewMode === 'agenda'}
+				<div class="md:hidden glass-card rounded-2xl p-6 bg-slate-900 border border-slate-800 text-white space-y-4">
+					<div class="flex items-center justify-between border-b border-slate-800 pb-3">
+						<div>
+							<h4 class="text-sm font-black text-white">
+								{new Date(selectedDateKey.split('-')[0], selectedDateKey.split('-')[1] - 1, selectedDateKey.split('-')[2]).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+							</h4>
+							<p class="text-[10px] font-bold text-slate-400 mt-0.5">{selectedDayRuns.length} schedule{selectedDayRuns.length === 1 ? '' : 's'}</p>
+						</div>
+						<button 
+							onclick={() => openAddModalForDate(Number(selectedDateKey.split('-')[2]))} 
+							class="flex items-center gap-1.5 px-3 py-1.5 bg-primary-green hover:bg-dark-green text-white font-extrabold text-[10px] rounded-xl transition-all cursor-pointer shadow-sm"
+						>
+							<span class="material-symbols-outlined text-xs">add</span>
+							<span>Add</span>
+						</button>
+					</div>
+
+					<div class="space-y-3 max-h-60 overflow-y-auto pr-1">
+						{#if selectedDayRuns.length === 0}
+							<div class="text-center py-6 text-slate-500 font-semibold text-xs flex flex-col items-center justify-center gap-2">
+								<span class="material-symbols-outlined text-[32px] text-slate-700">water_drop</span>
+								<span>No irrigation scheduled for this day</span>
+							</div>
+						{:else}
+							{#each selectedDayRuns as run}
+								{@const isNote = run.zone.startsWith('Note:')}
+								{@const isOriginalDayPlaceholder = run.postponedFromDateStr === selectedDateKey}
+								<div class={['p-3 rounded-xl border flex flex-col justify-between gap-2 shadow-xs bg-slate-950/40', isNote ? 'border-amber-900/50 text-amber-200' : (isOriginalDayPlaceholder ? 'border-slate-800 text-slate-500' : 'border-slate-800')].filter(Boolean).join(' ')}>
+									<div class="flex items-start justify-between gap-3">
+										<div class="flex items-start gap-2 min-w-0">
+											<span class="text-base leading-none select-none shrink-0 mt-0.5">
+												{isNote ? '📝' : (isOriginalDayPlaceholder ? '💤' : getCropEmoji(run.zone))}
+											</span>
+											<div class="min-w-0">
+												<h5 class="text-[11.5px] font-extrabold leading-snug truncate">
+													{isNote ? run.zone.substring(5).trim() : run.zone}
+												</h5>
+												<p class="text-[9px] font-semibold text-slate-400 mt-0.5 flex items-center gap-1">
+													<span class="material-symbols-outlined text-[10.5px]">schedule</span>
+													<span>{run.time}</span>
+												</p>
+											</div>
+										</div>
+										<span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase text-white shrink-0" style="background-color: {run.type === 'Fertilizer' ? '#8B5CF6' : (run.type === 'Note' || isNote ? '#F59E0B' : '#10B981')}">
+											{run.type || 'Irrigation'}
+										</span>
+									</div>
+
+									{#if run.extensionDays > 0}
+										<div class="text-[8.5px] font-bold text-sky-400 pl-6">
+											☔ Postponed +{run.extensionDays}d due to {run.rainProbability}% rain forecast.
+										</div>
+									{/if}
+
+									{#if !isOriginalDayPlaceholder}
+										<div class="flex justify-end gap-2 border-t border-slate-800/40 pt-2 mt-0.5">
+											{#if !isNote}
+												<button 
+													onclick={(e) => { e.stopPropagation(); openEditModal(run); }} 
+													class="text-[9px] font-black text-slate-350 hover:text-white px-2 py-0.5 rounded hover:bg-slate-800 transition-colors cursor-pointer"
+												>
+													Edit
+												</button>
+											{/if}
+											<button 
+												onclick={(e) => { e.stopPropagation(); deleteRun(run.id); }} 
+												class="text-[9px] font-black text-red-400 hover:text-red-300 px-2 py-0.5 rounded hover:bg-red-950/30 transition-colors cursor-pointer"
+											>
+												Delete
+											</button>
+										</div>
+									{/if}
+								</div>
+							{/each}
+						{/if}
+					</div>
+				</div>
+			{/if}
+		</div>
+
+		<!-- Mobile Reference-style Calendar Layout (shown block lg:hidden on mobile) -->
+		<div class="lg:col-span-8 space-y-6 block lg:hidden p-4 rounded-3xl font-sans relative border shadow-2xl transition-colors duration-300 {preferences.theme === 'dark' ? 'bg-black text-white border-slate-900' : 'bg-white text-slate-850 border-slate-200'}">
+			
+			<!-- 1. Top Mobile Header -->
+			<div class="flex items-center justify-between py-2 border-b gap-4 {preferences.theme === 'dark' ? 'border-slate-900/60' : 'border-slate-200/60'}">
+				<select 
+					bind:value={filterType}
+					class="text-[10px] font-bold rounded-xl px-2 py-1 focus:outline-none focus:border-primary-green cursor-pointer shrink-0 max-w-[110px] {preferences.theme === 'dark' ? 'text-slate-400 bg-slate-950 border-slate-800' : 'text-slate-650 bg-slate-50 border-slate-200'}"
+				>
+					<option value="All">All Activities</option>
+					<option value="Irrigation">Irrigation Only</option>
+					<option value="Fertilizer">Fertilizer Only</option>
+					<option value="Note">Notes Only</option>
+				</select>
+				<h2 class="text-base font-black tracking-widest uppercase text-center flex-grow select-none">
+					{monthNames[currentMonth].substring(0, 3).toUpperCase()}
+				</h2>
+				<div class="flex items-center">
+					<button 
+						type="button" 
+						onclick={() => {
+							const todayStr = `${todayYear}-${pad(todayMonth + 1)}-${pad(todayDate)}`;
+							currentMonth = todayMonth;
+							currentYear = todayYear;
+							selectedDateKey = todayStr;
+							clickedDay = todayDate;
+						}} 
+						class="flex items-center justify-center border-2 rounded-lg size-6 text-[10px] font-black transition-colors cursor-pointer {preferences.theme === 'dark' ? 'border-white text-white hover:bg-white hover:text-black' : 'border-slate-850 text-slate-855 hover:bg-slate-850 hover:text-white'}"
+						title="Go to Today"
+					>
+						{todayDate}
+					</button>
+				</div>
+			</div>
+
+			<!-- 2. Weekday row -->
+			<div class="grid grid-cols-7 text-center text-[10px] font-bold text-slate-500 py-1">
+				{#each ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as day, idx}
+					<span class={idx === 6 ? 'text-red-500' : ''}>{day}</span>
+				{/each}
+			</div>
+
+			<!-- 3. Month Grid -->
+			<div class="grid grid-cols-7 gap-y-2.5 {preferences.theme === 'dark' ? 'bg-black' : 'bg-white'}">
+				<!-- Previous month overflow days -->
+				{#each prevMonthDays as day}
+					<div 
+						role="gridcell"
+						tabindex="0"
+						onclick={() => { currentMonth = day.month; currentYear = day.year; selectedDateKey = day.dateKey; clickedDay = day.dateNumber; }}
+						onkeydown={(e) => e.key === 'Enter' && (selectedDateKey = day.dateKey)}
+						class="min-h-[50px] p-1 flex flex-col items-center justify-between text-[11px] font-bold cursor-pointer {preferences.theme === 'dark' ? 'text-slate-800 opacity-30' : 'text-slate-300 opacity-50'}"
+					>
+						<span>{day.dateNumber}</span>
+					</div>
+				{/each}
+
+				<!-- Current month days -->
+				{#each Array.from({ length: totalDaysInMonth }) as _, index}
+					{@const dateNumber = index + 1}
+					{@const dateKey = `${currentYear}-${pad(currentMonth + 1)}-${pad(dateNumber)}`}
+					{@const isSelected = selectedDateKey === dateKey}
+					{@const override = weatherOverrides[dateKey]}
+					{@const rainChance = override ? override.rainProbability : (dailyPrecipitation[dateKey] || 0)}
+					{@const didItRain = override ? override.didRain : false}
+					{@const cellRuns = scheduleRuns.filter(r => 
+						((r.date === dateNumber && 
+						  Number(r.month ?? 9) === currentMonth && 
+						  Number(r.year ?? 2023) === currentYear) ||
+						 (r.postponedFromDateStr === dateKey)) &&
+						(filterType === 'All' || 
+						 (filterType === 'Irrigation' && (r.type === 'Irrigation' || !r.type)) || 
+						 (filterType === 'Fertilizer' && r.type === 'Fertilizer') || 
+						 (filterType === 'Note' && (r.type === 'Note' || r.zone?.startsWith('Note:'))))
+					)}
+					
+					<div 
+						role="gridcell"
+						tabindex="0"
+						onclick={() => handleDayClick(dateNumber, dateKey, cellRuns)}
+						onkeydown={(e) => e.key === 'Enter' && handleDayClick(dateNumber, dateKey, cellRuns)}
+						class={['min-h-[50px] p-1 flex flex-col items-center justify-between text-[11px] font-bold relative cursor-pointer rounded-lg',
+							isSelected ? (preferences.theme === 'dark' ? 'border border-white shadow-xs' : 'border border-slate-800 shadow-xs') : ''
+						].filter(Boolean).join(' ')}
+					>
+						<!-- Date number pill -->
+						<span class={['size-6 flex items-center justify-center rounded-full leading-none',
+							isSelected ? (preferences.theme === 'dark' ? 'bg-white text-black font-black' : 'bg-slate-800 text-white font-black') : (dateNumber === todayDate && currentMonth === todayMonth && currentYear === todayYear ? 'text-primary-green ring-1 ring-primary-green/50' : (preferences.theme === 'dark' ? 'text-white' : 'text-slate-800'))
+						].filter(Boolean).join(' ')}>
+							{dateNumber}
+						</span>
+
+						<!-- Event Chips/Indicators inside cell -->
+						{#if cellRuns.length > 0 || rainChance > 0 || didItRain}
+							<div class="flex gap-0.5 justify-center mt-1 w-full pb-0.5">
+								<!-- Rain Indicator (Blue line) -->
+								{#if (rainSmartEnabled && rainChance > 0) || didItRain}
+									<span class="h-0.5 rounded-full flex-grow max-w-[8px] bg-blue-500" title="Rain Forecast"></span>
+								{/if}
+								{#each cellRuns.slice(0, 3) as run}
+									{@const isOriginalDayPlaceholder = run.postponedFromDateStr === dateKey}
+									{#if !isOriginalDayPlaceholder}
+										{@const colorClass = run.zone?.startsWith('Note:') ? (preferences.theme === 'dark' ? 'bg-white' : 'bg-slate-350') : (run.type === 'Fertilizer' ? 'bg-purple-500' : 'bg-primary-green')}
+										<span class={['h-0.5 rounded-full flex-grow max-w-[8px]', colorClass].join(' ')}></span>
+									{/if}
+								{/each}
+							</div>
+						{/if}
+					</div>
+				{/each}
+				
+				<!-- Next month overflow days -->
+				{#each nextMonthDays as day}
+					<div 
+						role="gridcell"
+						tabindex="0"
+						onclick={() => { currentMonth = day.month; currentYear = day.year; selectedDateKey = day.dateKey; clickedDay = day.dateNumber; }}
+						onkeydown={(e) => e.key === 'Enter' && (selectedDateKey = day.dateKey)}
+						class="min-h-[50px] p-1 flex flex-col items-center justify-between text-slate-800 text-[11px] font-bold opacity-30 cursor-pointer"
+					>
+						<span>{day.dateNumber}</span>
+					</div>
+				{/each}
+			</div>
+
+			<!-- Divider -->
+			<div class="border-t border-slate-900/60 my-2"></div>
+
+			<!-- 4. Bottom Selected-Day Section -->
+			<div class="space-y-4">
+				<div class="flex items-center justify-between">
+					<h3 class="text-xs font-bold {preferences.theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}">
+						{new Date(selectedDateKey.split('-')[0], selectedDateKey.split('-')[1] - 1, selectedDateKey.split('-')[2]).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+					</h3>
+				</div>
+
+				{#if selectedDayRuns.length === 0}
+					<!-- Empty Selected Day View -->
+					<div class="flex flex-col items-center justify-center py-10 space-y-3">
+						<span class="text-3xl leading-none select-none {preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-350'}">☺</span>
+						<p class="text-xs text-center font-bold {preferences.theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}">No irrigation scheduled for this day</p>
+					</div>
+				{:else}
+					<!-- List of schedules for selected day -->
+					<div class="space-y-3 pr-1">
+						{#each selectedDayRuns as run}
+							{@const isNote = run.zone.startsWith('Note:')}
+							{@const isOriginalDayPlaceholder = run.postponedFromDateStr === selectedDateKey}
+							{@const isRainAffected = isOriginalDayPlaceholder}
+							<div 
+								role="button"
+								tabindex="0"
+								onclick={() => handleDayClick(Number(selectedDateKey.split('-')[2]), selectedDateKey, selectedDayRuns)}
+								onkeydown={(e) => e.key === 'Enter' && handleDayClick(Number(selectedDateKey.split('-')[2]), selectedDateKey, selectedDayRuns)}
+								class="p-3 rounded-2xl flex items-center gap-3 cursor-pointer transition-all shadow-xs {preferences.theme === 'dark' ? 'bg-slate-900/40 border border-slate-900/50 hover:bg-slate-900/60' : 'bg-slate-50 border border-slate-150 hover:bg-slate-100/75'}"
+							>
+								<!-- Colored vertical separator bar -->
+								<div class={['w-1 rounded-full h-8 shrink-0', isRainAffected ? 'bg-blue-500' : (run.zone?.startsWith('Note:') ? (preferences.theme === 'dark' ? 'bg-white' : 'bg-slate-350') : (run.type === 'Fertilizer' ? 'bg-purple-500' : 'bg-primary-green'))].join(' ')}></div>
+
+								<div class="flex-grow min-w-0">
+									<p class="text-xs font-black truncate leading-snug {preferences.theme === 'dark' ? 'text-white' : 'text-slate-800'}">
+										{isNote ? run.zone.substring(5).trim() : run.zone}
+									</p>
+									<p class="text-[9px] font-semibold mt-0.5 flex items-center gap-1 {preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}">
+										<span class="material-symbols-outlined text-[10.5px]">schedule</span>
+										<span>{run.time}</span>
+									</p>
+								</div>
+								<div class="flex items-center gap-2">
+									<span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase shrink-0" style="background-color: {isRainAffected ? '#3B82F6' : (run.type === 'Fertilizer' ? '#8B5CF6' : (run.type === 'Note' || isNote ? (preferences.theme === 'dark' ? '#FFFFFF' : '#E2E8F0') : '#16A34A'))}; color: {isRainAffected ? '#FFFFFF' : (run.type === 'Fertilizer' ? '#FFFFFF' : (run.type === 'Note' || isNote ? (preferences.theme === 'dark' ? '#000000' : '#475569') : '#FFFFFF'))}">
+										{isRainAffected ? 'Rain Affected' : (run.type || 'Irrigation')}
+									</span>
+								</div>
+							</div>
+						{/each}
+					</div>
+				{/if}
+
+				<!-- Bottom CTA bar & floating button wrapper -->
+				<div class="flex items-center justify-between gap-4 pt-4 border-t {preferences.theme === 'dark' ? 'border-slate-900/60' : 'border-slate-200/60'}">
+					<!-- Pill button input style -->
+					<button 
+						onclick={() => openAddModalForDate(Number(selectedDateKey.split('-')[2]))}
+						class="flex-1 text-xs font-bold py-2.5 px-4 rounded-full text-left transition-all cursor-pointer shadow-inner {preferences.theme === 'dark' ? 'bg-slate-900/60 border border-slate-800 text-slate-400 hover:text-white' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-800'}"
+					>
+						Add schedule on {new Date(selectedDateKey.split('-')[0], selectedDateKey.split('-')[1] - 1, selectedDateKey.split('-')[2]).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+					</button>
+
+					<!-- Floating Round Button -->
+					<button 
+						onclick={() => openAddModalForDate(Number(selectedDateKey.split('-')[2]))}
+						class="size-11 bg-primary-green hover:bg-dark-green text-white rounded-full flex items-center justify-center shadow-lg shadow-primary-green/30 hover:scale-105 transition-all cursor-pointer"
+						title="Add Schedule"
+					>
+						<span class="material-symbols-outlined text-2xl font-bold">add</span>
+					</button>
 				</div>
 			</div>
 		</div>
+
+		<!-- Mobile Reference-style Day Details Popup/Bottom Sheet -->
+		{#if showDayDetailsModal}
+			<div 
+				role="button"
+				tabindex="0"
+				class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-end justify-center z-50 p-4 lg:hidden" 
+				onclick={() => showDayDetailsModal = false}
+				onkeydown={(e) => e.key === 'Escape' && (showDayDetailsModal = false)}
+			>
+				<div 
+					role="presentation"
+					class="w-full max-w-md border rounded-3xl p-6 shadow-2xl space-y-6 transform transition-transform duration-300 {preferences.theme === 'dark' ? 'bg-[#161616] border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-850'}"
+					onclick={(e) => e.stopPropagation()}
+				>
+					<!-- Bottom Sheet Header -->
+					<div class="flex justify-between items-start border-b pb-3 {preferences.theme === 'dark' ? 'border-slate-900/60' : 'border-slate-200/60'}">
+						<div>
+							<div class="flex items-baseline gap-2">
+								<h3 class="text-3xl font-black tracking-tight leading-none">
+									{selectedDateKey.split('-')[2]}
+								</h3>
+								<span class="text-sm font-bold {preferences.theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}">
+									{new Date(selectedDateKey.split('-')[0], selectedDateKey.split('-')[1] - 1, selectedDateKey.split('-')[2]).toLocaleDateString('en-US', { weekday: 'long' })}
+								</span>
+							</div>
+							<p class="text-[10px] font-bold mt-2 {preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}">{selectedDateKey.split('-')[2]} {monthNames[currentMonth].substring(0, 3)}</p>
+						</div>
+						<div class="flex items-center gap-3">
+							<span class="text-xl leading-none select-none {preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-350'}">☺</span>
+							<button onclick={() => showDayDetailsModal = false} class="p-1 cursor-pointer {preferences.theme === 'dark' ? 'text-slate-450 hover:text-white' : 'text-slate-500 hover:text-slate-800'}">
+								<span class="material-symbols-outlined text-xl">close</span>
+							</button>
+						</div>
+					</div>
+
+					<!-- Bottom Sheet Schedule List -->
+					<div class="space-y-4 max-h-[300px] overflow-y-auto pr-1">
+						{#each selectedDayRuns as run}
+							{@const isNote = run.zone.startsWith('Note:')}
+							{@const isOriginalDayPlaceholder = run.postponedFromDateStr === selectedDateKey}
+							{@const isRainAffected = isOriginalDayPlaceholder}
+							<div class="flex gap-4 items-start p-3 border rounded-2xl relative group/row {preferences.theme === 'dark' ? 'bg-slate-900/30 border-slate-900/60' : 'bg-slate-50 border-slate-150'}">
+								<!-- Time -->
+								<div class="text-[11px] font-black w-12 shrink-0 pt-0.5 leading-none {preferences.theme === 'dark' ? 'text-slate-350' : 'text-slate-500'}">
+									{run.time.split(' ')[0]}
+								</div>
+
+								<!-- Colored vertical separator bar -->
+								<div class={['w-1 rounded-full self-stretch shrink-0', isRainAffected ? 'bg-blue-500' : (run.zone?.startsWith('Note:') ? (preferences.theme === 'dark' ? 'bg-white' : 'bg-slate-350') : (run.type === 'Fertilizer' ? 'bg-purple-500' : 'bg-primary-green'))].join(' ')}></div>
+
+								<!-- Info -->
+								<div class="flex-grow min-w-0">
+									<h5 class="text-xs font-black leading-snug truncate {preferences.theme === 'dark' ? 'text-white' : 'text-slate-800'}">
+										{isNote ? run.zone.substring(5).trim() : run.zone}
+									</h5>
+									<p class="text-[9.5px] font-semibold mt-0.5 {preferences.theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}">
+										{run.time}
+									</p>
+									{#if run.extensionDays > 0}
+										<p class="text-[8.5px] font-bold text-sky-500 mt-1">
+											☔ Postponed +{run.extensionDays}d due to forecast
+										</p>
+									{/if}
+								</div>
+
+								<!-- Status or Actions -->
+								<div class="flex flex-col items-end gap-1.5 shrink-0">
+									<span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase shrink-0" style="background-color: {isRainAffected ? '#3B82F6' : (run.type === 'Fertilizer' ? '#8B5CF6' : (run.type === 'Note' || isNote ? (preferences.theme === 'dark' ? '#FFFFFF' : '#E2E8F0') : '#16A34A'))}; color: {isRainAffected ? '#FFFFFF' : (run.type === 'Fertilizer' ? '#FFFFFF' : (run.type === 'Note' || isNote ? (preferences.theme === 'dark' ? '#000000' : '#475569') : '#FFFFFF'))}">
+										{isRainAffected ? 'Rain Affected' : (run.type || 'Irrigation')}
+									</span>
+									{#if !isOriginalDayPlaceholder}
+										<div class="flex gap-1.5 mt-1">
+											{#if !isNote}
+												<button 
+													onclick={() => { showDayDetailsModal = false; openEditModal(run); }} 
+													class="text-[9px] font-black px-1.5 py-0.5 rounded border transition-colors cursor-pointer {preferences.theme === 'dark' ? 'text-slate-400 hover:text-white bg-slate-900 border-slate-800' : 'text-slate-600 hover:text-slate-800 bg-white border-slate-205'}"
+												>
+													Edit
+												</button>
+											{/if}
+											<button 
+												onclick={() => { deleteRun(run.id); if (selectedDayRuns.length <= 1) showDayDetailsModal = false; }} 
+												class="text-[9px] font-black px-1.5 py-0.5 rounded border transition-colors cursor-pointer {preferences.theme === 'dark' ? 'text-red-400 hover:text-red-300 bg-red-955/20 border-red-900/30' : 'text-red-600 hover:text-red-750 bg-red-50 border-red-100'}"
+											>
+												Delete
+											</button>
+										</div>
+									{/if}
+								</div>
+							</div>
+						{/each}
+					</div>
+
+					<!-- Bottom Sheet Footer -->
+					<div class="flex items-center justify-between gap-4 pt-4 border-t {preferences.theme === 'dark' ? 'border-slate-900/60' : 'border-slate-200/60'}">
+						<button 
+							onclick={() => { showDayDetailsModal = false; openAddModalForDate(Number(selectedDateKey.split('-')[2])); }}
+							class="flex-grow text-xs font-bold py-2.5 px-4 rounded-full text-left transition-all cursor-pointer shadow-inner {preferences.theme === 'dark' ? 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-white' : 'bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-800'}"
+						>
+							Add on {selectedDateKey.split('-')[2]} {monthNames[currentMonth].substring(0, 3)}
+						</button>
+						<button 
+							onclick={() => { showDayDetailsModal = false; openAddModalForDate(Number(selectedDateKey.split('-')[2])); }}
+							class="size-11 bg-primary-green hover:bg-dark-green text-white rounded-full flex items-center justify-center shadow-lg shadow-primary-green/30 hover:scale-105 transition-all cursor-pointer"
+							title="Add Schedule"
+						>
+							<span class="material-symbols-outlined text-2xl font-bold">add</span>
+						</button>
+					</div>
+				</div>
+			</div>
+		{/if}
+
 
 		<!-- Right Panel: Upcoming Runs and Weather Widget (4 cols) -->
 		<div class="lg:col-span-4 space-y-6">
@@ -1316,6 +1872,100 @@
 		</div>
 
 	</div>
+
+	<!-- Day Schedule Details Modal (Mobile Bottom Sheet / Desktop Modal) -->
+	<Modal 
+		bind:show={showDayDetailsModal} 
+		size="md" 
+		title="Day Schedule Details"
+	>
+		<div class="space-y-4 text-xs font-semibold text-slate-700">
+			<!-- Date Header inside content -->
+			<div class="flex items-center justify-between border-b border-slate-100 pb-3">
+				<div>
+					<h4 class="text-sm font-black text-slate-900">
+						{new Date(selectedDateKey.split('-')[0], selectedDateKey.split('-')[1] - 1, selectedDateKey.split('-')[2]).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+					</h4>
+					<p class="text-[10px] font-bold text-slate-400 mt-0.5">{selectedDayRuns.length} schedule{selectedDayRuns.length === 1 ? '' : 's'} scheduled</p>
+				</div>
+			</div>
+
+			<div class="space-y-3 max-h-96 overflow-y-auto pr-1">
+				{#if selectedDayRuns.length === 0}
+					<div class="text-center py-8 text-slate-400 font-semibold text-xs flex flex-col items-center justify-center gap-2">
+						<span class="material-symbols-outlined text-[32px] text-slate-300">water_drop</span>
+						<span>No irrigation scheduled for this day</span>
+					</div>
+				{:else}
+					{#each selectedDayRuns as run}
+						{@const isNote = run.zone.startsWith('Note:')}
+						{@const isOriginalDayPlaceholder = run.postponedFromDateStr === selectedDateKey}
+						{@const isRainAffected = isOriginalDayPlaceholder}
+						<div class="flex gap-4 items-start p-3 bg-slate-50 border border-slate-200 rounded-2xl relative shadow-xs">
+							<!-- Time -->
+							<div class="text-[11px] font-black text-slate-500 w-12 shrink-0 pt-0.5 leading-none">
+								{run.time.split(' ')[0]}
+							</div>
+
+							<!-- Colored vertical separator bar -->
+							<div class={['w-1 rounded-full self-stretch shrink-0', isRainAffected ? 'bg-blue-500' : (run.zone?.startsWith('Note:') ? 'bg-slate-350' : (run.type === 'Fertilizer' ? 'bg-purple-500' : 'bg-primary-green'))].join(' ')}></div>
+
+							<!-- Info -->
+							<div class="flex-grow min-w-0">
+								<h5 class="text-xs font-black leading-snug text-slate-800 truncate">
+									{isNote ? run.zone.substring(5).trim() : run.zone}
+								</h5>
+								<p class="text-[9.5px] font-semibold text-slate-400 mt-0.5">
+									{run.time}
+								</p>
+								{#if run.extensionDays > 0}
+									<p class="text-[8.5px] font-bold text-sky-655 mt-1">
+										☔ Postponed +{run.extensionDays}d due to forecast
+									</p>
+								{/if}
+							</div>
+
+							<!-- Status or Actions -->
+							<div class="flex flex-col items-end gap-1.5 shrink-0">
+								<span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase shrink-0" style="background-color: {isRainAffected ? '#3B82F6' : (run.type === 'Fertilizer' ? '#8B5CF6' : (run.type === 'Note' || isNote ? '#E2E8F0' : '#16A34A'))}; color: {isRainAffected ? '#FFFFFF' : (run.type === 'Fertilizer' ? '#FFFFFF' : (run.type === 'Note' || isNote ? '#475569' : '#FFFFFF'))}">
+									{isRainAffected ? 'Rain Affected' : (run.type || 'Irrigation')}
+								</span>
+								{#if !isOriginalDayPlaceholder}
+									<div class="flex gap-1.5 mt-1">
+										{#if !isNote}
+											<button 
+												onclick={(e) => { e.stopPropagation(); showDayDetailsModal = false; openEditModal(run); }} 
+												class="text-[9px] font-black text-slate-500 hover:text-slate-900 px-1.5 py-0.5 rounded bg-white border border-slate-200 transition-colors cursor-pointer"
+											>
+												Edit
+											</button>
+										{/if}
+										<button 
+											onclick={(e) => { e.stopPropagation(); deleteRun(run.id); if (selectedDayRuns.length <= 1) showDayDetailsModal = false; }} 
+											class="text-[9px] font-black text-red-500 hover:text-red-655 px-1.5 py-0.5 rounded bg-red-50 border border-red-100 transition-colors cursor-pointer"
+										>
+											Delete
+										</button>
+									</div>
+								{/if}
+							</div>
+						</div>
+					{/each}
+				{/if}
+			</div>
+		</div>
+
+		{#snippet footer()}
+			<button 
+				type="button" 
+				onclick={() => { showDayDetailsModal = false; openAddModalForDate(Number(selectedDateKey.split('-')[2])); }}
+				class="btn-primary w-full py-3 text-xs cursor-pointer flex items-center justify-center gap-1.5"
+			>
+				<span class="material-symbols-outlined text-sm">add</span>
+				<span>Add Schedule on this Date</span>
+			</button>
+		{/snippet}
+	</Modal>
 
 	<!-- Edit Schedule Modal -->
 	<Modal 

@@ -11,6 +11,12 @@ export default defineConfig({
 
 	plugins: [tailwindcss(), sveltekit()],
 
+	server: {
+		watch: {
+			ignored: ['**/.vercel/**']
+		}
+	},
+
 	build: {
 		// Use esbuild for fast, compact output
 		minify: 'esbuild',
