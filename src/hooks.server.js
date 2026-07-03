@@ -22,11 +22,50 @@ export async function handle({ event, resolve }) {
 	if (sessionCookie) {
 		try {
 			// Verify session cookie securely (using local signature verification without blocking network calls to Firebase)
-			const decodedClaims = await adminAuth.verifySessionCookie(sessionCookie, false);
+			let decodedClaims;
+			try {
+				decodedClaims = await adminAuth.verifySessionCookie(sessionCookie, false);
+			} catch (verifierErr) {
+				// If offline/network error, decode the session cookie payload locally to keep dev environment working offline
+				const errMsg = verifierErr.message || '';
+				if (errMsg.includes('ENOTFOUND') || errMsg.includes('fetch failed') || errMsg.includes('ECONNRESET') || verifierErr.code === 'auth/network-error') {
+					console.warn('⚠️ Network disconnected. Decoding session cookie locally...');
+					const payload = JSON.parse(Buffer.from(sessionCookie.split('.')[1], 'base64').toString('utf-8'));
+					decodedClaims = {
+						uid: payload.user_id || payload.sub || payload.uid,
+						email: payload.email,
+						name: payload.name || payload.email?.split('@')[0] || 'User',
+						...payload
+					};
+				} else {
+					throw verifierErr;
+				}
+			}
 			user = decodedClaims;
 
 			// Fetch the user's profile from Firestore to get their role securely
-			const userDoc = await adminDb.collection('users').doc(user.uid).get();
+			let userDoc;
+			try {
+				userDoc = await adminDb.collection('users').doc(user.uid).get();
+			} catch (dbErr) {
+				const errMsg = dbErr.message || '';
+				if (errMsg.includes('ENOTFOUND') || errMsg.includes('fetch failed') || errMsg.includes('ECONNRESET') || errMsg.includes('Could not load the default credentials')) {
+					console.warn('⚠️ Network disconnected. Fetching profile from local-db.json fallback...');
+					const fs = await import('fs');
+					const path = await import('path');
+					const dbPath = path.resolve(process.cwd(), 'local-db.json');
+					if (fs.existsSync(dbPath)) {
+						const localData = JSON.parse(fs.readFileSync(dbPath, 'utf-8'));
+						const mockData = localData.users?.[user.uid];
+						userDoc = { exists: !!mockData, id: user.uid, data: () => mockData };
+					} else {
+						userDoc = { exists: false };
+					}
+				} else {
+					throw dbErr;
+				}
+			}
+
 			if (userDoc.exists) {
 				profile = { id: userDoc.id, ...userDoc.data() };
 			}

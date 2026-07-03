@@ -50,9 +50,10 @@
 
 		// customer
 		return [
-			{ href: '/customer/dashboard?tab=marketplace', label: 'Dashboard', icon: 'dashboard' },
-			{ href: '/customer/dashboard?tab=wishlist', label: 'Wishlist', icon: 'favorite' },
-			{ href: '/customer/dashboard?tab=favorites', label: 'Favorite Farmers', icon: 'star' }
+			{ href: '/customer/dashboard', label: 'Dashboard', icon: 'dashboard' },
+			{ href: '/customer/wishlist', label: 'Wishlist', icon: 'favorite' },
+			{ href: '/customer/favorites', label: 'Favorite Farmers', icon: 'star' },
+			{ href: '/customer/compare', label: 'Compare Products', icon: 'compare_arrows' }
 		];
 	});
 

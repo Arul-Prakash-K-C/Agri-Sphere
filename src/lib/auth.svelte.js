@@ -70,7 +70,15 @@ export function startAuthListener() {
 		// Session will be verified/set. Page loader will return the profile.
 		if (!authState.profile) {
 			authState.loading = true;
-			await setSession(user);
+			let profileData = null;
+			if (browser) {
+				const params = new URLSearchParams(window.location.search);
+				const roleParam = params.get('role');
+				if (roleParam) {
+					profileData = { role: roleParam === 'buyer' ? 'customer' : roleParam };
+				}
+			}
+			await setSession(user, profileData);
 			authState.loading = false;
 		}
 	});

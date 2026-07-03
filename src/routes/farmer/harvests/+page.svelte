@@ -635,7 +635,7 @@
 									{#each crops as crop (crop.id)}
 										<button
 											type="button"
-											onclick={() => selectCrop(crop)}
+											onmousedown={(e) => { e.preventDefault(); selectCrop(crop); }}
 											class="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-emerald-50 hover:text-dark-green transition-colors font-bold"
 										>
 											{crop.name}

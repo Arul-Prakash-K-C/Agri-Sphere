@@ -120,7 +120,7 @@ export async function POST({ request, locals, fetch }) {
 		}
 
 		const prompt = `You are an expert plant pathologist. Analyze the uploaded image of a crop, which is specifically a ${finalSpecimenType.toLowerCase()}.
-Use Google Search grounding to fetch the most accurate, up-to-date scientific remedies, fungicide/treatment protocols, and pathogen spread mitigation protocols.
+Provide the most accurate, up-to-date scientific remedies, fungicide/treatment protocols, and pathogen spread mitigation protocols.
 
 You must respond ONLY with a raw JSON object containing the following keys:
 1. "pathogen": The common and scientific name of the disease/pathogen (e.g., "Tomato Early Blight (Alternaria solani)"). If the specimen is healthy, write "Healthy (No Disease Detected)" or "Healthy [Crop Name]".
@@ -164,11 +164,6 @@ Format the response as a single, clean JSON block:
 								text: prompt
 							}
 						]
-					}
-				],
-				tools: [
-					{
-						google_search: {}
 					}
 				]
 			})

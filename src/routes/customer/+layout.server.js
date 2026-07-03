@@ -1,4 +1,4 @@
-/** @type {import('./$types').PageServerLoad} */
+/** @type {import('./$types').LayoutServerLoad} */
 export async function load({ fetch }) {
 	try {
 		const [dashRes, settingsRes, subsRes] = await Promise.all([
