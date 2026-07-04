@@ -926,13 +926,20 @@
 				<div class="h-6 w-px bg-slate-200 hidden sm:block"></div>
 
 				<!-- View Weather Toggle -->
-				<div class="flex items-center gap-2">
-					<span class="material-symbols-outlined text-[16px] text-blue-500">umbrella</span>
-					<div class="text-left leading-none">
+				<div class="flex items-center gap-1">
+					<button 
+						type="button"
+						onclick={() => { rainSmartEnabled = !rainSmartEnabled; handleToggleRainSmart(); }}
+						class="flex items-center justify-center p-0.5 rounded-lg hover:bg-slate-100 transition-all cursor-pointer"
+						title="Toggle Weather ({rainSmartEnabled ? 'On' : 'Off'})"
+					>
+						<span class="material-symbols-outlined text-[16px] {rainSmartEnabled ? 'text-blue-500 font-bold' : 'text-slate-400'}">umbrella</span>
+					</button>
+					<div class="text-left leading-none hidden sm:block mr-1">
 						<span class="block text-[9px] font-black text-slate-800">View Weather</span>
 						<span class="text-[8px] text-slate-400 font-semibold">{rainSmartEnabled ? 'On' : 'Off'}</span>
 					</div>
-					<label class="relative inline-flex items-center cursor-pointer select-none ml-1.5">
+					<label class="relative inline-flex items-center cursor-pointer select-none">
 						<input type="checkbox" bind:checked={rainSmartEnabled} onchange={handleToggleRainSmart} class="sr-only peer" />
 						<div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
 					</label>

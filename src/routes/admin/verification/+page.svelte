@@ -233,9 +233,9 @@
 			</div>
 
 			<!-- Status Filter Option -->
-			<div class="md:col-span-4 flex items-center gap-2">
+			<div class="md:col-span-4 flex flex-col sm:flex-row sm:items-center gap-2 w-full">
 				<span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">Status</span>
-				<div class="flex gap-1 overflow-x-auto">
+				<div class="flex gap-1 overflow-x-auto py-0.5">
 					{#each ['All', 'Pending', 'Verified', 'Rejected'] as status}
 						<button
 							onclick={() => filterStatus = status}
@@ -251,7 +251,7 @@
 			</div>
 
 			<!-- Sort Filter Option -->
-			<div class="md:col-span-3 flex items-center gap-2">
+			<div class="md:col-span-3 flex flex-col sm:flex-row sm:items-center gap-2 w-full">
 				<span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap">Registered</span>
 				<select 
 					bind:value={sortByDate} 
@@ -277,7 +277,8 @@
 				<p class="font-bold">No users match your verification filters.</p>
 			</div>
 		{:else}
-			<div class="overflow-x-auto">
+			<!-- Desktop View (Table) -->
+			<div class="hidden md:block overflow-x-auto">
 				<table class="w-full text-left border-collapse text-xs">
 					<thead>
 						<tr class="bg-slate-50 border-b border-slate-200 text-slate-400 uppercase tracking-wider text-[9px] font-bold">
@@ -362,6 +363,82 @@
 						{/each}
 					</tbody>
 				</table>
+			</div>
+
+			<!-- Mobile view (Card lists) -->
+			<div class="block md:hidden divide-y divide-slate-100/80">
+				{#each filteredUsers as user (user.id)}
+					{@const status = getVerificationStatus(user)}
+					<div class="p-4 space-y-3 font-sans">
+						<div class="flex items-center justify-between gap-3">
+							<div class="flex items-center gap-2.5 min-w-0">
+								<!-- Profile Photo -->
+								<div class="size-8 rounded-full bg-gradient-to-tr from-emerald-500 to-emerald-700 text-white flex items-center justify-center font-extrabold text-xs uppercase shadow-sm shrink-0">
+									{(user.fullName || 'U')[0]}
+								</div>
+								<div class="min-w-0">
+									<h4 class="font-extrabold text-slate-800 text-xs truncate">{user.fullName || 'N/A'}</h4>
+									<p class="text-[10px] text-slate-400 font-semibold truncate mt-0.5">{user.email || 'N/A'}</p>
+								</div>
+							</div>
+							<!-- Status Badge -->
+							<span class={[
+								'px-2.5 py-0.5 rounded-full text-[8px] font-extrabold border uppercase tracking-wider shrink-0',
+								status === 'Verified' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+								(status === 'Rejected' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-250')
+							].join(' ')}>
+								{status}
+							</span>
+						</div>
+
+						<div class="grid grid-cols-2 gap-2 text-[10px] bg-slate-50 p-2.5 rounded-xl border border-slate-100/50">
+							<div>
+								<span class="text-slate-400 block font-bold uppercase tracking-wider text-[8px]">Phone</span>
+								<span class="font-bold text-slate-750">{user.phone || 'N/A'}</span>
+							</div>
+							<div>
+								<span class="text-slate-400 block font-bold uppercase tracking-wider text-[8px]">Registered</span>
+								<span class="font-bold text-slate-750">{user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'N/A'}</span>
+							</div>
+							{#if activeTab === 'farmers'}
+								<div class="col-span-2 border-t border-slate-100/50 pt-1.5 mt-0.5">
+									<span class="text-slate-400 block font-bold uppercase tracking-wider text-[8px]">Farm Details</span>
+									<span class="font-bold text-slate-750">{user.farmName || 'Family Fields'}</span>
+									<span class="text-[9px] text-slate-400 block font-semibold leading-tight mt-0.5">{user.address || 'Local Fields'}</span>
+								</div>
+							{/if}
+						</div>
+
+						<!-- Action Buttons -->
+						<div class="flex items-center gap-2">
+							<button
+								onclick={() => openDetails(user)}
+								class="flex-grow py-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-all cursor-pointer text-center"
+							>
+								Verify Details
+							</button>
+							{#if status === 'Pending'}
+								<button
+									onclick={() => requestVerificationUpdate(user.id, 'Verified')}
+									class="px-3 py-2 bg-[#15803d] hover:bg-[#15803d]/90 text-white rounded-xl text-[10px] font-bold shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1 shrink-0"
+									title="Approve / Mark Verified"
+								>
+									<span class="material-symbols-outlined text-[14px]">check_circle</span>
+									<span>Approve</span>
+								</button>
+							{:else if status === 'Verified'}
+								<button
+									onclick={() => requestVerificationUpdate(user.id, 'Pending')}
+									class="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-650 rounded-xl text-[10px] font-bold border border-red-100 transition-all cursor-pointer flex items-center justify-center gap-1 shrink-0"
+									title="Remove Verification"
+								>
+									<span class="material-symbols-outlined text-[14px]">lock_open</span>
+									<span>Unverify</span>
+								</button>
+							{/if}
+						</div>
+					</div>
+				{/each}
 			</div>
 		{/if}
 	</div>

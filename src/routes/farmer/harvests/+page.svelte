@@ -847,7 +847,7 @@
 				<button 
 					type="button" 
 					onclick={() => showMobileDateFilterDropdown = !showMobileDateFilterDropdown}
-					class="flex items-center justify-center border rounded-xl size-9 transition-colors cursor-pointer {preferences.theme === 'dark' ? 'border-slate-800 bg-[#1e1e1e] text-white hover:bg-slate-800' : 'border-slate-250 bg-slate-50 text-slate-700 hover:bg-slate-100'}"
+					class="flex items-center justify-center rounded-xl size-9 transition-all cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5 {preferences.theme === 'dark' ? 'bg-[#1e1e1e] text-white hover:bg-slate-800' : 'bg-white text-slate-700 hover:bg-slate-50'}"
 					title="Filter by Date"
 				>
 					<span class="material-symbols-outlined text-[18px]">calendar_month</span>
@@ -857,7 +857,7 @@
 				<button 
 					type="button" 
 					onclick={openAddModal}
-					class="flex items-center justify-center border rounded-xl size-9 transition-colors cursor-pointer {preferences.theme === 'dark' ? 'border-slate-800 bg-[#1e1e1e] text-white hover:bg-slate-800' : 'border-slate-250 bg-slate-50 text-slate-700 hover:bg-slate-100'}"
+					class="flex items-center justify-center rounded-xl size-9 transition-all cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5 {preferences.theme === 'dark' ? 'bg-[#1e1e1e] text-white hover:bg-slate-800' : 'bg-white text-slate-700 hover:bg-slate-50'}"
 					title="Log New Harvest"
 				>
 					<span class="material-symbols-outlined text-[18px]">add</span>
@@ -888,7 +888,7 @@
 					type="text"
 					placeholder="Search crop, grade, status..."
 					bind:value={searchQuery}
-					class="w-full border rounded-full pl-9 pr-3 py-1.5 text-xs focus:outline-none focus:border-primary-green transition-colors {preferences.theme === 'dark' ? 'bg-[#1a1a1a] border-slate-800 text-slate-300 placeholder-slate-600' : 'bg-slate-50 border-slate-205 text-slate-700 placeholder-slate-400'}"
+					class="w-full rounded-full pl-9 pr-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary-green/30 transition-all shadow-sm focus:shadow-md {preferences.theme === 'dark' ? 'bg-[#1a1a1a] text-slate-300 placeholder-slate-600' : 'bg-white text-slate-700 placeholder-slate-400'}"
 				/>
 			</div>
 			<div class="border px-3.5 py-1.5 rounded-full text-[10px] font-bold shrink-0 shadow-inner {preferences.theme === 'dark' ? 'bg-[#1a1a1a] text-slate-400 border-slate-850' : 'bg-slate-50 text-slate-650 border-slate-200'}">
@@ -909,7 +909,7 @@
 					tabindex="0"
 					onclick={() => expandedHarvestId = (expandedHarvestId === harvest.id ? null : harvest.id)}
 					onkeydown={(e) => e.key === 'Enter' && (expandedHarvestId = (expandedHarvestId === harvest.id ? null : harvest.id))}
-					class="border rounded-2xl p-3 flex flex-col gap-1 cursor-pointer transition-all duration-200 {preferences.theme === 'dark' ? 'bg-[#161616] border-slate-900/60 hover:border-slate-800' : 'bg-slate-50 border-slate-150 hover:border-slate-200'}"
+					class="border rounded-2xl p-3 flex flex-col gap-1 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 {preferences.theme === 'dark' ? 'bg-[#161616] border-slate-900/60 hover:border-slate-800' : 'bg-white border-slate-200/50 hover:border-slate-350'}"
 				>
 					<!-- Top Row: Thumbnail + Info (Name, Badges, Details) + Arrow -->
 					<div class="flex items-center justify-between w-full gap-2.5">
