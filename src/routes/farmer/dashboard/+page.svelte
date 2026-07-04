@@ -525,13 +525,13 @@
 			<h2 class="text-3xl font-extrabold text-slate-900 tracking-tight">Overview</h2>
 			<p class="text-sm text-slate-500 mt-1">Good morning. Here is what is happening on the farm today.</p>
 		</div>
-		<div class="flex flex-wrap items-center gap-3">
+		<div class="grid grid-cols-2 gap-3 w-full sm:flex sm:flex-wrap sm:w-auto sm:items-center">
 			<!-- Range Filter -->
-			<div class="relative min-w-[140px]">
+			<div class="relative w-full sm:w-auto sm:min-w-[140px]">
 				<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[16px] text-dark-green">calendar_month</span>
 				<select
 					bind:value={rangeFilter}
-					class="w-full pl-9 pr-8 py-2 bg-white/80 border border-slate-200 rounded-2xl text-xs font-bold text-dark-green focus:outline-none focus:border-primary-green appearance-none cursor-pointer shadow-xs"
+					class="w-full h-9 pl-9 pr-8 bg-white/80 border border-slate-200 rounded-2xl text-xs font-bold text-dark-green focus:outline-none focus:border-primary-green appearance-none cursor-pointer shadow-xs"
 				>
 					<option value="Days">Days Range</option>
 					<option value="Weeks">Weeks Range</option>
@@ -541,33 +541,33 @@
 					<option value="Years">Years Range</option>
 				</select>
 			</div>
-
+ 
 			<!-- Specific Period Selector -->
-			<div class="relative min-w-[160px]">
+			<div class="relative w-full sm:w-auto sm:min-w-[160px]">
 				<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[16px] text-dark-green">event</span>
 				<select
 					bind:value={selectedPeriod}
-					class="w-full pl-9 pr-8 py-2 bg-white/80 border border-slate-200 rounded-2xl text-xs font-bold text-dark-green focus:outline-none focus:border-primary-green appearance-none cursor-pointer shadow-xs"
+					class="w-full h-9 pl-9 pr-8 bg-white/80 border border-slate-200 rounded-2xl text-xs font-bold text-dark-green focus:outline-none focus:border-primary-green appearance-none cursor-pointer shadow-xs"
 				>
 					{#each periodsList as period}
 						<option value={period.value}>{period.label}</option>
 					{/each}
 				</select>
 			</div>
-
+ 
 			<!-- X-Axis Filter -->
-			<div class="relative min-w-[140px]">
+			<div class="relative w-full sm:w-auto sm:min-w-[140px]">
 				<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[16px] text-dark-green">bar_chart</span>
 				<select
 					bind:value={xAxisFilter}
-					class="w-full pl-9 pr-8 py-2 bg-white/80 border border-slate-200 rounded-2xl text-xs font-bold text-dark-green focus:outline-none focus:border-primary-green appearance-none cursor-pointer shadow-xs"
+					class="w-full h-9 pl-9 pr-8 bg-white/80 border border-slate-200 rounded-2xl text-xs font-bold text-dark-green focus:outline-none focus:border-primary-green appearance-none cursor-pointer shadow-xs"
 				>
 					{#each xAxisOptions as opt}
 						<option value={opt.value}>{opt.label}</option>
 					{/each}
 				</select>
 			</div>
-
+ 
 			<!-- Custom inputs for grouping -->
 			{#if xAxisFilter === 'Custom Days'}
 				<div class="flex items-center gap-2 bg-white/60 border border-slate-200 rounded-2xl px-3 py-1.5 shadow-xs">
@@ -606,7 +606,7 @@
 					disease: data.disease || [],
 					harvests: data.harvests || []
 				}}
-				class="bg-gradient-to-br from-primary-green to-dark-green text-white px-5 py-2 rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/30 cursor-pointer border-0"
+				class="bg-gradient-to-br from-primary-green to-dark-green text-white px-5 h-9 rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md shadow-primary-green/20 hover:shadow-primary-green/30 cursor-pointer border-0 w-full sm:w-auto"
 			/>
 		</div>
 	</div>

@@ -402,6 +402,7 @@
 
 <svelte:head>
 	<title>Admin Dashboard & Analytics - AgriConnect</title>
+	<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 </svelte:head>
 
 <section class="mx-auto max-w-[1440px] px-2 py-6 sm:px-6 space-y-6">
@@ -561,7 +562,7 @@
 		<!-- Primary Charts Row -->
 		<div class="grid gap-6 lg:grid-cols-3">
 			<!-- Registration Analytics Chart -->
-			<div class="bg-white border border-slate-200/80 rounded-2xl p-5 space-y-4 shadow-sm lg:col-span-2">
+			<div class="bg-white border border-slate-200/80 rounded-2xl p-5 space-y-4 shadow-sm lg:col-span-2 min-w-0">
 				<div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
 					<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
 						<span class="material-symbols-outlined text-[16px] text-emerald-600">group_add</span>
@@ -579,18 +580,18 @@
 						{/each}
 					</div>
 				</div>
-				<div class="h-64">
+				<div class="h-64 relative w-full min-w-0">
 					<canvas bind:this={regCanvas}></canvas>
 				</div>
 			</div>
 
 			<!-- Category Analytics Donut Chart -->
-			<div class="bg-white border border-slate-200/80 rounded-2xl p-5 space-y-4 shadow-sm">
+			<div class="bg-white border border-slate-200/80 rounded-2xl p-5 space-y-4 shadow-sm min-w-0">
 				<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
 					<span class="material-symbols-outlined text-[16px] text-emerald-600">pie_chart</span>
 					Category Analytics
 				</h3>
-				<div class="h-48 relative">
+				<div class="h-48 relative w-full min-w-0">
 					<canvas bind:this={catCanvas}></canvas>
 				</div>
 				<div class="border-t border-slate-100 pt-3 text-[10px] space-y-1 font-semibold text-slate-500">
@@ -709,7 +710,7 @@
 		<!-- Growth Analytics & Activity Feed Row -->
 		<div class="grid gap-6 lg:grid-cols-3">
 			<!-- Growth Trends -->
-			<div class="bg-white border border-slate-200/80 rounded-2xl p-5 space-y-4 shadow-sm lg:col-span-2">
+			<div class="bg-white border border-slate-200/80 rounded-2xl p-5 space-y-4 shadow-sm lg:col-span-2 min-w-0">
 				<div class="flex justify-between items-center">
 					<h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
 						<span class="material-symbols-outlined text-[16px] text-emerald-600">show_chart</span>
@@ -727,7 +728,7 @@
 						{/each}
 					</div>
 				</div>
-				<div class="h-60">
+				<div class="h-60 relative w-full min-w-0">
 					<canvas bind:this={growthCanvas}></canvas>
 				</div>
 			</div>
