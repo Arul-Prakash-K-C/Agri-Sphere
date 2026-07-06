@@ -1,7 +1,7 @@
 <script>
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { authState, registerUser } from '$lib/auth.svelte.js';
+	import { authState, registerUser } from '$lib/stores/auth.svelte.js';
 	import { roleHome } from '$lib/firebase-data';
 	import Silk from '$lib/components/Silk.svelte';
 

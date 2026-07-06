@@ -1,7 +1,7 @@
 <script>
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { authState } from '$lib/auth.svelte.js';
+	import { authState } from '$lib/stores/auth.svelte.js';
 	import { roleHome } from '$lib/firebase-data';
 	import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 	import { auth } from '$lib/firebase';

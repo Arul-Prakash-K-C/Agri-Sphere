@@ -1,8 +1,10 @@
 <script>
 	import { fade, slide } from "svelte/transition";
 	import Modal from "$lib/components/Modal.svelte";
+	import CropCard from "$lib/components/CropCard.svelte";
+	import Button from "$lib/components/Button.svelte";
 	import { showConfirm, showSuccess, showError } from "$lib/modal.svelte.js";
-	import Card from "$lib/components/Card.svelte";
+	import { dbService } from "$lib/services/db.js";
 
 	let { data } = $props();
 
@@ -92,27 +94,16 @@
 		}
 
 		try {
-			const res = await fetch("/api/crops", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					name: newName,
-					location: newLocation,
-					plantedDate: newPlantedDate,
-					harvestDuration: newHarvestDuration,
-					acres: Number(newAcres),
-					imageUrl,
-				}),
+			const addedCrop = await dbService.createCrop({
+				name: newName,
+				location: newLocation,
+				plantedDate: newPlantedDate,
+				harvestDuration: newHarvestDuration,
+				acres: Number(newAcres),
+				imageUrl,
 			});
 
-			if (!res.ok) {
-				const data = await res.json();
-				throw new Error(data.error || "Failed to add crop");
-			}
-
-			const addedCrop = await res.json();
 			crops = [...crops, addedCrop];
-
 			closeModal();
 		} catch (err) {
 			error = err.message;
@@ -126,122 +117,16 @@
 			title: "Delete Crop?",
 			message: "Are you sure you want to delete this crop? This cannot be undone.",
 			confirmText: "Delete",
-			confirmColor: "bg-red-600 hover:bg-red-700 text-white"
+			confirmColor: "bg-red-650 hover:bg-red-700 text-white"
 		});
 		if (!confirmed) return;
 		try {
-			const res = await fetch(`/api/crops/${id}`, {
-				method: "DELETE",
-			});
-
-			if (!res.ok) {
-				const data = await res.json();
-				throw new Error(data.error || "Failed to delete crop");
-			}
-
+			await dbService.deleteCrop(id);
 			crops = crops.filter((c) => c.id !== id);
 			showSuccess("Crop deleted successfully.");
 		} catch (err) {
 			showError(err.message);
 		}
-	}
-
-	function getHarvestStatus(plantedDateStr, harvestDurationStr) {
-		if (!harvestDurationStr) return "No duration specified";
-
-		const today = new Date();
-		today.setHours(0, 0, 0, 0);
-
-		// Case 1: Days (e.g. "90 Days" or "Days: 90")
-		if (
-			harvestDurationStr.toLowerCase().includes("days") ||
-			/^\d+$/.test(harvestDurationStr.trim())
-		) {
-			const daysMatch = harvestDurationStr.match(/\d+/);
-			if (daysMatch) {
-				const days = parseInt(daysMatch[0], 10);
-				const plantedDate = new Date(plantedDateStr);
-				plantedDate.setHours(0, 0, 0, 0);
-
-				const harvestDate = new Date(
-					plantedDate.getTime() + days * 24 * 60 * 60 * 1000,
-				);
-				const diffTime = harvestDate.getTime() - today.getTime();
-				const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-				if (diffDays > 0) {
-					return `harvest in ${diffDays}days`;
-				} else {
-					return `Ready to harvest`;
-				}
-			}
-		}
-
-		// Case 2: Seasonal (e.g. "Seasonal (May, Jun, Jul, Aug, Sep, Oct)")
-		if (harvestDurationStr.toLowerCase().includes("seasonal")) {
-			const monthsMatch = harvestDurationStr.match(/\(([^)]+)\)/);
-			if (monthsMatch) {
-				const monthsList = monthsMatch[1]
-					.split(",")
-					.map((m) => m.trim())
-					.filter(Boolean);
-				const monthNames = [
-					"Jan",
-					"Feb",
-					"Mar",
-					"Apr",
-					"May",
-					"Jun",
-					"Jul",
-					"Aug",
-					"Sep",
-					"Oct",
-					"Nov",
-					"Dec",
-				];
-
-				const activeMonthIndices = monthsList
-					.map((m) =>
-						monthNames.findIndex((name) =>
-							name.toLowerCase().startsWith(m.toLowerCase()),
-						),
-					)
-					.filter((idx) => idx !== -1);
-
-				if (activeMonthIndices.length === 0) return "Seasonal";
-
-				const currentMonthIdx = today.getMonth();
-				const currentYear = today.getFullYear();
-
-				if (activeMonthIndices.includes(currentMonthIdx)) {
-					return `Ready to harvest`;
-				} else {
-					const firstMonthName = monthsList[0];
-					const firstMonthIdx = monthNames.findIndex((name) =>
-						name
-							.toLowerCase()
-							.startsWith(firstMonthName.toLowerCase()),
-					);
-
-					let startYear = currentYear;
-					if (firstMonthIdx < currentMonthIdx) {
-						startYear = currentYear + 1;
-					}
-
-					const startDate = new Date(startYear, firstMonthIdx, 1);
-					startDate.setHours(0, 0, 0, 0);
-
-					const diffTime = startDate.getTime() - today.getTime();
-					const diffDays = Math.ceil(
-						diffTime / (1000 * 60 * 60 * 24),
-					);
-
-					return `season starts in ${diffDays}days`;
-				}
-			}
-		}
-
-		return harvestDurationStr;
 	}
 </script>
 
@@ -506,70 +391,32 @@
 					⚠️ {error}
 				</div>
 			{/if}
-		</div>
-
-		{#snippet footer()}
-			<button
-				type="button"
+		</div>		{#snippet footer()}
+			<Button
+				variant="outline"
 				onclick={closeModal}
-				class="btn-secondary flex-1 py-3 text-xs cursor-pointer"
+				class="flex-1 py-3 text-xs"
 			>
 				Cancel
-			</button>
-			<button
+			</Button>
+			<Button
 				type="submit"
-				class="btn-primary flex-1 py-3 text-xs cursor-pointer"
+				variant="primary"
+				class="flex-1 py-3 text-xs"
 				disabled={loading}
 			>
 				{loading ? 'Registering...' : 'Register Crop'}
-			</button>
+			</Button>
 		{/snippet}
 	</Modal>
 
 	<!-- Crop Cards Bento Grid -->
 	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 		{#each filteredCrops as crop (crop.id)}
-			<Card 
-				imageUrl={crop.imageUrl} 
-				title={crop.name} 
-				subtitle={crop.location}
-			>
-				{#snippet actions()}
-					<button
-						onclick={() => handleDeleteCrop(crop.id)}
-						class="bg-white/80 backdrop-blur-sm text-red-600 p-1.5 rounded-full hover:bg-red-50 hover:text-red-700 transition-colors shadow-sm cursor-pointer"
-					>
-						<span class="material-symbols-outlined text-[18px]">delete</span>
-					</button>
-				{/snippet}
-
-				<div class="flex justify-between items-center text-xs">
-					<span
-						class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-emerald-100/50 bg-emerald-50 text-dark-green flex items-center gap-1.5"
-						title={crop.harvestDuration}
-					>
-						<span class="w-1.5 h-1.5 rounded-full bg-primary-green"></span>
-						{getHarvestStatus(crop.plantedDate, crop.harvestDuration)}
-					</span>
-					<span class="text-slate-400 font-semibold flex items-center gap-1">
-						<span class="material-symbols-outlined text-[16px] text-slate-400">calendar_month</span>
-						Planted: {crop.plantedDate}
-					</span>
-				</div>
-
-				<div class="flex items-center gap-4 bg-slate-50/50 p-3.5 rounded-2xl border border-slate-100">
-					<div class="size-10 rounded-xl bg-primary-green/10 flex items-center justify-center text-primary-green shrink-0">
-						<span class="material-symbols-outlined text-lg">potted_plant</span>
-					</div>
-					<div class="flex-1">
-						<p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Acreage</p>
-						<div class="flex justify-between items-end mt-1">
-							<span class="text-xl font-black text-slate-800 leading-none">{crop.acres}</span>
-							<span class="text-[10px] font-bold text-slate-400 uppercase">Acres</span>
-						</div>
-					</div>
-				</div>
-			</Card>
+			<CropCard 
+				{crop} 
+				onDelete={handleDeleteCrop}
+			/>
 		{/each}
 		{#if loading}
 			<div

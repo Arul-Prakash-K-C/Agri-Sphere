@@ -4,10 +4,13 @@
 	import { onMount } from 'svelte';
 	import { navigating } from '$app/stores';
 	import './layout.css';
-	import { authState, startAuthListener } from '$lib/auth.svelte.js';
+	import { authState, startAuthListener } from '$lib/stores/auth.svelte.js';
 	import favicon from '$lib/assets/favicon.svg';
 	import { logout } from '$lib/firebase-data';
 	import Modal from '$lib/components/Modal.svelte';
+	import Avatar from '$lib/components/Avatar.svelte';
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+	import NotificationPopup from '$lib/components/NotificationPopup.svelte';
 	import { modalState, showWarning } from '$lib/modal.svelte.js';
 
 	let { children, data } = $props();
@@ -57,7 +60,7 @@
 		];
 	});
 
-	import { loadPreferences, preferences } from '$lib/preferences.svelte.js';
+	import { loadPreferences, preferences } from '$lib/stores/preferences.svelte.js';
 
 	onMount(() => {
 		loadPreferences();
@@ -171,10 +174,7 @@
 			<!-- Sidebar Footer -->
 			<div class="pt-4 border-t border-slate-200/50 space-y-1">
 				<div class="px-2 py-2 flex items-center gap-3">
-					<!-- User Info -->
-					<div class="size-9 rounded-2xl bg-gradient-to-tr from-primary-green to-dark-green flex items-center justify-center text-white font-extrabold text-sm shadow-sm uppercase">
-						{authState.profile.fullName[0]}
-					</div>
+					<Avatar name={authState.profile.fullName} />
 					<div class="flex-1 min-w-0">
 						<p class="text-xs font-bold text-slate-800 truncate leading-none">{authState.profile.fullName}</p>
 						<p class="text-[9px] text-slate-400 truncate mt-1">{authState.profile.email}</p>
@@ -211,43 +211,14 @@
 							{/if}
 						</button>
 
-						{#if showNotifications}
-							<!-- Notifications Dropdown Dialog -->
-							<div class="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-4 space-y-3 text-xs text-slate-700 animate-fade-in">
-								<div class="flex justify-between items-center border-b border-slate-100 pb-2">
-									<div class="flex items-center gap-1.5">
-										<span class="font-extrabold text-slate-800">Notifications</span>
-										{#if unreadCount > 0}
-											<span class="bg-red-50 text-red-600 px-2 py-0.5 rounded-full text-[10px] font-bold">{unreadCount} New</span>
-										{/if}
-									</div>
-									{#if unreadCount > 0}
-										<button onclick={markAllAsRead} class="text-[9px] text-slate-500 hover:text-primary-green hover:underline font-bold cursor-pointer">Mark all read</button>
-									{/if}
-								</div>
-								<div class="max-h-60 overflow-y-auto space-y-2.5 pr-1">
-									{#each notifications.slice(0, 5) as item}
-										<div class={['p-2.5 rounded-xl border flex flex-col gap-1 transition-colors', item.read ? 'bg-slate-50 border-slate-100 text-slate-450 font-normal' : 'bg-emerald-50/30 border-emerald-100/50 text-slate-850 font-bold'].join(' ')}>
-											<div class="flex justify-between items-start gap-2">
-												<span class="font-black truncate text-[11px] text-slate-800">{item.title}</span>
-												<div class="flex items-center gap-2 shrink-0">
-													{#if !item.read}
-														<button onclick={() => markAsRead(item.id)} class="text-[9px] text-primary-green hover:underline font-bold cursor-pointer">Mark read</button>
-													{/if}
-													<button onclick={() => deleteNotification(item.id)} class="text-[9px] text-red-500 hover:text-red-700 hover:underline font-bold cursor-pointer" title="Delete notification">Delete</button>
-												</div>
-											</div>
-											<p class="text-[10px] leading-relaxed text-slate-500 font-medium">{item.message}</p>
-										</div>
-									{:else}
-										<div class="text-center text-slate-400 py-6 font-medium">
-											<span class="material-symbols-outlined text-2xl text-slate-350 block">notifications_off</span>
-											<p class="mt-1">No notifications yet.</p>
-										</div>
-									{/each}
-								</div>
-							</div>
-						{/if}
+						<NotificationPopup
+							bind:show={showNotifications}
+							unreadCount={unreadCount}
+							notifications={notifications}
+							onMarkAsRead={markAsRead}
+							onMarkAllAsRead={markAllAsRead}
+							onDeleteNotification={deleteNotification}
+						/>
 					</div>
 
 					<a href="/settings" class="text-slate-500 hover:text-primary-green hover:bg-emerald-50 p-2 rounded-2xl transition-all scale-95 active:scale-90 flex items-center justify-center" title="Account Settings">
