@@ -1,6 +1,6 @@
 <script>
 	import { goto } from '$app/navigation';
-	import { authState } from '$lib/auth.svelte.js';
+	import { authState } from '$lib/stores/auth.svelte.js';
 	import { roleHome } from '$lib/firebase-data';
 
 	$effect(() => {

@@ -77,6 +77,7 @@
 	<!-- Overlay Backdrop (centers content, fixed so it scrolls background) -->
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		transition:fade={{ duration: 150 }}
 		onclick={handleOutsideClick}
