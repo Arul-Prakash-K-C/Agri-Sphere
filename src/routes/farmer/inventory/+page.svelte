@@ -288,7 +288,7 @@
 </script>
 
 <svelte:head>
-	<title>Inventory Management - AgriConnect</title>
+	<title>Inventory Management - Agri-Sphere</title>
 </svelte:head>
 
 <section class="max-w-[1440px] mx-auto space-y-6">

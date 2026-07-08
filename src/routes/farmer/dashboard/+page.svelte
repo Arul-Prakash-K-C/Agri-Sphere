@@ -513,7 +513,7 @@
 </script>
 
 <svelte:head>
-	<title>Farmer Dashboard - AgriConnect</title>
+	<title>Farmer Dashboard - Agri-Sphere</title>
 	<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 </svelte:head>
 

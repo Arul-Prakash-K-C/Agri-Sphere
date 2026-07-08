@@ -264,7 +264,7 @@
 				<div class="flex items-start gap-2.5 p-3.5 bg-emerald-50/50 border border-emerald-100 rounded-xl">
 					<span class="material-symbols-outlined text-primary-green text-lg mt-0.5">info</span>
 					<p class="text-[11px] leading-normal text-emerald-800">
-						Reports are generated immediately as printable A4 Portrait PDF documents, customized with AgriConnect branding, headers, page numbers, and summarized cards.
+						Reports are generated immediately as printable A4 Portrait PDF documents, customized with Agri-Sphere branding, headers, page numbers, and summarized cards.
 					</p>
 				</div>
 			</div>

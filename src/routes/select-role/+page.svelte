@@ -5,7 +5,7 @@
 </script>
 
 <svelte:head>
-	<title>Select Role - AgriConnect</title>
+	<title>Select Role - Agri-Sphere</title>
 </svelte:head>
 
 <section class="mx-auto flex min-h-[80vh] max-w-4xl items-center px-4 py-8">

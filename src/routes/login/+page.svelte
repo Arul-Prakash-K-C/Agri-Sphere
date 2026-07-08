@@ -61,7 +61,7 @@
 </script>
 
 <svelte:head>
-	<title>Login - AgriConnect</title>
+	<title>Login - Agri-Sphere</title>
 </svelte:head>
 
 <section class="h-full w-full flex items-center justify-center p-4 relative overflow-hidden bg-slate-50">
@@ -78,7 +78,7 @@
 			<div class="relative z-10 flex flex-col gap-2">
 				<span class="inline-flex items-center gap-1.5 self-start px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-white/10 backdrop-blur-md border border-white/20 text-white/95 shadow-sm">
 					<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-350 animate-ping"></span>
-					AgriConnect Hub
+					Agri-Sphere Hub
 				</span>
 				<p class="text-xs font-medium text-emerald-100/90 leading-relaxed max-w-[240px]">Empowering growers, digitizing supply lines, and building trust directly from field to market.</p>
 			</div>
@@ -283,7 +283,7 @@
 		<div class="flex flex-col justify-center px-6 py-6 sm:px-10 overflow-y-auto bg-white">
 			<div>
 				<h2 class="text-2xl font-extrabold tracking-tight text-slate-900">Welcome Back</h2>
-				<p class="text-slate-500 text-xs mt-0.5">Please log in to manage your AgriConnect features.</p>
+				<p class="text-slate-500 text-xs mt-0.5">Please log in to manage your Agri-Sphere features.</p>
 			</div>
 
 			<form class="mt-5 space-y-3.5" onsubmit={submitLogin}>
@@ -365,7 +365,7 @@
 			</form>
 
 			<p class="mt-6 text-center text-xs text-slate-500 font-medium">
-				New to AgriConnect?
+				New to Agri-Sphere?
 				<a href="/select-role?action=signup" class="font-bold text-primary-green hover:text-dark-green hover:underline">
 					Create an account
 				</a>

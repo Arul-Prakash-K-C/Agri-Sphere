@@ -197,7 +197,7 @@
 </script>
 
 <svelte:head>
-	<title>AI Crop Disease Detection - AgriConnect</title>
+	<title>AI Crop Disease Detection - Agri-Sphere</title>
 </svelte:head>
 
 <section class="max-w-[1440px] mx-auto space-y-6">
@@ -286,7 +286,7 @@
 								<div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] flex items-center justify-center" transition:fade={{ duration: 150 }}>
 									<div class="bg-white/95 backdrop-blur-md px-5 py-3 rounded-full flex items-center gap-3 shadow-lg border border-slate-100">
 										<span class="material-symbols-outlined text-primary-green animate-spin text-[20px]">sync</span>
-										<span class="text-xs font-extrabold text-slate-700">AgriConnect AI Analyzing Leaf...</span>
+										<span class="text-xs font-extrabold text-slate-700">Agri-Sphere AI Analyzing Leaf...</span>
 									</div>
 								</div>
 							{/if}

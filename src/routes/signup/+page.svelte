@@ -112,7 +112,7 @@
 </script>
 
 <svelte:head>
-	<title>Sign Up - AgriConnect</title>
+	<title>Sign Up - Agri-Sphere</title>
 </svelte:head>
 
 <section class="h-screen w-screen flex items-center justify-center p-4 relative overflow-hidden bg-slate-900">

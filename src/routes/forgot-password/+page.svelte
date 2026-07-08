@@ -25,7 +25,7 @@
 </script>
 
 <svelte:head>
-	<title>Forgot Password - AgriConnect</title>
+	<title>Forgot Password - Agri-Sphere</title>
 </svelte:head>
 
 <section class="mx-auto flex min-h-[80vh] max-w-md items-center px-4 py-12 sm:px-6">

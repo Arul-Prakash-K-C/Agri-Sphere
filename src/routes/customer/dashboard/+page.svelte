@@ -168,7 +168,7 @@
 						farmerName: p.farmerName || p.farmer || 'Verified Farmer',
 						location: p.location || p.farmLocation || 'Local Fields',
 						phone: p.farmerPhone || '+919876543210',
-						email: p.farmerEmail || 'farmer@agriconnect.com',
+						email: p.farmerEmail || 'farmer@agrisphere.com',
 						activeProductsCount: 0
 					};
 				}
@@ -526,7 +526,7 @@
 </script>
 
 <svelte:head>
-	<title>Customer Dashboard - AgriConnect</title>
+	<title>Customer Dashboard - Agri-Sphere</title>
 	<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 </svelte:head>
 
@@ -1001,7 +1001,7 @@
 									</div>
 									<div>
 										<p class="text-sm font-bold text-slate-800 flex items-center gap-1">
-											{selectedProduct.farmer || selectedProduct.farmerName || 'AgriConnect Farmer'}
+											{selectedProduct.farmer || selectedProduct.farmerName || 'Agri-Sphere Farmer'}
 											<span class="material-symbols-outlined text-[15px] text-emerald-500 filled" title="Verified">verified</span>
 										</p>
 										<p class="text-xs text-slate-400 mt-0.5">{selectedProduct.farmName || 'Local Family Farm'} • {selectedProduct.location || 'Local Fields'}</p>
@@ -1017,7 +1017,7 @@
 											📞 Call
 										</a>
 										<a 
-											href="mailto:{selectedProduct.farmerEmail || 'farmer@agriconnect.com'}?subject=Marketplace Inquiry - {selectedProduct.name}" 
+											href="mailto:{selectedProduct.farmerEmail || 'farmer@agrisphere.com'}?subject=Marketplace Inquiry - {selectedProduct.name}" 
 											class="bg-primary-green hover:bg-dark-green text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-1 shadow-md shadow-primary-green/15 transition-all cursor-pointer"
 										>
 											✉ Send Email
@@ -1103,7 +1103,7 @@
 									<div class="grid gap-2 sm:grid-cols-2 font-semibold text-slate-600">
 										<div class="flex items-center gap-2">
 											<span class="material-symbols-outlined text-[15px] text-primary-green">person</span>
-											<span>Farmer: {selectedProduct.farmer || selectedProduct.farmerName || 'AgriConnect Farmer'}</span>
+											<span>Farmer: {selectedProduct.farmer || selectedProduct.farmerName || 'Agri-Sphere Farmer'}</span>
 										</div>
 										<div class="flex items-center gap-2">
 											<span class="material-symbols-outlined text-[15px] text-primary-green">pin_drop</span>
@@ -1115,7 +1115,7 @@
 										</div>
 										<div class="flex items-center gap-2">
 											<span class="material-symbols-outlined text-[15px] text-primary-green">mail</span>
-											<a href="mailto:{selectedProduct.farmerEmail || 'farmer@agriconnect.com'}" class="hover:text-primary-green hover:underline truncate">{selectedProduct.farmerEmail || 'farmer@agriconnect.com'}</a>
+											<a href="mailto:{selectedProduct.farmerEmail || 'farmer@agrisphere.com'}" class="hover:text-primary-green hover:underline truncate">{selectedProduct.farmerEmail || 'farmer@agrisphere.com'}</a>
 										</div>
 									</div>
 								</div>

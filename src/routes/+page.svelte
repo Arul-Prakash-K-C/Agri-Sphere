@@ -11,7 +11,7 @@
 </script>
 
 <svelte:head>
-	<title>AgriConnect - Smart Farm Management</title>
+	<title>Agri-Sphere - Smart Farm Management</title>
 	<meta name="description" content="Manage your farm, track analytics, and sell produce directly. Smart farming platform for modern agriculture." />
 	<!-- Preconnect to image CDN for faster hero image load -->
 	<link rel="preconnect" href="https://lh3.googleusercontent.com" />
@@ -257,8 +257,8 @@
 		<!-- Brand Column -->
 		<div class="space-y-4">
 			<div class="flex items-center gap-3">
-				<img src="/logo.webp" alt="AgriConnect Logo" class="size-9 object-contain rounded-full border border-emerald-100/50 shadow-sm" width="36" height="36" loading="lazy" decoding="async" />
-				<span class="text-base font-extrabold text-slate-800 tracking-tight">AgriConnect</span>
+				<img src="/logo.webp" alt="Agri-Sphere Logo" class="size-9 object-contain rounded-full border border-emerald-100/50 shadow-sm" width="36" height="36" loading="lazy" decoding="async" />
+				<span class="text-base font-extrabold text-slate-800 tracking-tight">Agri-Sphere</span>
 			</div>
 			<p class="text-xs text-slate-500 leading-relaxed">Smart Farming Meets Modern Technology. Grounded in Innovation.</p>
 		</div>
@@ -281,6 +281,6 @@
 		</div>
 	</div>
 	<div class="max-w-[1440px] mx-auto px-6 md:px-10 border-t border-slate-100 pt-6 flex justify-between items-center text-xs text-slate-400">
-		<p>© 2026 AgriConnect. Grounded in Innovation.</p>
+		<p>© 2026 Agri-Sphere. Grounded in Innovation.</p>
 	</div>
 </footer>

@@ -93,7 +93,7 @@
 </script>
 
 <svelte:head>
-	<title>Compare Products - AgriConnect</title>
+	<title>Compare Products - Agri-Sphere</title>
 </svelte:head>
 
 <section class="max-w-[1440px] mx-auto space-y-6 text-slate-800 bg-[#F8FAF5] min-h-[85vh] p-1 rounded-3xl">
