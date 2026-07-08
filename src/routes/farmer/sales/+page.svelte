@@ -558,7 +558,7 @@
 </script>
 
 <svelte:head>
-	<title>Sales Log — AgriConnect</title>
+	<title>Sales Log — Agri-Sphere</title>
 </svelte:head>
 
 <section class="max-w-screen-xl mx-auto space-y-6">

@@ -195,7 +195,7 @@ export async function GET({ locals }) {
 
 				let farmerName = prodData.farmerName || (fData ? fData.fullName : 'Verified Farmer');
 				let farmerPhone = fData ? fData.phone : '+919876543210';
-				let farmerEmail = fData ? fData.email : 'farmer@agriconnect.com';
+				let farmerEmail = fData ? fData.email : 'farmer@agrisphere.com';
 				let farmName = fData ? fData.farmName : 'Local Family Farm';
 				let location = fData ? fData.address : (prodData.location || 'Local Fields');
 

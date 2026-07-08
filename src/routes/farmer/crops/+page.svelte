@@ -131,7 +131,7 @@
 </script>
 
 <svelte:head>
-	<title>Crop Management - AgriConnect</title>
+	<title>Crop Management - Agri-Sphere</title>
 </svelte:head>
 
 <section class="max-w-[1440px] mx-auto space-y-6">

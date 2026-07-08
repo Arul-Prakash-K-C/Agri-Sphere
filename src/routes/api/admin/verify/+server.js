@@ -51,7 +51,7 @@ export async function POST({ request, locals }) {
 		await adminDb.collection('system_logs').add({
 			title: `Profile ${status}: ${userData.fullName || 'User'}`,
 			userName: locals.profile.fullName || 'Admin',
-			userEmail: locals.profile.email || 'admin@agriconnect.com',
+			userEmail: locals.profile.email || 'admin@agrisphere.com',
 			status: status.toLowerCase(),
 			createdAt: new Date().toISOString()
 		});

@@ -230,7 +230,7 @@
 </script>
 
 <svelte:head>
-	<title>Product Listings - AgriConnect</title>
+	<title>Product Listings - Agri-Sphere</title>
 </svelte:head>
 
 <section class="max-w-[1440px] mx-auto space-y-6">

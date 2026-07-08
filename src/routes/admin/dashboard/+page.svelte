@@ -401,7 +401,7 @@
 </script>
 
 <svelte:head>
-	<title>Admin Dashboard & Analytics - AgriConnect</title>
+	<title>Admin Dashboard & Analytics - Agri-Sphere</title>
 	<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 </svelte:head>
 
@@ -749,7 +749,7 @@
 								</span>
 							</div>
 							<p class="text-[10px] leading-relaxed text-slate-500 font-medium font-semibold">
-								User: <strong class="text-slate-650">{log.userName || 'System'}</strong> ({log.userEmail || 'system@agriconnect.com'})
+								User: <strong class="text-slate-650">{log.userName || 'System'}</strong> ({log.userEmail || 'system@agrisphere.com'})
 							</p>
 							<span class="mt-1 w-fit px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase border bg-slate-50 text-slate-500 border-slate-100">
 								{log.status}

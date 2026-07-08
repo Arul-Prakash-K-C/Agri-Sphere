@@ -26,7 +26,7 @@
 						farmerName: p.farmerName || p.farmer || 'Verified Farmer',
 						location: p.location || p.farmLocation || 'Local Fields',
 						phone: p.farmerPhone || '+919876543210',
-						email: p.farmerEmail || 'farmer@agriconnect.com',
+						email: p.farmerEmail || 'farmer@agrisphere.com',
 						activeProductsCount: 0
 					};
 				}
@@ -65,7 +65,7 @@
 </script>
 
 <svelte:head>
-	<title>Favorite Farmers - AgriConnect</title>
+	<title>Favorite Farmers - Agri-Sphere</title>
 </svelte:head>
 
 <section class="max-w-[1440px] mx-auto space-y-6 text-slate-800 bg-[#F8FAF5] min-h-[85vh] p-1 rounded-3xl">

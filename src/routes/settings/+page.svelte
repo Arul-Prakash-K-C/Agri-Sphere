@@ -167,7 +167,7 @@
 	async function triggerLogout() {
 		const confirmed = await showConfirm({
 			title: 'Confirm Logout?',
-			message: 'Are you sure you want to end your active AgriConnect session? You will need to log back in to review dashboard parameters.',
+			message: 'Are you sure you want to end your active Agri-Sphere session? You will need to log back in to review dashboard parameters.',
 			confirmText: 'Confirm Logout',
 			confirmColor: 'bg-red-600 hover:bg-red-700 text-white'
 		});
@@ -179,7 +179,7 @@
 </script>
 
 <svelte:head>
-	<title>Settings & Account Management — AgriConnect</title>
+	<title>Settings & Account Management — Agri-Sphere</title>
 </svelte:head>
 
 <section class="max-w-4xl mx-auto space-y-6">

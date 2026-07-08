@@ -547,7 +547,7 @@
 </script>
 
 <svelte:head>
-	<title>Harvest Logs — AgriConnect</title>
+	<title>Harvest Logs — Agri-Sphere</title>
 	<meta name="description" content="Record, manage, and track your farm harvest yields and product quality." />
 </svelte:head>
 

@@ -565,7 +565,7 @@
 </script>
 
 <svelte:head>
-	<title>Expense Management - AgriConnect</title>
+	<title>Expense Management - Agri-Sphere</title>
 	<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 </svelte:head>
 
