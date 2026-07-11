@@ -221,6 +221,12 @@
 						/>
 					</div>
 
+					{#if authState.profile?.role === 'farmer'}
+					<a href="/todo" class="text-slate-500 hover:text-primary-green hover:bg-emerald-50 p-2 rounded-2xl transition-all scale-95 active:scale-90 flex items-center justify-center" title="Todo Tasks">
+						<span class="material-symbols-outlined text-[22px]">task_alt</span>
+					</a>
+					{/if}
+
 					<a href="/settings" class="text-slate-500 hover:text-primary-green hover:bg-emerald-50 p-2 rounded-2xl transition-all scale-95 active:scale-90 flex items-center justify-center" title="Account Settings">
 						<span class="material-symbols-outlined text-[22px]">settings</span>
 					</a>
