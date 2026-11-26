@@ -4,11 +4,11 @@ import { adminDb, syncInventoryForFarmer } from '$lib/server/firebase-admin';
 /** @type {import('./$types').RequestHandler} */
 export async function GET({ locals }) {
 	if (!locals.user) return json({ error: 'Unauthorized' }, { status: 401 });
-	if (locals.profile?.role !== 'farmer') return json({ error: 'Forbidden' }, { status: 403 });
+	if (locals.profile?.role !== 'farmer' && locals.profile?.role !== 'manager') return json({ error: 'Forbidden' }, { status: 403 });
 
 	try {
 		const snapshot = await adminDb.collection('sales')
-			.where('farmerId', '==', locals.user.uid)
+			.where('farmerId', '==', locals.activeFarmerId)
 			.get();
 
 		const sales = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));

@@ -16,7 +16,7 @@ export async function GET({ params, locals }) {
 		}
 
 		const data = cropDoc.data();
-		if (locals.profile?.role !== 'admin' && data.farmerId !== locals.user.uid) {
+		if (locals.profile?.role !== 'admin' && data.farmerId !== locals.activeFarmerId) {
 			return json({ error: 'Forbidden' }, { status: 403 });
 		}
 

@@ -9,7 +9,7 @@ export async function GET({ locals }) {
 
 	try {
 		const snapshot = await adminDb.collection('availabilitySubscriptions')
-			.where('buyerId', '==', locals.user.uid)
+			.where('buyerId', '==', locals.activeFarmerId)
 			.get();
 
 		const subscriptions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));

@@ -7,13 +7,13 @@ export async function GET({ locals }) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	if (locals.profile?.role !== 'farmer') {
+	if (locals.profile?.role !== 'farmer' && locals.profile?.role !== 'manager') {
 		return json({ error: 'Forbidden' }, { status: 403 });
 	}
 
 	try {
 		const cropsSnapshot = await adminDb.collection('crops')
-			.where('farmerId', '==', locals.user.uid)
+			.where('farmerId', '==', locals.activeFarmerId)
 			.get();
 		
 		const crops = cropsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));

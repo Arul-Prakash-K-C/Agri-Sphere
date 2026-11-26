@@ -8,12 +8,12 @@ export async function GET({ locals }) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	if (locals.profile?.role !== 'farmer') {
+	if (locals.profile?.role !== 'farmer' && locals.profile?.role !== 'manager') {
 		return json({ error: 'Forbidden' }, { status: 403 });
 	}
 
 	try {
-		const docRef = adminDb.collection('irrigation').doc(locals.user.uid);
+		const docRef = adminDb.collection('irrigation').doc(locals.activeFarmerId);
 		const docSnap = await docRef.get();
 
 		if (!docSnap.exists) {
@@ -27,7 +27,7 @@ export async function GET({ locals }) {
 					zone2: false,
 					zone3: false
 				},
-				farmerId: locals.user.uid
+				farmerId: locals.activeFarmerId
 			};
 			await docRef.set(seedData);
 			return json(seedData);

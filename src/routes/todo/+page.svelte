@@ -216,12 +216,14 @@
 				<h2 class="text-2xl font-extrabold text-slate-900 tracking-tight">Tasks</h2>
 				<p class="text-xs text-slate-500 mt-0.5">Manage your farm activities</p>
 			</div>
-		<div class="hidden md:block">
-			<Button onclick={openAddModal} class="flex items-center gap-2 transition-all duration-200 active:scale-95">
-				<span class="material-symbols-outlined text-[20px]">add</span>
-				Add Task
-			</Button>
-		</div>
+		{#if data.profile?.role !== 'manager'}
+			<div class="hidden md:block">
+				<Button onclick={openAddModal} class="flex items-center gap-2 transition-all duration-200 active:scale-95">
+					<span class="material-symbols-outlined text-[20px]">add</span>
+					Add Task
+				</Button>
+			</div>
+		{/if}
 		</div>
 
 		<!-- Search & Filters -->
@@ -279,7 +281,7 @@
 					<Button variant="secondary" onclick={() => { searchQuery = ''; filterStatus = 'All'; sortOrder = 'Newest'; }}>
 						Clear Filters
 					</Button>
-				{:else}
+				{:else if data.profile?.role !== 'manager'}
 					<Button onclick={openAddModal}>Add Your First Task</Button>
 				{/if}
 			</div>
@@ -287,16 +289,26 @@
 			{#snippet taskCard(todo)}
 				<div class="bg-white rounded-2xl p-4 border border-slate-200/60 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col gap-3 group relative {todo.completed ? 'opacity-75 bg-slate-50/50' : ''}">
 					<div class="flex items-start gap-3">
-						<button 
-							onclick={() => toggleComplete(todo)}
-							class="mt-0.5 shrink-0 text-slate-300 hover:text-emerald-500 transition-colors focus:outline-none cursor-pointer active:scale-95"
-						>
-							{#if todo.completed}
-								<span class="material-symbols-outlined text-[22px] text-emerald-500" style="font-variation-settings: 'FILL' 1;">check_circle</span>
-							{:else}
-								<span class="material-symbols-outlined text-[22px]">radio_button_unchecked</span>
-							{/if}
-						</button>
+						{#if data.profile?.role !== 'manager'}
+							<button 
+								onclick={() => toggleComplete(todo)}
+								class="mt-0.5 shrink-0 text-slate-300 hover:text-emerald-500 transition-colors focus:outline-none cursor-pointer active:scale-95"
+							>
+								{#if todo.completed}
+									<span class="material-symbols-outlined text-[22px] text-emerald-500" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+								{:else}
+									<span class="material-symbols-outlined text-[22px]">radio_button_unchecked</span>
+								{/if}
+							</button>
+						{:else}
+							<div class="mt-0.5 shrink-0 text-slate-300">
+								{#if todo.completed}
+									<span class="material-symbols-outlined text-[22px] text-emerald-500" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+								{:else}
+									<span class="material-symbols-outlined text-[22px]">radio_button_unchecked</span>
+								{/if}
+							</div>
+						{/if}
 						<div class="flex-1 min-w-0 pt-0.5">
 							<h3 class="text-sm font-bold text-slate-800 truncate {todo.completed ? 'line-through text-slate-500' : ''}">{todo.title}</h3>
 							{#if todo.description}
@@ -304,14 +316,16 @@
 							{/if}
 						</div>
 						<!-- Action Menu -->
-						<div class="flex gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-							<button onclick={() => openEditModal(todo)} class="text-slate-400 hover:text-blue-500 p-1.5 rounded-lg hover:bg-blue-50 transition-colors" title="Edit">
-								<span class="material-symbols-outlined text-[18px]">edit</span>
-							</button>
-							<button onclick={() => deleteTodo(todo.id)} class="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Delete">
-								<span class="material-symbols-outlined text-[18px]">delete</span>
-							</button>
-						</div>
+						{#if data.profile?.role !== 'manager'}
+							<div class="flex gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+								<button onclick={() => openEditModal(todo)} class="text-slate-400 hover:text-blue-500 p-1.5 rounded-lg hover:bg-blue-50 transition-colors" title="Edit">
+									<span class="material-symbols-outlined text-[18px]">edit</span>
+								</button>
+								<button onclick={() => deleteTodo(todo.id)} class="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Delete">
+									<span class="material-symbols-outlined text-[18px]">delete</span>
+								</button>
+							</div>
+						{/if}
 					</div>
 					
 					<div class="flex flex-wrap items-center gap-2 ml-9">
@@ -373,14 +387,16 @@
 	</div>
 </section>
 
-<!-- Mobile FAB -->
-<button 
-	onclick={openAddModal}
-	class="md:hidden fixed bottom-24 right-6 size-14 bg-emerald-600 text-white rounded-full shadow-lg shadow-emerald-600/30 flex items-center justify-center hover:bg-emerald-700 hover:scale-105 active:scale-95 transition-all duration-200 z-50"
-	aria-label="Add Task"
->
-	<span class="material-symbols-outlined text-[28px]">add</span>
-</button>
+{#if data.profile?.role !== 'manager'}
+	<!-- Mobile FAB -->
+	<button 
+		onclick={openAddModal}
+		class="md:hidden fixed bottom-24 right-6 size-14 bg-emerald-600 text-white rounded-full shadow-lg shadow-emerald-600/30 flex items-center justify-center hover:bg-emerald-700 hover:scale-105 active:scale-95 transition-all duration-200 z-50"
+		aria-label="Add Task"
+	>
+		<span class="material-symbols-outlined text-[28px]">add</span>
+	</button>
+{/if}
 
 <!-- Add/Edit Todo Modal -->
 <Modal bind:show={isModalOpen} title={isEditing ? 'Edit Task' : 'Add New Task'}>

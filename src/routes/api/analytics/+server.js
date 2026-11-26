@@ -7,7 +7,7 @@ export async function GET({ locals }) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const uid = locals.user.uid;
+	const uid = locals.activeFarmerId;
 
 	try {
 		// Calculate crop acreage total

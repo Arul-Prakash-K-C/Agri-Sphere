@@ -7,13 +7,13 @@ export async function GET({ locals }) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	if (locals.profile?.role !== 'farmer') {
+	if (locals.profile?.role !== 'farmer' && locals.profile?.role !== 'manager') {
 		return json({ error: 'Forbidden' }, { status: 403 });
 	}
 
 	try {
 		const snapshot = await adminDb.collection('storages')
-			.where('farmerId', '==', locals.user.uid)
+			.where('farmerId', '==', locals.activeFarmerId)
 			.get();
 
 		let storages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -30,7 +30,7 @@ export async function GET({ locals }) {
 					capacity: 1000,
 					unit: 'Bags',
 					categories: ['Grains'],
-					farmerId: locals.user.uid,
+					farmerId: locals.activeFarmerId,
 					createdAt: now
 				},
 				{
@@ -38,7 +38,7 @@ export async function GET({ locals }) {
 					capacity: 1000,
 					unit: 'Bags',
 					categories: ['Seeds'],
-					farmerId: locals.user.uid,
+					farmerId: locals.activeFarmerId,
 					createdAt: now
 				},
 				{
@@ -46,7 +46,7 @@ export async function GET({ locals }) {
 					capacity: 500,
 					unit: 'kg',
 					categories: ['Vegetables', 'Fruits'],
-					farmerId: locals.user.uid,
+					farmerId: locals.activeFarmerId,
 					createdAt: now
 				}
 			];

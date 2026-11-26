@@ -39,13 +39,13 @@ export async function GET({ locals }) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	if (locals.profile?.role !== 'farmer') {
+	if (locals.profile?.role !== 'farmer' && locals.profile?.role !== 'manager') {
 		return json({ error: 'Forbidden' }, { status: 403 });
 	}
 
 	try {
 		const snapshot = await adminDb.collection('disease_scans')
-			.where('farmerId', '==', locals.user.uid)
+			.where('farmerId', '==', locals.activeFarmerId)
 			.get();
 		
 		let scans = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -61,7 +61,7 @@ export async function GET({ locals }) {
 					statusColor: 'text-red-700 bg-red-50 border-red-100/50',
 					time: '2h ago',
 					image: 'https://images.unsplash.com/photo-1592417817098-8f3d6eb19675?auto=format&fit=crop&w=600&q=80',
-					farmerId: locals.user.uid,
+					farmerId: locals.activeFarmerId,
 					createdAt: new Date().toISOString()
 				}
 			];

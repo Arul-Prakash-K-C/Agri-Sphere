@@ -7,12 +7,12 @@ export async function GET({ locals }) {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	if (locals.profile?.role !== 'farmer') {
+	if (locals.profile?.role !== 'farmer' && locals.profile?.role !== 'manager') {
 		return json({ error: 'Forbidden' }, { status: 403 });
 	}
 
 	try {
-		const userDoc = await adminDb.collection('users').doc(locals.user.uid).get();
+		const userDoc = await adminDb.collection('users').doc(locals.activeFarmerId).get();
 		if (!userDoc.exists) {
 			return json({ error: 'Profile not found' }, { status: 404 });
 		}

@@ -12,7 +12,7 @@ export async function GET({ locals }) {
 	}
 
 	try {
-		const docRef = adminDb.collection('customer_settings').doc(locals.user.uid);
+		const docRef = adminDb.collection('customer_settings').doc(locals.activeFarmerId);
 		const docSnap = await docRef.get();
 
 		let settings = { wishlist: [], favoriteFarmers: [] };
