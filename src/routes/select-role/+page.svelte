@@ -13,7 +13,7 @@
 		<h1 class="mb-4 text-3xl font-extrabold text-slate-800 md:text-4xl">Choose Your Path</h1>
 		<p class="mb-10 text-slate-500 font-medium">Select a role to {action === 'signup' ? 'register a new workspace' : 'login to your workspace'}.</p>
 
-		<div class={['grid gap-6', action === 'signup' ? 'md:grid-cols-2 max-w-2xl mx-auto' : 'md:grid-cols-3'].join(' ')}>
+		<div class={['grid gap-6', action === 'signup' ? 'md:grid-cols-3 max-w-4xl mx-auto' : 'md:grid-cols-4'].join(' ')}>
 			<!-- Farmer Card -->
 			<a 
 				href="/{action}?role=farmer"
@@ -24,6 +24,18 @@
 				</div>
 				<h2 class="mb-2 text-xl font-bold text-slate-800">Farmer</h2>
 				<p class="text-sm text-slate-500">Manage crops, inventory, sales, and run AI disease detection.</p>
+			</a>
+
+			<!-- Manager Card -->
+			<a 
+				href="/{action}?role=manager"
+				class="group flex flex-col items-center rounded-2xl border border-slate-200 bg-white p-8 text-center transition-all hover:border-orange-500 hover:shadow-xl hover:shadow-orange-500/10"
+			>
+				<div class="mb-4 flex size-16 items-center justify-center rounded-full bg-orange-50 text-3xl text-orange-500 group-hover:scale-110 transition-transform">
+					👔
+				</div>
+				<h2 class="mb-2 text-xl font-bold text-slate-800">Manager</h2>
+				<p class="text-sm text-slate-500">Request access to farms and monitor operations in read-only mode.</p>
 			</a>
 
 			<!-- Customer Card -->

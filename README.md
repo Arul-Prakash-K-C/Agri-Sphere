@@ -15,9 +15,12 @@ Agri Sphere is an AI-powered smart agriculture management and direct-to-consumer
 
 ## 🔑 Demo Login Credentials
 
-**Farmer**
+**Farmers**
 *   **Email:** gmouly1@gmail.com
 *   **Password:** 1234567890
+
+*   **Email:** farmer01@gmail.com
+*   **Password:** 123456
 
 **Buyer**
 *   **Email:** gmouly2005@gmail.com

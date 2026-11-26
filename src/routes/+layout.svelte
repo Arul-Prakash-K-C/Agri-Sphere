@@ -37,8 +37,8 @@
 			];
 		}
 
-		if (role === 'farmer') {
-			return [
+		if (role === 'farmer' || (role === 'manager' && page.url.pathname.startsWith('/farmer'))) {
+			let links = [
 				{ href: '/farmer/dashboard', label: 'Dashboard', icon: 'agriculture' },
 				{ href: '/farmer/irrigation', label: 'Irrigation', icon: 'water_drop' },
 				{ href: '/farmer/disease', label: 'Disease Detection', icon: 'shutter_speed' },
@@ -48,6 +48,18 @@
 				{ href: '/farmer/inventory', label: 'Inventory', icon: 'inventory_2' },
 				{ href: '/farmer/sales', label: 'Sales', icon: 'point_of_sale' },
 				{ href: '/farmer/products', label: 'My Listings', icon: 'storefront' }
+			];
+			if (role === 'farmer') {
+				links.push({ href: '/farmer/managers', label: 'Managers', icon: 'shield_person' });
+			}
+			return links;
+		}
+
+		if (role === 'manager') {
+			return [
+				{ href: '/manager/farms', label: 'Farms', icon: 'dashboard' },
+				{ href: '/manager/requests', label: 'Requests', icon: 'group' },
+				{ href: '/manager/my-farms', label: 'My Farms', icon: 'agriculture' }
 			];
 		}
 
@@ -131,6 +143,14 @@
 <!-- Global container -->
 <div class="min-h-screen bg-background-green text-slate-900 font-sans selection:bg-primary-green/20 selection:text-dark-green flex flex-col md:flex-row">
 	
+	<!-- Manager Read-Only Banner -->
+	{#if authState.profile?.role === 'manager' && page.url.pathname.startsWith('/farmer')}
+		<div class="fixed top-0 left-0 w-full bg-orange-500 text-white text-center text-xs font-bold py-2 px-4 z-[100] shadow-sm flex items-center justify-center gap-2">
+			<span class="material-symbols-outlined text-[16px]">visibility</span>
+			Viewing Farm in Read-Only Mode
+			<a href="/manager/farms" class="underline ml-2 hover:text-orange-100 transition-colors">Exit</a>
+		</div>
+	{/if}
 	<!-- PORTAL VIEW (If User is Authenticated) -->
 	{#if authState.profile}
 		<!-- Desktop Left Sidebar -->
@@ -829,6 +849,16 @@
 						].filter(Boolean).join(' ')}
 					>
 						<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' {page.url.pathname.startsWith('/farmer/products') ? '1' : '0'};">storefront</span>
+					</a>
+					<!-- Profile -->
+					<a
+						href="/settings"
+						class={[
+							'flex flex-col items-center gap-0.5 text-xs font-bold transition-colors duration-200',
+							page.url.pathname.startsWith('/settings') ? 'text-primary-green' : 'text-slate-500'
+						].filter(Boolean).join(' ')}
+					>
+						<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' {page.url.pathname.startsWith('/settings') ? '1' : '0'};">person</span>
 					</a>
 				{/if}
 				{#if !(authState.profile && authState.profile.role === 'farmer')}

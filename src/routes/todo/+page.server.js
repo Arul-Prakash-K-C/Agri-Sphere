@@ -2,7 +2,7 @@ import { redirect } from '@sveltejs/kit';
 
 /** @type {import('./$types').PageServerLoad} */
 export async function load({ fetch, locals }) {
-	if (!locals.user || !locals.profile || locals.profile.role !== 'farmer') {
+	if (!locals.user || !locals.profile || locals.profile.role !== 'farmer' && locals.profile.role !== 'manager') {
 		// Redirect non-farmers
 		if (locals.profile?.role === 'admin') {
 			throw redirect(303, '/admin/dashboard');

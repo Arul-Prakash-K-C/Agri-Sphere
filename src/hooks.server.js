@@ -2,12 +2,13 @@ import { redirect } from '@sveltejs/kit';
 import { adminAuth, adminDb } from '$lib/server/firebase-admin';
 import { getSessionCookie, deleteSessionCookie } from '$lib/server/cookies';
 
-const VALID_ROLES = ['admin', 'farmer', 'customer'];
+const VALID_ROLES = ['admin', 'farmer', 'customer', 'manager'];
 
 function homeForRole(role) {
 	if (role === 'admin') return '/admin/dashboard';
 	if (role === 'farmer') return '/farmer/dashboard';
 	if (role === 'customer') return '/customer/dashboard';
+	if (role === 'manager') return '/manager/farms';
 	return '/login';
 }
 
@@ -86,7 +87,21 @@ export async function handle({ event, resolve }) {
 
 	const role = profile?.role;
 
-	const isProtectedRoute = path.startsWith('/admin') || path.startsWith('/farmer') || path.startsWith('/customer') || path.startsWith('/settings');
+	// Establish activeFarmerId for data access
+	let activeFarmerId = null;
+	if (user && profile) {
+		if (role === 'farmer') {
+			activeFarmerId = user.uid;
+		} else if (role === 'manager') {
+			const managerActiveFarm = event.cookies.get('manager_active_farm');
+			if (managerActiveFarm) {
+				activeFarmerId = managerActiveFarm;
+			}
+		}
+	}
+	event.locals.activeFarmerId = activeFarmerId;
+
+	const isProtectedRoute = path.startsWith('/admin') || path.startsWith('/farmer') || path.startsWith('/customer') || path.startsWith('/manager') || path.startsWith('/settings');
 
 	if (isProtectedRoute) {
 		if (!user || !profile) {
@@ -97,7 +112,21 @@ export async function handle({ event, resolve }) {
 			redirect(303, homeForRole(role));
 		}
 
-		if (path.startsWith('/farmer') && role !== 'farmer') {
+		// Manager is allowed to access /farmer routes if they have an active farm
+		if (path.startsWith('/farmer')) {
+			if (role === 'manager') {
+				if (!activeFarmerId) {
+					redirect(303, '/manager/farms');
+				}
+				// Optionally, we could verify the manager's access right here via DB, 
+				// but for performance we rely on API endpoints restricting the data, 
+				// and frontend hiding controls.
+			} else if (role !== 'farmer') {
+				redirect(303, homeForRole(role));
+			}
+		}
+
+		if (path.startsWith('/manager') && role !== 'manager') {
 			redirect(303, homeForRole(role));
 		}
 

@@ -61,7 +61,7 @@ export async function POST({ request, cookies }) {
 			let role = (profileData && profileData.role) || 'customer';
 			if (role === 'buyer') role = 'customer';
 
-			if (!['admin', 'farmer', 'customer'].includes(role)) {
+			if (!['admin', 'farmer', 'customer', 'manager'].includes(role)) {
 				return json({ error: 'Invalid user role' }, { status: 400 });
 			}
 
